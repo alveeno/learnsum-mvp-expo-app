@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/alveeno/Documents/GitHub/**)",
+      "Bash(rm -rf learnsum-mvp-expo)",
+      "Bash(npx create-expo-app@latest learnsum-mvp-expo --template blank-typescript)",
+      "Bash(mv learnsum-mvp-expo/.claude /tmp/learnsum-claude-backup)",
+      "Bash(rmdir learnsum-mvp-expo *)"
+    ]
+  }
+}

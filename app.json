@@ -3,11 +3,13 @@
     "name": "learnsum-mvp-expo",
     "slug": "learnsum-mvp-expo",
     "version": "1.0.0",
+    "scheme": "learnsum",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.anonymous.learnsum-mvp-expo"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,6 +22,16 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "aa73f969-dffd-41ed-8d5e-f73bd4efa818"
+      }
+    },
+    "owner": "alveeno"
   }
 }
