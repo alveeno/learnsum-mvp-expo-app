@@ -8,7 +8,7 @@
 
 LearnSum is a Hong Kong–based, two-sided tutoring marketplace **frontend**, built in
 React Native and Expo. It connects to a separate Next.js backend API that lives in a
-different repository, **`learnsum-mvp-1`**.
+different repository, **`learnsum-mvp-back`**.
 
 Tutors build Instagram-style profiles with a bio block and a scrollable post feed. The
 primary tutor target is university students looking for side income.
@@ -38,7 +38,7 @@ There are three user types:
 - The backend is **currently at `http://localhost:3000`** — **update this to the Vercel
   URL after deployment.**
 - For the full database schema and API endpoint reference, see **`PLAN.md` in the backend
-  repo (`learnsum-mvp-1`)**.
+  repo (`learnsum-mvp-back`)**.
 
 ## Design system
 
