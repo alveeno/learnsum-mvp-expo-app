@@ -15,7 +15,10 @@ type UserType = {
   icon: keyof typeof Ionicons.glyphMap;
   /** The "coloured version" shown in the icon circle when selected. */
   color: string;
-  route: "/onboarding/student" | "/onboarding/parent" | "/onboarding/tutor";
+  route:
+    | "/onboarding/StudentEducationLevel"
+    | "/onboarding/parent"
+    | "/onboarding/tutor";
 };
 
 const USER_TYPES: UserType[] = [
@@ -25,7 +28,7 @@ const USER_TYPES: UserType[] = [
     description: "I am looking for a tutor to help me learn",
     icon: "school",
     color: "#2D6A4F", // Forest Green
-    route: "/onboarding/student",
+    route: "/onboarding/StudentEducationLevel",
   },
   {
     key: "parent",
