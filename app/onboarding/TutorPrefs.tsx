@@ -7,19 +7,21 @@ import {
 } from "../../components/onboarding/PreferencesScreen";
 
 /**
- * Student preferences — the final step of the student onboarding path.
- * Thin wrapper over the shared PreferencesScreen (see that file for the UI).
+ * Tutor preferences. Same screen as the student / parent, except the language
+ * section uses tap-to-fill proficiency (Beginner → Intermediate → Advanced →
+ * Fluent) instead of a plain on/off pick.
  */
-export default function StudentPrefs() {
+export default function TutorPrefs() {
   const goFeed = (data: Prefs) =>
     router.push({ pathname: "/feed", params: prefsToParams(data) });
 
   return (
     <PreferencesScreen
-      heading="Your preferences"
-      subtitle="Help us find you the best matches."
+      heading="Your teaching preferences"
+      subtitle="Tell students how and what you teach."
       progress={1}
-      languageMode="select"
+      languageMode="proficiency"
+      languageSectionLabel="LANGUAGES YOU TEACH"
       onContinue={goFeed}
       onSkip={() => router.push("/feed")}
       onBack={() => router.back()}
