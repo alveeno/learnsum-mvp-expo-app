@@ -355,7 +355,7 @@ export function CategorySelect({
       };
     });
     router.push({
-      pathname: "/onboarding/category",
+      pathname: "/onboarding/StudentPrefs",
       params: {
         ...(educationLevel ? { educationLevel } : {}),
         interests: JSON.stringify(interests),
