@@ -308,16 +308,29 @@ export function CategorySelect({
     selectSub(activeCat.id, id);
   };
 
-  // Search results (extended list + customs) once 2+ chars are typed.
+  // Search results once 2+ chars are typed. Search EVERY subject in the
+  // category — the main grid subs, the extended list, AND customs — so the
+  // main subcategories also surface here and stay in sync with the grid (they
+  // share the same selection key, so toggling either side updates both).
   const trimmedQuery = query.trim();
   const isSearching = searchOpen && trimmedQuery.length >= 2;
   const results =
     isSearching && activeCat
-      ? [...(EXTRA[activeCat.id] ?? []), ...(customSubs[activeCat.id] ?? [])].filter(
-          (s) => s.label.toLowerCase().includes(trimmedQuery.toLowerCase()),
+      ? subsForCat(activeCat.id).filter((s) =>
+          s.label.toLowerCase().includes(trimmedQuery.toLowerCase()),
         )
       : [];
   const noMatch = isSearching && results.length === 0;
+
+  // Extended / custom subjects that were selected via Others and are NOT one of
+  // the default main-grid rows. These surface in a top section above a divider.
+  const othersSelected = activeCat
+    ? [...(EXTRA[activeCat.id] ?? []), ...(customSubs[activeCat.id] ?? [])].filter(
+        (s) => selected.has(keyFor(activeCat.id, s.id)),
+      )
+    : [];
+  // A divider sits above the main grid when search is open OR the top section shows.
+  const hasDividerAbove = searchOpen || othersSelected.length > 0;
 
   // Back chevron: subcategory mode returns to the grid; grid mode leaves the screen.
   const onBack = () => {
@@ -426,6 +439,29 @@ export function CategorySelect({
               <Text style={styles.subsTitle}>{activeCat.label}</Text>
             </View>
 
+            {/* "Selected via Others": extended / custom picks that aren't one of
+                the default rows. Shown above a divider when search is closed. */}
+            {!searchOpen && othersSelected.length > 0 ? (
+              <>
+                <View style={styles.othersGrid}>
+                  {othersSelected.map((sub) => (
+                    <SelectableCircle
+                      key={sub.id}
+                      style={styles.gridItem}
+                      label={sub.label}
+                      selected
+                      color={sub.color}
+                      onPress={() => toggleSub(activeCat.id, sub.id)}
+                      renderIcon={({ size, color }) => (
+                        <MaterialCommunityIcons name={sub.icon} size={size} color={color} />
+                      )}
+                    />
+                  ))}
+                </View>
+                <View style={styles.searchDivider} />
+              </>
+            ) : null}
+
             {/* "Others" search — opens above the grid; the grid stays visible. */}
             {searchOpen ? (
               <>
@@ -454,6 +490,27 @@ export function CategorySelect({
                     </Pressable>
                   ) : null}
                 </View>
+
+                {/* Empty query: preview the subjects already picked via Others,
+                    lit up and tappable to deselect. Typing 2+ chars filters as
+                    normal (below) and replaces this preview. */}
+                {!isSearching && othersSelected.length > 0 ? (
+                  <View style={styles.resultsGrid}>
+                    {othersSelected.map((sub) => (
+                      <SelectableCircle
+                        key={sub.id}
+                        style={styles.gridItem}
+                        label={sub.label}
+                        selected
+                        color={sub.color}
+                        onPress={() => toggleSub(activeCat.id, sub.id)}
+                        renderIcon={({ size, color }) => (
+                          <MaterialCommunityIcons name={sub.icon} size={size} color={color} />
+                        )}
+                      />
+                    ))}
+                  </View>
+                ) : null}
 
                 {/* Matching extended / custom subjects (2+ chars). */}
                 {results.length > 0 ? (
@@ -494,7 +551,7 @@ export function CategorySelect({
               </>
             ) : null}
 
-            <View style={[styles.grid, searchOpen && styles.gridSearchOpen]}>
+            <View style={[styles.grid, hasDividerAbove && styles.gridSearchOpen]}>
               {activeCat.subs.map((sub) => (
                 <SelectableCircle
                   key={sub.id}
@@ -654,6 +711,13 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     rowGap: 24,
     marginTop: 18,
+  },
+  // "Selected via Others" top section — same left-aligned wrap as results.
+  othersGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: 24,
+    marginTop: 14,
   },
   noMatch: { alignItems: "center", marginTop: 18 },
   noMatchText: {
