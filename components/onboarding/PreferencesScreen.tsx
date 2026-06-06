@@ -468,6 +468,9 @@ export function PreferencesScreen({
     setPendingStart(null);
     setPendingEnd(null);
   };
+  // Cancel an end-edit (reached via "Edit End"): keep the original times and
+  // return to the review screen.
+  const cancelEndEdit = () => setSlotMode("review");
   const editStart = () => {
     const m = pendingStart ?? DEFAULT_MIN;
     setSlotMode("start");
@@ -868,12 +871,23 @@ export function PreferencesScreen({
               <>
                 <View style={styles.btnPair}>
                   <Button label="Set End" variant="primary" onPress={setEnd} style={styles.pairBtn} />
-                  <Button
-                    label="Edit Start"
-                    variant="ghost"
-                    onPress={editStart}
-                    style={[styles.pairBtn, styles.outlineBtn]}
-                  />
+                  {pendingEnd != null ? (
+                    // Reached via "Edit End": Cancel keeps the original end.
+                    <Button
+                      label="Cancel"
+                      variant="ghost"
+                      onPress={cancelEndEdit}
+                      style={[styles.pairBtn, styles.outlineBtn]}
+                    />
+                  ) : (
+                    // Fresh slot: step back to re-pick the start just set.
+                    <Button
+                      label="Edit Start"
+                      variant="ghost"
+                      onPress={editStart}
+                      style={[styles.pairBtn, styles.outlineBtn]}
+                    />
+                  )}
                 </View>
                 <Text style={styles.pendingText}>Start: {fmt(pendingStart ?? 0)}</Text>
               </>
