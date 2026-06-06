@@ -291,6 +291,18 @@ export default function StudentPrefs() {
     scrollToMin(DEFAULT_MIN);
   };
   const setStart = () => {
+    if (pendingEnd != null) {
+      // Editing the start of an already-reviewed slot: keep the end fixed,
+      // move only the start, then go straight back to review.
+      const a = Math.min(scrollMin, pendingEnd);
+      let b = Math.max(scrollMin, pendingEnd);
+      if (b <= a) b = clampMin(a + STEP_MIN);
+      setPendingStart(a);
+      setPendingEnd(b);
+      setSlotMode("review");
+      return;
+    }
+    // Fresh slot: capture the start, then move on to pick the end.
     setPendingStart(scrollMin);
     setSlotMode("end");
   };
@@ -361,16 +373,36 @@ export default function StudentPrefs() {
   // Highlight bars drawn on the ruler (move with it as the user scrolls).
   const highlights: { start: number; end: number; dashed: boolean }[] = (() => {
     if (!activeDay) return [];
-    if (slotMode === "idle")
-      return avail[activeDay].map((s) => ({ ...s, dashed: false }));
-    if (slotMode === "end" && pendingStart != null) {
+
+    // Already-saved slots for this day are always shown (solid) as a preview,
+    // so earlier blocks stay visible while a new one is being added or edited.
+    const saved = avail[activeDay].map((s) => ({
+      start: s.start,
+      end: s.end,
+      dashed: false,
+    }));
+    if (slotMode === "idle") return saved;
+
+    // The in-progress slot (dashed), layered on top of the saved previews.
+    let pending: { start: number; end: number; dashed: boolean } | null = null;
+    if (slotMode === "start" && pendingEnd != null) {
+      // Editing an existing start: end edge pinned, start edge follows the line.
+      const a = Math.min(scrollMin, pendingEnd);
+      const b = Math.max(scrollMin, pendingEnd);
+      pending = { start: a, end: b, dashed: true };
+    } else if (slotMode === "end" && pendingStart != null) {
       const a = Math.min(pendingStart, scrollMin);
       const b = Math.max(pendingStart, scrollMin);
-      return [{ start: a, end: b, dashed: true }];
+      pending = { start: a, end: b, dashed: true };
+    } else if (
+      slotMode === "review" &&
+      pendingStart != null &&
+      pendingEnd != null
+    ) {
+      pending = { start: pendingStart, end: pendingEnd, dashed: true };
     }
-    if (slotMode === "review" && pendingStart != null && pendingEnd != null)
-      return [{ start: pendingStart, end: pendingEnd, dashed: true }];
-    return [];
+
+    return pending ? [...saved, pending] : saved;
   })();
 
   // ---- navigation ----
