@@ -1,16 +1,38 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { useMemo } from "react";
+import {
+  Pressable,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 /**
- * Placeholder category-selection screen.
+ * Downstream placeholder for the step AFTER interest selection.
  *
- * Exists only so navigation (Continue / Skip) works. It reads the
- * `educationLevel` route param to prove the selection was passed forward;
- * the real category UI is not built yet.
+ * The real next screen is not built yet (see CLAUDE.md). This exists only so
+ * Continue / Skip have somewhere to land, and it echoes the data passed forward
+ * from StudentCatSel so the handoff can be verified by eye.
  */
-export default function CategorySelection() {
-  const { educationLevel } = useLocalSearchParams<{ educationLevel?: string }>();
+type ForwardedInterest = { category?: string; label?: string };
+
+export default function OnboardingNextPlaceholder() {
+  const { educationLevel, interests } = useLocalSearchParams<{
+    educationLevel?: string;
+    interests?: string;
+  }>();
+
+  const parsed = useMemo<ForwardedInterest[]>(() => {
+    if (!interests) return [];
+    try {
+      return JSON.parse(interests) as ForwardedInterest[];
+    } catch {
+      return [];
+    }
+  }, [interests]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -18,13 +40,26 @@ export default function CategorySelection() {
         <Pressable style={styles.backButton} hitSlop={8} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={24} color="#2D6A4F" />
         </Pressable>
-        <View style={styles.center}>
-          <Text style={styles.title}>Category selection</Text>
-          <Text style={styles.subtitle}>Coming soon.</Text>
+
+        <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+          <Text style={styles.title}>Next step</Text>
+          <Text style={styles.subtitle}>Coming soon — placeholder.</Text>
+
           <Text style={styles.passed}>
-            Education level passed in: {educationLevel ?? "(skipped)"}
+            Education level: {educationLevel ?? "(skipped)"}
           </Text>
-        </View>
+          <Text style={styles.passed}>
+            Interests passed in: {parsed.length}
+          </Text>
+
+          <View style={styles.list}>
+            {parsed.map((it, i) => (
+              <Text key={i} style={styles.listItem}>
+                • {it.category} — {it.label}
+              </Text>
+            ))}
+          </View>
+        </ScrollView>
       </View>
     </SafeAreaView>
   );
@@ -41,8 +76,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  body: { paddingTop: 24, paddingBottom: 32 },
   title: { fontSize: 22, fontWeight: "bold", color: "#111827" },
   subtitle: { marginTop: 8, fontSize: 14, color: "#6B7280" },
   passed: { marginTop: 16, fontSize: 14, fontWeight: "600", color: "#2D6A4F" },
+  list: { marginTop: 12 },
+  listItem: { marginTop: 4, fontSize: 14, color: "#111827" },
 });

@@ -56,7 +56,7 @@ export default function StudentEducationLevel() {
 
   const goToCategory = () => {
     router.push({
-      pathname: "/onboarding/category",
+      pathname: "/onboarding/StudentCatSel",
       // Pass the chosen level forward; undefined when skipped.
       params: selectedKey ? { educationLevel: selectedKey } : {},
     });
