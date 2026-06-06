@@ -17,8 +17,10 @@ import type { ReactNode } from "react";
  * - "accent":  Gold (#F4A923) with dark text — secondary / "Log in now".
  * - "ghost":   Off-white surface with dark text — low-emphasis actions
  *              (e.g. "Back to categories").
+ * - "tint":    Soft green-tinted chip with green text — suggestive actions
+ *              (e.g. "Suggest a new category").
  */
-type ButtonVariant = "primary" | "accent" | "ghost";
+type ButtonVariant = "primary" | "accent" | "ghost" | "tint";
 
 type ButtonProps = {
   label: string;
@@ -47,13 +49,17 @@ export function Button({
       ? styles.primary
       : variant === "accent"
         ? styles.accent
-        : styles.ghost;
+        : variant === "tint"
+          ? styles.tint
+          : styles.ghost;
   const labelColorStyle =
     variant === "primary"
       ? styles.labelPrimary
       : variant === "accent"
         ? styles.labelAccent
-        : styles.labelGhost;
+        : variant === "tint"
+          ? styles.labelTint
+          : styles.labelGhost;
 
   // Flatten to a single style object. The `({ pressed }) => [...]` callback
   // form of `style` is dropped by NativeWind's runtime (this app sets
@@ -110,6 +116,9 @@ const styles = StyleSheet.create({
   ghost: {
     backgroundColor: "#F9F9F7", // Surface / off-white
   },
+  tint: {
+    backgroundColor: "#E8F1EC", // soft Forest Green tint
+  },
   disabled: {
     opacity: 0.5,
   },
@@ -130,5 +139,8 @@ const styles = StyleSheet.create({
   },
   labelGhost: {
     color: "#111827",
+  },
+  labelTint: {
+    color: "#2D6A4F", // Forest Green
   },
 });

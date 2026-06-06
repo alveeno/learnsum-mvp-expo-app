@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 
@@ -128,6 +129,77 @@ const CATEGORIES: Category[] = [
   },
 ];
 
+// Dark slate the "Others" circle fills with while its search is open.
+const OTHERS_ACTIVE_COLOR = "#3F4A56";
+
+// Extended, searchable subjects per category — IN ADDITION to the main subs
+// above. These are only surfaced through the "Others" search. Colours are
+// themed to each category; icons are reasonable MaterialCommunityIcons glyphs.
+const EXTRA: Record<string, Sub[]> = {
+  sports: [
+    { id: "gymnastics", label: "Gymnastics", color: "#E76F51", icon: "gymnastics" },
+    { id: "rugby", label: "Rugby", color: "#2A9D8F", icon: "rugby" },
+    { id: "boxing", label: "Boxing", color: "#E63946", icon: "boxing-glove" },
+    { id: "yoga", label: "Yoga", color: "#9B5DE5", icon: "yoga" },
+    { id: "cycling", label: "Cycling", color: "#457B9D", icon: "bike" },
+    { id: "golf", label: "Golf", color: "#588157", icon: "golf" },
+    { id: "karate", label: "Karate", color: "#1A1A1A", icon: "karate" },
+    { id: "skating", label: "Skating", color: "#F4A261", icon: "roller-skate" },
+    { id: "climbing", label: "Climbing", color: "#6A4C93", icon: "terrain" },
+    { id: "dance", label: "Dance", color: "#FF7F50", icon: "dance-ballroom" },
+    { id: "cricket", label: "Cricket", color: "#06D6A0", icon: "cricket" },
+    { id: "squash", label: "Squash", color: "#FB8500", icon: "racquetball" },
+  ],
+  academics: [
+    { id: "geography", label: "Geography", color: "#3A86FF", icon: "earth" },
+    { id: "economics", label: "Economics", color: "#2EC4B6", icon: "chart-line" },
+    { id: "computer-science", label: "Computer Science", color: "#6A4C93", icon: "laptop" },
+    { id: "accounting", label: "Accounting", color: "#2A9D8F", icon: "calculator" },
+    { id: "psychology", label: "Psychology", color: "#7209B7", icon: "brain" },
+    { id: "business-studies", label: "Business Studies", color: "#457B9D", icon: "briefcase" },
+    { id: "literature", label: "Literature", color: "#8B5A2B", icon: "bookshelf" },
+    { id: "statistics", label: "Statistics", color: "#06D6A0", icon: "chart-bar" },
+    { id: "coding", label: "Coding", color: "#1A1A1A", icon: "code-tags" },
+    { id: "philosophy", label: "Philosophy", color: "#588157", icon: "owl" },
+  ],
+  culinary: [
+    { id: "korean-cuisine", label: "Korean Cuisine", color: "#C1121F", icon: "bowl-mix" },
+    { id: "thai-cuisine", label: "Thai Cuisine", color: "#FF9F1C", icon: "chili-mild" },
+    { id: "italian-cuisine", label: "Italian Cuisine", color: "#D62828", icon: "pasta" },
+    { id: "cake-decorating", label: "Cake Decorating", color: "#FF85A1", icon: "cake-variant" },
+    { id: "sushi-making", label: "Sushi Making", color: "#FA8072", icon: "rice" },
+    { id: "coffee-barista", label: "Coffee/Barista", color: "#6F4E37", icon: "coffee" },
+    { id: "vegan-cooking", label: "Vegan Cooking", color: "#80B918", icon: "sprout" },
+    { id: "bbq", label: "BBQ", color: "#722F37", icon: "grill" },
+    { id: "pastry", label: "Pastry", color: "#E6B89C", icon: "food-croissant" },
+    { id: "dim-sum", label: "Dim Sum", color: "#D90429", icon: "noodles" },
+  ],
+  arts: [
+    { id: "watercolor", label: "Watercolor", color: "#4CC9F0", icon: "palette" },
+    { id: "sketching", label: "Sketching", color: "#4A4A4A", icon: "pencil" },
+    { id: "animation", label: "Animation", color: "#9B5DE5", icon: "movie-open" },
+    { id: "graphic-design", label: "Graphic Design", color: "#00B8A9", icon: "vector-square" },
+    { id: "sewing", label: "Sewing", color: "#E63946", icon: "needle" },
+    { id: "crochet", label: "Crochet", color: "#FF85A1", icon: "hook" },
+    { id: "jewelry-making", label: "Jewelry Making", color: "#FFB703", icon: "diamond-stone" },
+    { id: "sculpture", label: "Sculpture", color: "#C4A484", icon: "cube-outline" },
+    { id: "comic-art", label: "Comic Art", color: "#2B2D42", icon: "book-open-variant" },
+    { id: "embroidery", label: "Embroidery", color: "#722F37", icon: "scissors-cutting" },
+  ],
+  languages: [
+    { id: "italian", label: "Italian", color: "#008C45", icon: "translate" },
+    { id: "portuguese", label: "Portuguese", color: "#006600", icon: "translate" },
+    { id: "thai", label: "Thai", color: "#A51931", icon: "translate" },
+    { id: "vietnamese", label: "Vietnamese", color: "#DA251D", icon: "translate" },
+    { id: "arabic", label: "Arabic", color: "#006C35", icon: "translate" },
+    { id: "russian", label: "Russian", color: "#0039A6", icon: "translate" },
+    { id: "hindi", label: "Hindi", color: "#FF9933", icon: "translate" },
+    { id: "sign-language", label: "Sign Language", color: "#6A4C93", icon: "hand-wave" },
+    { id: "dutch", label: "Dutch", color: "#F36C21", icon: "translate" },
+    { id: "tagalog", label: "Tagalog", color: "#0038A8", icon: "translate" },
+  ],
+};
+
 export type CategorySelectProps = {
   /** Main heading. Defaults to the student copy. */
   heading?: string;
@@ -155,9 +227,23 @@ export function CategorySelect({
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   // Composite keys "<catId>:<subId>" of every chosen subcategory.
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  // "Others" search: whether the bar is open and the current query.
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  // User-typed custom subjects per category — session only, NO backend.
+  const [customSubs, setCustomSubs] = useState<Record<string, Sub[]>>({});
 
   const keyFor = (catId: string, subId: string) => `${catId}:${subId}`;
   const totalCount = selected.size;
+
+  // Everything selectable in a category: main subs + extended list + customs.
+  const subsForCat = (catId: string): Sub[] => {
+    const cat = CATEGORIES.find((c) => c.id === catId);
+    if (!cat) return [];
+    return [...cat.subs, ...(EXTRA[catId] ?? []), ...(customSubs[catId] ?? [])];
+  };
+  const findSub = (catId: string, subId: string) =>
+    subsForCat(catId).find((s) => s.id === subId);
 
   const countForCat = (catId: string) => {
     let n = 0;
@@ -177,12 +263,61 @@ export function CategorySelect({
     });
   };
 
+  // Select without toggling (used when suggesting an already-existing subject).
+  const selectSub = (catId: string, subId: string) => {
+    setSelected((prev) => new Set(prev).add(keyFor(catId, subId)));
+  };
+
   const openCategory = (catId: string) => {
     setActiveCatId(catId);
     setView("subs");
+    // Each category starts with search closed and empty.
+    setSearchOpen(false);
+    setQuery("");
   };
 
   const activeCat = CATEGORIES.find((c) => c.id === activeCatId) ?? null;
+
+  // Toggle the "Others" search bar. Closing clears the query; selections persist.
+  const toggleSearch = () => {
+    setSearchOpen((open) => {
+      if (open) setQuery("");
+      return !open;
+    });
+  };
+
+  // "Suggest a new category": add exactly what was typed as a selected custom
+  // subject — unless it already exists in this category, in which case just
+  // select the existing one (no duplicate). Session state only, NO backend.
+  const handleSuggest = () => {
+    const typed = query.trim();
+    if (!activeCat || typed.length < 2) return;
+    const existing = subsForCat(activeCat.id).find(
+      (s) => s.label.toLowerCase() === typed.toLowerCase(),
+    );
+    if (existing) {
+      selectSub(activeCat.id, existing.id);
+      return;
+    }
+    const id = `custom-${Date.now()}`;
+    const newSub: Sub = { id, label: typed, color: activeCat.color, icon: "tag" };
+    setCustomSubs((prev) => ({
+      ...prev,
+      [activeCat.id]: [...(prev[activeCat.id] ?? []), newSub],
+    }));
+    selectSub(activeCat.id, id);
+  };
+
+  // Search results (extended list + customs) once 2+ chars are typed.
+  const trimmedQuery = query.trim();
+  const isSearching = searchOpen && trimmedQuery.length >= 2;
+  const results =
+    isSearching && activeCat
+      ? [...(EXTRA[activeCat.id] ?? []), ...(customSubs[activeCat.id] ?? [])].filter(
+          (s) => s.label.toLowerCase().includes(trimmedQuery.toLowerCase()),
+        )
+      : [];
+  const noMatch = isSearching && results.length === 0;
 
   // Back chevron: subcategory mode returns to the grid; grid mode leaves the screen.
   const onBack = () => {
@@ -196,7 +331,8 @@ export function CategorySelect({
     const interests = [...selected].map((k) => {
       const [catId, subId] = k.split(":");
       const cat = CATEGORIES.find((c) => c.id === catId);
-      const sub = cat?.subs.find((s) => s.id === subId);
+      // Resolve across main subs, the extended list, and custom subjects.
+      const sub = findSub(catId, subId);
       return {
         catId,
         subId,
@@ -237,6 +373,7 @@ export function CategorySelect({
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {banner ? (
           <View style={styles.banner}>
@@ -289,31 +426,97 @@ export function CategorySelect({
               <Text style={styles.subsTitle}>{activeCat.label}</Text>
             </View>
 
-            <View style={styles.grid}>
-              {activeCat.subs.map((sub) => {
-                const isSel = selected.has(keyFor(activeCat.id, sub.id));
-                return (
-                  <SelectableCircle
-                    key={sub.id}
-                    style={styles.gridItem}
-                    label={sub.label}
-                    selected={isSel}
-                    color={sub.color}
-                    onPress={() => toggleSub(activeCat.id, sub.id)}
-                    renderIcon={({ size, color }) => (
-                      <MaterialCommunityIcons name={sub.icon} size={size} color={color} />
-                    )}
+            {/* "Others" search — opens above the grid; the grid stays visible. */}
+            {searchOpen ? (
+              <>
+                <View style={styles.searchBar}>
+                  <MaterialCommunityIcons name="magnify" size={20} color="#9CA3AF" />
+                  <TextInput
+                    style={styles.searchInput}
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder={`Search for ${activeCat.label.toLowerCase()}…`}
+                    placeholderTextColor="#9CA3AF"
+                    autoFocus
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="search"
+                    accessibilityLabel={`Search ${activeCat.label}`}
                   />
-                );
-              })}
+                  {query.length > 0 ? (
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => setQuery("")}
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear search text"
+                    >
+                      <MaterialCommunityIcons name="close-circle" size={18} color="#9CA3AF" />
+                    </Pressable>
+                  ) : null}
+                </View>
 
-              {/* "Others": placeholder only — search behaviour comes in a later step. */}
+                {/* Matching extended / custom subjects (2+ chars). */}
+                {results.length > 0 ? (
+                  <View style={styles.resultsGrid}>
+                    {results.map((sub) => (
+                      <SelectableCircle
+                        key={sub.id}
+                        style={styles.gridItem}
+                        label={sub.label}
+                        selected={selected.has(keyFor(activeCat.id, sub.id))}
+                        color={sub.color}
+                        onPress={() => toggleSub(activeCat.id, sub.id)}
+                        renderIcon={({ size, color }) => (
+                          <MaterialCommunityIcons name={sub.icon} size={size} color={color} />
+                        )}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+
+                {/* No match → let them add exactly what they typed. */}
+                {noMatch ? (
+                  <View style={styles.noMatch}>
+                    <Text style={styles.noMatchText}>
+                      Can't find what you're looking for?
+                    </Text>
+                    <Button
+                      label="Suggest a new category"
+                      variant="tint"
+                      onPress={handleSuggest}
+                      style={styles.suggestBtn}
+                      icon={<MaterialCommunityIcons name="plus" size={18} color="#2D6A4F" />}
+                    />
+                  </View>
+                ) : null}
+
+                <View style={styles.searchDivider} />
+              </>
+            ) : null}
+
+            <View style={[styles.grid, searchOpen && styles.gridSearchOpen]}>
+              {activeCat.subs.map((sub) => (
+                <SelectableCircle
+                  key={sub.id}
+                  style={styles.gridItem}
+                  label={sub.label}
+                  selected={selected.has(keyFor(activeCat.id, sub.id))}
+                  color={sub.color}
+                  onPress={() => toggleSub(activeCat.id, sub.id)}
+                  renderIcon={({ size, color }) => (
+                    <MaterialCommunityIcons name={sub.icon} size={size} color={color} />
+                  )}
+                />
+              ))}
+
+              {/* "Others": toggles the search bar; lit dark while search is open. */}
               <SelectableCircle
                 style={styles.gridItem}
                 label="Others"
-                selected={false}
-                color="#E5E7EB"
-                accessibilityLabel="Others (coming soon)"
+                selected={searchOpen}
+                color={OTHERS_ACTIVE_COLOR}
+                onPress={toggleSearch}
+                accessibilityLabel={searchOpen ? "Close search" : "Search for more"}
                 renderIcon={({ size, color }) => (
                   <MaterialCommunityIcons name="magnify" size={size} color={color} />
                 )}
@@ -427,6 +630,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   subsTitle: { fontSize: 26, fontWeight: "800", color: "#111827" },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#F4F4F5",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111827",
+    paddingVertical: 0, // keep the row at its intended 48pt height
+  },
+  // Search results left-align (a single hit sits in the first column).
+  resultsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: 24,
+    marginTop: 18,
+  },
+  noMatch: { alignItems: "center", marginTop: 18 },
+  noMatchText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+    textAlign: "center",
+  },
+  suggestBtn: {
+    height: 38,
+    paddingHorizontal: 16,
+    alignSelf: "center",
+    marginTop: 12,
+  },
+  searchDivider: { height: 1, backgroundColor: "#ECECEC", marginTop: 16 },
+  // Tighten the grid's top gap when it sits below the search divider.
+  gridSearchOpen: { marginTop: 16 },
   backToCats: { marginTop: 24 },
   continue: { marginTop: 24 },
 });
