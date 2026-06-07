@@ -17,7 +17,7 @@ type UserType = {
   color: string;
   route:
     | "/onboarding/StudentEducationLevel"
-    | "/onboarding/parent"
+    | "/onboarding/ParentNumChild"
     | "/onboarding/tutor";
 };
 
@@ -36,7 +36,7 @@ const USER_TYPES: UserType[] = [
     description: "I am looking for a tutor for my children",
     icon: "people",
     color: "#F4A923", // Gold
-    route: "/onboarding/parent",
+    route: "/onboarding/ParentNumChild",
   },
   {
     key: "tutor",

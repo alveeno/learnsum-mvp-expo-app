@@ -4,6 +4,7 @@ import {
   Text,
   View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 import type { ReactNode } from "react";
@@ -40,6 +41,8 @@ type SelectableCircleProps = {
   badgeColor?: string;
   /** Wrapper style — e.g. a grid column width. */
   style?: StyleProp<ViewStyle>;
+  /** Extra style for the label text (e.g. a smaller font so long words fit). */
+  labelStyle?: StyleProp<TextStyle>;
   accessibilityLabel?: string;
 };
 
@@ -58,6 +61,7 @@ export function SelectableCircle({
   badge,
   badgeColor = "#2D6A4F",
   style,
+  labelStyle,
   accessibilityLabel,
 }: SelectableCircleProps) {
   const glyphSize = iconSize ?? Math.round(size * 0.43);
@@ -96,7 +100,7 @@ export function SelectableCircle({
           </View>
         ) : null}
       </View>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, labelStyle]}>{label}</Text>
     </Pressable>
   );
 }
