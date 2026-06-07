@@ -21,6 +21,8 @@ import {
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import {
+  EXAM_GRADES,
+  EXAM_SUBJECTS,
   QUAL_DETAIL_OPTS,
   QUAL_FREETEXT_PLACEHOLDERS,
   QUAL_IELTS_SCORES,
@@ -45,7 +47,13 @@ import { subIconFor, type Interest } from "./StudentCatSel";
  */
 
 type Subject = { id: string; label: string; catId: string; color: string };
-type Qualification = { type?: string; detail?: string; test?: string };
+type Qualification = {
+  type?: string;
+  detail?: string;
+  test?: string;
+  subject?: string;
+  grade?: string;
+};
 type Experience = {
   text: string;
   kind: "duration" | "event";
@@ -86,6 +94,56 @@ function isLightColor(hex: string): boolean {
   const g = parseInt(h.slice(2, 4), 16);
   const b = parseInt(h.slice(4, 6), 16);
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.72;
+}
+
+const LEVEL_LABELS: Record<string, string> = {
+  kindergarten: "Kindergarten",
+  primary: "Primary",
+  middle: "Middle School",
+  high: "High School",
+  university: "University",
+  adult: "Adult / Pro",
+};
+
+// One-line summaries used by the review view.
+function formatExp(ex: Experience): string {
+  const name = ex.text.trim() || "(unnamed)";
+  if (ex.kind === "event") return ex.year ? `${name} · ${ex.year}` : name;
+  return `${name} · ${ex.dur} ${ex.unit} · ${ex.ongoing ? "Ongoing" : "Ended"}`;
+}
+
+function formatQual(q: Qualification): string {
+  const kind = qualDetailKind(q.type);
+  const parts: string[] = [];
+  if (q.type) parts.push(q.type);
+  if (kind === "exam" || kind === "degree") {
+    if (q.subject) parts.push(q.subject);
+    if (q.grade) parts.push(q.grade);
+  } else if (kind === "ielts") {
+    const s = [q.test, q.detail].filter(Boolean).join(" ");
+    if (s) parts.push(s);
+  } else if (q.detail) {
+    parts.push(q.detail);
+  }
+  return parts.join(" — ");
+}
+
+/** A labelled block on the review view; shows "None added" when empty. */
+function RevSection({ label, lines }: { label: string; lines: string[] }) {
+  return (
+    <View style={styles.revSection}>
+      <Text style={styles.revLabel}>{label}</Text>
+      {lines.length > 0 ? (
+        lines.map((ln, i) => (
+          <Text key={i} style={styles.revValue}>
+            {ln}
+          </Text>
+        ))
+      ) : (
+        <Text style={styles.revMuted}>None added</Text>
+      )}
+    </View>
+  );
 }
 
 // ---- small building blocks --------------------------------------------------
@@ -356,6 +414,52 @@ function QualResult({
 }) {
   const kind = qualDetailKind(qual.type);
   if (kind === "none" || !qual.type) return null;
+
+  if (kind === "exam") {
+    return (
+      <>
+        <FieldLabel>Subject</FieldLabel>
+        <Select
+          value={qual.subject}
+          placeholder="Select subject"
+          sheetTitle="Subject"
+          options={EXAM_SUBJECTS[qual.type] ?? []}
+          onChange={(v) => onUpdate({ subject: v })}
+        />
+        <FieldLabel>Grade</FieldLabel>
+        <Select
+          value={qual.grade}
+          placeholder="Select grade"
+          sheetTitle="Grade"
+          options={EXAM_GRADES[qual.type] ?? []}
+          onChange={(v) => onUpdate({ grade: v })}
+        />
+      </>
+    );
+  }
+
+  if (kind === "degree") {
+    return (
+      <>
+        <FieldLabel>Subject</FieldLabel>
+        <TextInput
+          style={styles.input}
+          value={qual.subject ?? ""}
+          onChangeText={(t) => onUpdate({ subject: t })}
+          placeholder="e.g. Computer Science"
+          placeholderTextColor="#9CA3AF"
+        />
+        <FieldLabel>Grade</FieldLabel>
+        <TextInput
+          style={styles.input}
+          value={qual.grade ?? ""}
+          onChangeText={(t) => onUpdate({ grade: t })}
+          placeholder="e.g. First Class Honours"
+          placeholderTextColor="#9CA3AF"
+        />
+      </>
+    );
+  }
 
   if (kind === "dropdown") {
     return (
@@ -672,6 +776,7 @@ export default function TutorSD() {
     subjects[0] ? `${subjects[0].catId}:${subjects[0].id}` : "",
   );
   const [modal, setModal] = useState(false);
+  const [view, setView] = useState<"details" | "review">("details");
 
   const keyOf = (s: Subject) => `${s.catId}:${s.id}`;
   const getDetail = (key: string) => details[key] ?? DEFAULT_DETAIL;
@@ -698,17 +803,102 @@ export default function TutorSD() {
 
   const proceed = () =>
     router.push({
-      pathname: "/onboarding/TutorNext",
+      pathname: "/onboarding/TutorPrefs",
       params: {
         ...(params.levels ? { levels: params.levels } : {}),
         ...(params.interests ? { interests: params.interests } : {}),
         tutorDetails: JSON.stringify(details),
       },
     });
+  const goReview = () => setView("review");
+  const editSubject = (key: string) => {
+    setOpenKey(key);
+    setView("details");
+  };
   const onContinue = () => {
     if (missing) setModal(true);
-    else proceed();
+    else goReview();
   };
+
+  if (view === "review") {
+    const levelsText =
+      levels.length > 0 ? levels.map((k) => LEVEL_LABELS[k] ?? k).join(", ") : "Not set";
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: "100%" }]} />
+        </View>
+        <View style={styles.headerRow}>
+          <Pressable
+            hitSlop={8}
+            onPress={() => setView("details")}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <Ionicons name="chevron-back" size={28} color="#111827" />
+          </Pressable>
+          <View />
+        </View>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.h1}>Review your profile</Text>
+          <Text style={styles.sub}>
+            Check everything&apos;s right. Tap Edit on a subject to change it.
+          </Text>
+          <Text style={styles.levelsLine}>
+            <Text style={styles.levelsLabel}>Teaches: </Text>
+            {levelsText}
+          </Text>
+
+          <View style={styles.cardsWrap}>
+            {subjects.map((s) => {
+              const key = keyOf(s);
+              const d = getDetail(key);
+              const achievements = d.achievements.filter((a) => a.trim().length > 0);
+              const quals = d.quals.filter((q) => !!q.type);
+              const payText = d.pay >= PAY_MAX ? "$3000+" : `$${d.pay}`;
+              return (
+                <View key={key} style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Disc icon={subIconFor(s.catId, s.id)} color={s.color} />
+                    <Text style={[styles.cardTitle, styles.revName]}>{s.label}</Text>
+                    <TouchableOpacity
+                      style={styles.revEdit}
+                      onPress={() => editSubject(key)}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Edit ${s.label}`}
+                    >
+                      <MaterialIcons name="edit" size={15} color="#2D6A4F" />
+                      <Text style={styles.revEditText}>Edit</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.revBody}>
+                    <RevSection
+                      label="Years of experience"
+                      lines={[`${d.years} ${d.years === "1" ? "year" : "years"}`]}
+                    />
+                    <RevSection label="Preferred pay (HKD/hr)" lines={[payText]} />
+                    <RevSection label="Achievements" lines={achievements} />
+                    <RevSection
+                      label="Relevant experience"
+                      lines={d.experiences.map(formatExp)}
+                    />
+                    <RevSection label="Qualifications" lines={quals.map(formatQual)} />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </ScrollView>
+        <View style={styles.footer}>
+          <Button label="Confirm" variant="primary" onPress={proceed} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -824,7 +1014,10 @@ export default function TutorSD() {
             <Button
               label="Continue anyway"
               variant="ghost"
-              onPress={proceed}
+              onPress={() => {
+                setModal(false);
+                goReview();
+              }}
               style={styles.modalBtn}
             />
           </View>
@@ -886,6 +1079,23 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15.5, fontWeight: "700", color: "#16201C" },
   cardSummary: { fontSize: 12.5, color: "#6B7280", marginTop: 1 },
   expanded: { paddingHorizontal: 16, paddingBottom: 18 },
+
+  levelsLine: { marginTop: 12, fontSize: 14, color: "#16201C" },
+  levelsLabel: { fontWeight: "700" },
+  revName: { flex: 1 },
+  revEdit: { flexDirection: "row", alignItems: "center", gap: 3 },
+  revEditText: { color: "#2D6A4F", fontSize: 13.5, fontWeight: "700" },
+  revBody: { paddingHorizontal: 16, paddingBottom: 14 },
+  revSection: { marginTop: 12 },
+  revLabel: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: "#6B7280",
+    letterSpacing: 0.3,
+    marginBottom: 3,
+  },
+  revValue: { fontSize: 14, color: "#16201C", lineHeight: 20, marginBottom: 2 },
+  revMuted: { fontSize: 14, color: "#9CA3AF", fontStyle: "italic" },
 
   fieldLabel: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 18, marginBottom: 8 },
   fieldLabelText: { fontSize: 13.5, fontWeight: "700", color: "#16201C" },

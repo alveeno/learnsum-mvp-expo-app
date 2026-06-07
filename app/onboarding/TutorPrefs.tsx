@@ -1,4 +1,4 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 
 import {
   PreferencesScreen,
@@ -7,13 +7,30 @@ import {
 } from "../../components/onboarding/PreferencesScreen";
 
 /**
- * Tutor preferences. Same screen as the student / parent, except the language
- * section uses tap-to-fill proficiency (Beginner → Intermediate → Advanced →
- * Fluent) instead of a plain on/off pick.
+ * Tutor preferences. Same layout as the student's preference screen, except the
+ * language section uses tap-to-fill proficiency (Beginner → Intermediate →
+ * Advanced → Fluent). Carries the tutor's earlier answers (teaching levels,
+ * subjects, Strengths & Details) forward alongside the preferences — no backend.
  */
 export default function TutorPrefs() {
-  const goFeed = (data: Prefs) =>
-    router.push({ pathname: "/feed", params: prefsToParams(data) });
+  const { levels, interests, tutorDetails } = useLocalSearchParams<{
+    levels?: string;
+    interests?: string;
+    tutorDetails?: string;
+  }>();
+
+  // Everything collected earlier, passed straight through.
+  const carried = {
+    ...(levels ? { levels } : {}),
+    ...(interests ? { interests } : {}),
+    ...(tutorDetails ? { tutorDetails } : {}),
+  };
+
+  const goNext = (data: Prefs) =>
+    router.push({
+      pathname: "/onboarding/TutorNext",
+      params: { ...carried, ...prefsToParams(data) },
+    });
 
   return (
     <PreferencesScreen
@@ -22,8 +39,10 @@ export default function TutorPrefs() {
       progress={1}
       languageMode="proficiency"
       languageSectionLabel="LANGUAGES YOU TEACH"
-      onContinue={goFeed}
-      onSkip={() => router.push("/feed")}
+      onContinue={goNext}
+      onSkip={() =>
+        router.push({ pathname: "/onboarding/TutorNext", params: carried })
+      }
       onBack={() => router.back()}
     />
   );
