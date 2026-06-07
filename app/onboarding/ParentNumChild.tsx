@@ -13,6 +13,7 @@ import {
 import { Button } from "../../components/ui/Button";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 
 /**
  * Parent onboarding — step 1: "Your children".
@@ -49,6 +50,9 @@ export default function ParentNumChild() {
     { name: "", level: null },
   ]);
   const count = children.length;
+
+  // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
+  const { requestSkip, skipModal } = useSkipGuard();
 
   const setCountTo = (n: number) => {
     const c = Math.max(MIN_CHILDREN, Math.min(MAX_CHILDREN, n));
@@ -99,7 +103,7 @@ export default function ParentNumChild() {
         </Pressable>
         <Pressable
           hitSlop={8}
-          onPress={() => router.push("/feed")}
+          onPress={() => requestSkip(() => router.push("/feed"))}
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >
@@ -218,6 +222,8 @@ export default function ParentNumChild() {
           style={styles.continue}
         />
       </ScrollView>
+
+      {skipModal}
     </SafeAreaView>
   );
 }

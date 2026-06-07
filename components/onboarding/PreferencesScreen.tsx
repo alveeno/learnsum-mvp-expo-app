@@ -19,6 +19,7 @@ import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { SelectableCircle } from "../ui/SelectableCircle";
 import { getStored, setStored } from "./onboardingStore";
+import { useSkipGuard } from "./useSkipGuard";
 
 /**
  * Preferences — the shared onboarding screen used by all three roles.
@@ -358,6 +359,9 @@ export function PreferencesScreen({
 }: PreferencesScreenProps) {
   const proficiency = languageMode === "proficiency";
 
+  // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
+  const { requestSkip, skipModal } = useSkipGuard();
+
   // Seed once: prefer anything saved under persistKey, else the initialValue.
   const [seed] = useState<Prefs | null>(() =>
     persistKey ? getStored<Prefs | null>(persistKey, initialValue ?? null) : initialValue ?? null,
@@ -598,7 +602,7 @@ export function PreferencesScreen({
         </Pressable>
         <Pressable
           hitSlop={8}
-          onPress={onSkip}
+          onPress={() => requestSkip(onSkip)}
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >
@@ -1047,6 +1051,8 @@ export function PreferencesScreen({
           style={styles.sheetDone}
         />
       </BottomSheet>
+
+      {skipModal}
     </SafeAreaView>
   );
 }

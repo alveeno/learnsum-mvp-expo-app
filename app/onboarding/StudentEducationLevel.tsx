@@ -10,6 +10,7 @@ import {
 
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 
 /**
  * Step 1 of student onboarding: pick an education level.
@@ -58,6 +59,9 @@ export default function StudentEducationLevel() {
     null,
   );
 
+  // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
+  const { requestSkip, skipModal } = useSkipGuard();
+
   const goToCategory = () => {
     router.push({
       pathname: "/onboarding/StudentCatSel",
@@ -79,7 +83,7 @@ export default function StudentEducationLevel() {
           <Pressable hitSlop={8} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={28} color="#111827" />
           </Pressable>
-          <Pressable hitSlop={8} onPress={goToCategory}>
+          <Pressable hitSlop={8} onPress={() => requestSkip(goToCategory)}>
             <Text style={styles.skip}>Skip</Text>
           </Pressable>
         </View>
@@ -132,6 +136,8 @@ export default function StudentEducationLevel() {
           onPress={goToCategory}
         />
       </View>
+
+      {skipModal}
     </SafeAreaView>
   );
 }

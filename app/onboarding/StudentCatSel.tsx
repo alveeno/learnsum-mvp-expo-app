@@ -14,6 +14,7 @@ import {
 import { Button } from "../../components/ui/Button";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
+import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 
 /**
  * Interest / category selection — ONE screen with two display modes:
@@ -269,6 +270,9 @@ export function CategorySelect({
     persistKey ? getStored<Interest[]>(persistKey, initialValue ?? []) : initialValue ?? [],
   );
 
+  // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
+  const { requestSkip, skipModal } = useSkipGuard();
+
   const [view, setView] = useState<"grid" | "subs">("grid");
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   // Composite keys "<catId>:<subId>" of every chosen subcategory.
@@ -448,7 +452,12 @@ export function CategorySelect({
           <Ionicons name="chevron-back" size={28} color="#111827" />
         </Pressable>
         {onSkip ? (
-          <Pressable hitSlop={8} onPress={onSkip} accessibilityRole="button" accessibilityLabel="Skip">
+          <Pressable
+            hitSlop={8}
+            onPress={() => onSkip && requestSkip(onSkip)}
+            accessibilityRole="button"
+            accessibilityLabel="Skip"
+          >
             <Text style={styles.skip}>Skip</Text>
           </Pressable>
         ) : (
@@ -673,6 +682,8 @@ export function CategorySelect({
           style={styles.continue}
         />
       </ScrollView>
+
+      {skipModal}
     </SafeAreaView>
   );
 }

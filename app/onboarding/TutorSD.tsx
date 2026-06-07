@@ -21,6 +21,7 @@ import {
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 import {
   EXAM_GRADES,
   EXAM_SUBJECTS,
@@ -813,6 +814,9 @@ export default function TutorSD() {
   const [modal, setModal] = useState(false);
   const [view, setView] = useState<"details" | "review">("details");
 
+  // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
+  const { requestSkip, skipModal } = useSkipGuard();
+
   const keyOf = (s: Subject) => `${s.catId}:${s.id}`;
   const getDetail = (key: string) => details[key] ?? DEFAULT_DETAIL;
   const patch = (key: string, partial: Partial<Detail>) =>
@@ -956,7 +960,7 @@ export default function TutorSD() {
         </Pressable>
         <Pressable
           hitSlop={8}
-          onPress={proceed}
+          onPress={() => requestSkip(proceed)}
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >
@@ -1063,6 +1067,8 @@ export default function TutorSD() {
           </View>
         </View>
       </Modal>
+
+      {skipModal}
     </SafeAreaView>
   );
 }

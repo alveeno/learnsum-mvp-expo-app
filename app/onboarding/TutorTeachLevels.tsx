@@ -4,6 +4,7 @@ import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 
 /**
  * Tutor onboarding — step 2: "Who do you teach?".
@@ -43,6 +44,9 @@ export default function TutorTeachLevels() {
     () => new Set(),
   );
 
+  // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
+  const { requestSkip, skipModal } = useSkipGuard();
+
   const toggle = (key: LevelKey) =>
     setSelected((prev) => {
       const next = new Set(prev);
@@ -75,7 +79,7 @@ export default function TutorTeachLevels() {
           </Pressable>
           <Pressable
             hitSlop={8}
-            onPress={goNext}
+            onPress={() => requestSkip(goNext)}
             accessibilityRole="button"
             accessibilityLabel="Skip"
           >
@@ -125,6 +129,8 @@ export default function TutorTeachLevels() {
           onPress={goNext}
         />
       </View>
+
+      {skipModal}
     </SafeAreaView>
   );
 }
