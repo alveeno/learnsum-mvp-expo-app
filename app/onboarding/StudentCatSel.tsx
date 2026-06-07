@@ -1,6 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Pressable,
   SafeAreaView,
@@ -13,6 +13,7 @@ import {
 
 import { Button } from "../../components/ui/Button";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
+import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 
 /**
  * Interest / category selection — ONE screen with two display modes:
@@ -230,6 +231,13 @@ export type CategorySelectProps = {
   progress?: number;
   /** Pre-select these subjects (used when returning to edit). */
   initialValue?: Interest[] | null;
+  /**
+   * When set, the selection auto-saves to the shared in-memory store under this
+   * key and re-seeds from it on mount — so picks survive navigating away and
+   * back. Give each usage a unique, stable key (e.g. "tutor:interests"). When
+   * omitted, the screen behaves as a plain controlled form (no persistence).
+   */
+  persistKey?: string;
   /** Label for the Continue button. */
   continueLabel?: string;
   /** Called with the chosen subjects when Continue is tapped. */
@@ -250,17 +258,23 @@ export function CategorySelect({
   banner,
   progress = 0.66,
   initialValue,
+  persistKey,
   continueLabel = "Continue",
   onContinue,
   onSkip,
   onBack,
 }: CategorySelectProps) {
+  // Seed once: prefer anything saved under persistKey, else the initialValue.
+  const [seed] = useState<Interest[]>(() =>
+    persistKey ? getStored<Interest[]>(persistKey, initialValue ?? []) : initialValue ?? [],
+  );
+
   const [view, setView] = useState<"grid" | "subs">("grid");
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   // Composite keys "<catId>:<subId>" of every chosen subcategory.
   const [selected, setSelected] = useState<Set<string>>(() => {
     const s = new Set<string>();
-    (initialValue ?? []).forEach((it) => {
+    seed.forEach((it) => {
       if (it.catId && it.subId) s.add(`${it.catId}:${it.subId}`);
     });
     return s;
@@ -272,7 +286,7 @@ export function CategorySelect({
   const [customSubs, setCustomSubs] = useState<Record<string, Sub[]>>(() => {
     // Rebuild any user-typed ("custom-…") subjects so they render on re-entry.
     const cs: Record<string, Sub[]> = {};
-    (initialValue ?? []).forEach((it) => {
+    seed.forEach((it) => {
       if (it.catId && it.subId && it.subId.startsWith("custom-")) {
         if (!cs[it.catId]) cs[it.catId] = [];
         cs[it.catId].push({
@@ -393,13 +407,12 @@ export function CategorySelect({
     else router.back();
   };
 
-  // Continue / Skip: serialise the selection and hand it to the next screen.
-  // (No backend write — placeholder route just echoes what was passed.)
-  const goNext = () => {
-    const interests = [...selected].map((k) => {
+  // Build the chosen subjects from the current selection, resolving labels and
+  // colours across main subs, the extended list, and custom subjects.
+  const toInterests = (): Interest[] =>
+    [...selected].map((k) => {
       const [catId, subId] = k.split(":");
       const cat = CATEGORIES.find((c) => c.id === catId);
-      // Resolve across main subs, the extended list, and custom subjects.
       const sub = findSub(catId, subId);
       return {
         catId,
@@ -409,8 +422,16 @@ export function CategorySelect({
         color: sub?.color,
       };
     });
-    onContinue(interests);
-  };
+
+  // Auto-save the selection to the shared store on every change, so picks are
+  // never lost when the user navigates away (and the screen is later rebuilt).
+  useEffect(() => {
+    if (!persistKey) return;
+    setStored<Interest[]>(persistKey, toInterests());
+  }, [persistKey, selected, customSubs]);
+
+  // Continue / Skip: hand the chosen subjects to the next screen.
+  const goNext = () => onContinue(toInterests());
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -674,6 +695,7 @@ export default function StudentCatSel() {
     <CategorySelect
       heading="What are you interested in?"
       subtitle="Pick a category to explore subjects."
+      persistKey="student:interests"
       onContinue={toPrefs}
       onSkip={() => toPrefs([])}
       onBack={() => router.back()}

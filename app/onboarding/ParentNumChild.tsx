@@ -1,6 +1,5 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
 import {
   Pressable,
   SafeAreaView,
@@ -13,6 +12,7 @@ import {
 
 import { Button } from "../../components/ui/Button";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
+import { usePersistentState } from "../../components/onboarding/onboardingStore";
 
 /**
  * Parent onboarding — step 1: "Your children".
@@ -42,7 +42,9 @@ const MAX_CHILDREN = 6;
 const PROGRESS = 0.33; // first of three parent steps
 
 export default function ParentNumChild() {
-  const [children, setChildren] = useState<Child[]>([
+  // Persisted roster: names + levels survive navigating away and back, and feed
+  // the per-child setup that follows (see onboardingStore).
+  const [children, setChildren] = usePersistentState<Child[]>("parent:roster", [
     { name: "", level: null },
     { name: "", level: null },
   ]);

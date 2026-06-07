@@ -20,6 +20,7 @@ export default function StudentPrefs() {
       subtitle="Help us find you the best matches."
       progress={1}
       languageMode="select"
+      persistKey="student:prefs"
       onContinue={goFeed}
       onSkip={() => router.push("/feed")}
       onBack={() => router.back()}

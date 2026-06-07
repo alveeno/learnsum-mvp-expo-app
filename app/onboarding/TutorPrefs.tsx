@@ -39,6 +39,7 @@ export default function TutorPrefs() {
       progress={1}
       languageMode="proficiency"
       languageSectionLabel="LANGUAGES YOU TEACH"
+      persistKey="tutor:prefs"
       onContinue={goNext}
       onSkip={() =>
         router.push({ pathname: "/onboarding/TutorNext", params: carried })

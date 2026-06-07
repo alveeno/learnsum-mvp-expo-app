@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
 import {
   Pressable,
   SafeAreaView,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { usePersistentState } from "../../components/onboarding/onboardingStore";
 
 /**
  * Step 1 of student onboarding: pick an education level.
@@ -51,8 +51,12 @@ const LEVELS: Level[] = [
 const PROGRESS = 0.33;
 
 export default function StudentEducationLevel() {
-  // Single-select: one level or none.
-  const [selectedKey, setSelectedKey] = useState<LevelKey | null>(null);
+  // Single-select: one level or none. Persisted so returning to this step keeps
+  // the choice (see onboardingStore).
+  const [selectedKey, setSelectedKey] = usePersistentState<LevelKey | null>(
+    "student:eduLevel",
+    null,
+  );
 
   const goToCategory = () => {
     router.push({

@@ -1,9 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useState } from "react";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { usePersistentState } from "../../components/onboarding/onboardingStore";
 
 /**
  * Tutor onboarding — step 2: "Who do you teach?".
@@ -36,8 +36,12 @@ const SELECTED_COLOR = "#2D6A4F"; // uniform glow for every chosen level
 const PROGRESS = 0.5;
 
 export default function TutorTeachLevels() {
-  // Multi-select: a set of chosen level keys.
-  const [selected, setSelected] = useState<Set<LevelKey>>(() => new Set());
+  // Multi-select: a set of chosen level keys. Persisted so the choices survive
+  // navigating away and back (see onboardingStore).
+  const [selected, setSelected] = usePersistentState<Set<LevelKey>>(
+    "tutor:levels",
+    () => new Set(),
+  );
 
   const toggle = (key: LevelKey) =>
     setSelected((prev) => {

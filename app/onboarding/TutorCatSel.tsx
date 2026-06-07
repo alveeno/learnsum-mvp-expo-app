@@ -26,6 +26,7 @@ export default function TutorCatSel() {
       heading="What subject would you like to teach?"
       subtitle="Select all that applies."
       progress={0.75}
+      persistKey="tutor:interests"
       onContinue={goNext}
       onSkip={() => goNext([])}
       onBack={() => router.back()}

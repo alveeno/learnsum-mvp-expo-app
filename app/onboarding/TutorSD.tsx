@@ -20,6 +20,7 @@ import {
 
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
+import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import {
   EXAM_GRADES,
   EXAM_SUBJECTS,
@@ -771,7 +772,14 @@ export default function TutorSD() {
   }, [params.levels]);
   const hasHighUni = levels.includes("high") && levels.includes("university");
 
-  const [details, setDetails] = useState<Record<string, Detail>>({});
+  // Per-subject details, keyed by "<catId>:<subId>". Persisted so leaving this
+  // screen (e.g. to add a missing subject upstream) and returning keeps every
+  // field. Keys are stable, so removing then re-adding a subject restores its
+  // details (see onboardingStore).
+  const [details, setDetails] = usePersistentState<Record<string, Detail>>(
+    "tutor:sd:details",
+    {},
+  );
   const [openKey, setOpenKey] = useState<string>(
     subjects[0] ? `${subjects[0].catId}:${subjects[0].id}` : "",
   );

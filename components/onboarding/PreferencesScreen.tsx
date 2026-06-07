@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
@@ -18,6 +18,7 @@ import {
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { SelectableCircle } from "../ui/SelectableCircle";
+import { getStored, setStored } from "./onboardingStore";
 
 /**
  * Preferences — the shared onboarding screen used by all three roles.
@@ -327,6 +328,13 @@ export type PreferencesScreenProps = {
   languageSectionLabel?: string;
   /** Seed the form (used to restore a parent's previously-entered child). */
   initialValue?: Prefs | null;
+  /**
+   * When set, the form auto-saves to the shared in-memory store under this key
+   * and re-seeds from it on mount — so input survives navigating away and back.
+   * Give each usage a unique, stable key (e.g. "student:prefs"). When omitted,
+   * the screen behaves as a plain controlled form (no persistence).
+   */
+  persistKey?: string;
   continueLabel?: string;
   onContinue: (data: Prefs) => void;
   onSkip: () => void;
@@ -342,6 +350,7 @@ export function PreferencesScreen({
   languageMode = "select",
   languageSectionLabel = "PREFERRED LANGUAGE",
   initialValue = null,
+  persistKey,
   continueLabel = "Continue",
   onContinue,
   onSkip,
@@ -349,21 +358,26 @@ export function PreferencesScreen({
 }: PreferencesScreenProps) {
   const proficiency = languageMode === "proficiency";
 
+  // Seed once: prefer anything saved under persistKey, else the initialValue.
+  const [seed] = useState<Prefs | null>(() =>
+    persistKey ? getStored<Prefs | null>(persistKey, initialValue ?? null) : initialValue ?? null,
+  );
+
   // Section 1
-  const [format, setFormat] = useState<FormatId | null>(initialValue?.format ?? null);
+  const [format, setFormat] = useState<FormatId | null>(seed?.format ?? null);
   // Section 2
-  const [region, setRegion] = useState<RegionId | null>(initialValue?.region ?? null);
-  const [district, setDistrict] = useState<string | null>(initialValue?.district ?? null);
+  const [region, setRegion] = useState<RegionId | null>(seed?.region ?? null);
+  const [district, setDistrict] = useState<string | null>(seed?.district ?? null);
   // Section 3
-  const [langs, setLangs] = useState<string[]>(initialValue?.langs ?? []);
-  const [moreLangs, setMoreLangs] = useState<string[]>(initialValue?.moreLangs ?? []);
+  const [langs, setLangs] = useState<string[]>(seed?.langs ?? []);
+  const [moreLangs, setMoreLangs] = useState<string[]>(seed?.moreLangs ?? []);
   const [langLevels, setLangLevels] = useState<Record<string, number>>(
-    initialValue?.langLevels ?? {},
+    seed?.langLevels ?? {},
   );
   const [sheetOpen, setSheetOpen] = useState(false);
   const [lq, setLq] = useState("");
   // Section 4
-  const [avail, setAvail] = useState<Avail>(initialValue?.avail ?? EMPTY_AVAIL);
+  const [avail, setAvail] = useState<Avail>(seed?.avail ?? EMPTY_AVAIL);
   const [activeDay, setActiveDay] = useState<DayKey | null>(null);
   const [slotMode, setSlotMode] = useState<SlotMode>("idle");
   const [pendingStart, setPendingStart] = useState<number | null>(null);
@@ -372,6 +386,21 @@ export function PreferencesScreen({
   const [scrollMin, setScrollMin] = useState(0);
   const [viewportW, setViewportW] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+
+  // Auto-save to the shared store on every change, so input is never lost when
+  // the user navigates away (and the screen is later rebuilt from scratch).
+  useEffect(() => {
+    if (!persistKey) return;
+    setStored<Prefs>(persistKey, {
+      format,
+      region,
+      district,
+      langs,
+      moreLangs,
+      langLevels,
+      avail,
+    });
+  }, [persistKey, format, region, district, langs, moreLangs, langLevels, avail]);
 
   const needLoc = format === "in_person" || format === "both";
   const ready = !!format && (!needLoc || !!district);

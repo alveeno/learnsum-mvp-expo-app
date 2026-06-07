@@ -15,6 +15,7 @@ import {
   PreferencesScreen,
   type Prefs,
 } from "../../components/onboarding/PreferencesScreen";
+import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 import { CategorySelect, type Interest } from "./StudentCatSel";
 
 /**
@@ -107,10 +108,12 @@ export default function ParentChildSetup() {
   }, [params.children]);
   const n = roster.length;
 
-  const [interests, setInterests] = useState<(Interest[] | null)[]>(() =>
-    roster.map(() => null),
-  );
-  const [prefs, setPrefs] = useState<(Prefs | null)[]>(() => roster.map(() => null));
+  // Each child's answers live in the shared in-memory store, keyed by child
+  // index, so they survive navigating away and back (and are read straight back
+  // for the review). Keys are stable per slot — see onboardingStore.
+  const catKey = (i: number) => `parent:child:${i}:interests`;
+  const prefKey = (i: number) => `parent:child:${i}:prefs`;
+
   const [step, setStep] = useState<Step>({ kind: "child", index: 0, phase: "category" });
   // True when we jumped to a screen from the review (so Continue/Back/Skip
   // return to the review instead of walking the normal sequence).
@@ -149,11 +152,11 @@ export default function ParentChildSetup() {
   };
 
   const onCatContinue = (i: number) => (data: Interest[]) => {
-    setInterests((prev) => prev.map((v, idx) => (idx === i ? data : v)));
+    setStored<Interest[]>(catKey(i), data);
     afterFill();
   };
   const onPrefContinue = (i: number) => (data: Prefs) => {
-    setPrefs((prev) => prev.map((v, idx) => (idx === i ? data : v)));
+    setStored<Prefs>(prefKey(i), data);
     afterFill();
   };
   const onSkipStep = () => afterFill(); // skip just this one screen
@@ -187,7 +190,7 @@ export default function ParentChildSetup() {
         key={`cat-${i}`}
         banner={bannerFor(i)}
         progress={progress}
-        initialValue={interests[i]}
+        persistKey={catKey(i)}
         onContinue={onCatContinue(i)}
         onSkip={onSkipStep}
         onBack={onBackStep}
@@ -204,7 +207,7 @@ export default function ParentChildSetup() {
         banner={bannerFor(i)}
         progress={progress}
         languageMode="select"
-        initialValue={prefs[i]}
+        persistKey={prefKey(i)}
         onContinue={onPrefContinue(i)}
         onSkip={onSkipStep}
         onBack={onBackStep}
@@ -240,8 +243,8 @@ export default function ParentChildSetup() {
         </Text>
 
         {roster.map((child, i) => {
-          const it = interests[i];
-          const pf = prefs[i];
+          const it = getStored<Interest[] | null>(catKey(i), null);
+          const pf = getStored<Prefs | null>(prefKey(i), null);
           const needLoc = pf?.format === "in_person" || pf?.format === "both";
           return (
             <View key={i} style={styles.card}>
