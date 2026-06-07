@@ -11,11 +11,11 @@ import {
 } from "react-native";
 
 /**
- * Downstream placeholder for the step AFTER "Who do you teach?".
+ * Downstream placeholder for the step AFTER the tutor picks their subjects.
  *
  * The real next tutor screen isn't built yet; this exists so Continue / Skip
- * have somewhere to land, and it echoes the chosen levels so the handoff can be
- * verified by eye.
+ * have somewhere to land, and it echoes the chosen teaching levels AND subjects
+ * so the handoff can be verified by eye.
  */
 const LEVEL_LABELS: Record<string, string> = {
   kindergarten: "Kindergarten",
@@ -26,9 +26,15 @@ const LEVEL_LABELS: Record<string, string> = {
   adult: "Adult / Pro",
 };
 
+type ForwardedInterest = { category?: string; label?: string };
+
 export default function TutorNext() {
-  const { levels } = useLocalSearchParams<{ levels?: string }>();
-  const parsed = useMemo<string[]>(() => {
+  const { levels, interests } = useLocalSearchParams<{
+    levels?: string;
+    interests?: string;
+  }>();
+
+  const parsedLevels = useMemo<string[]>(() => {
     if (!levels) return [];
     try {
       const a = JSON.parse(levels);
@@ -37,6 +43,16 @@ export default function TutorNext() {
       return [];
     }
   }, [levels]);
+
+  const parsedInterests = useMemo<ForwardedInterest[]>(() => {
+    if (!interests) return [];
+    try {
+      const a = JSON.parse(interests);
+      return Array.isArray(a) ? (a as ForwardedInterest[]) : [];
+    } catch {
+      return [];
+    }
+  }, [interests]);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -49,12 +65,20 @@ export default function TutorNext() {
           <Text style={styles.title}>Next step</Text>
           <Text style={styles.subtitle}>Coming soon — placeholder.</Text>
 
-          <Text style={styles.passed}>Levels you teach: {parsed.length}</Text>
-
+          <Text style={styles.passed}>Levels you teach: {parsedLevels.length}</Text>
           <View style={styles.list}>
-            {parsed.map((k) => (
+            {parsedLevels.map((k) => (
               <Text key={k} style={styles.listItem}>
                 • {LEVEL_LABELS[k] ?? k}
+              </Text>
+            ))}
+          </View>
+
+          <Text style={styles.passed}>Subjects to teach: {parsedInterests.length}</Text>
+          <View style={styles.list}>
+            {parsedInterests.map((it, i) => (
+              <Text key={i} style={styles.listItem}>
+                • {it.category} — {it.label}
               </Text>
             ))}
           </View>

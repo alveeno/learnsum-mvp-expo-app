@@ -49,7 +49,7 @@ export default function TutorTeachLevels() {
 
   const goNext = () =>
     router.push({
-      pathname: "/onboarding/TutorNext",
+      pathname: "/onboarding/TutorCatSel",
       params: { levels: JSON.stringify([...selected]) },
     });
 
