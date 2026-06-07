@@ -62,23 +62,31 @@ UI conventions:
 
 File-based routes (Expo Router). v1 route map:
 
-| Route                 | Purpose |
-| --------------------- | ------- |
-| `/`                   | Welcome screen with user-type selection |
-| `/onboarding/student` | Student onboarding |
-| `/onboarding/parent`  | Parent onboarding |
-| `/onboarding/tutor`   | Tutor onboarding |
-| `/feed`               | Home feed |
-| `/tutors/[slug]`      | Tutor profile page |
-| `/search`             | Browse and filter |
-| `/notifications`      | Notification centre |
-| `/profile`            | Own profile and settings |
+| Route            | Purpose |
+| ---------------- | ------- |
+| `/`              | Welcome screen with user-type selection — **built** |
+| `/feed`          | Home feed — *not built yet* |
+| `/tutors/[slug]` | Tutor profile page — *not built yet* |
+| `/search`        | Browse and filter — *not built yet* |
+| `/notifications` | Notification centre — *not built yet* |
+| `/profile`       | Own profile and settings — *not built yet* |
+| `/auth/*`        | Login / sign-up — *not built yet* |
+
+Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
+one flow per role. The welcome screen routes into the first screen of each:
+
+- **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs`
+- **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
+  preferences, one child at a time, then a review)
+- **Tutor:** `TutorInspiration` → `TutorTeachLevels` → `TutorCatSel` → `TutorSD`
+  (Strengths & Details) → `TutorPrefs` → `TutorNext` *(placeholder landing — the
+  real post-onboarding screen isn't built yet)*
+
+Screens already navigate to the not-built routes above (e.g. `/feed`, `/auth/login`),
+so those are the next things to build.
 
 **No messaging screen in v1.** Contact happens via WhatsApp redirect and inquiry form
 only — there is no `/messages` route.
-
-> Current implementation status: only `app/_layout.tsx` and `app/index.tsx` exist so far.
-> The rest of the routes above are the v1 target and are not yet built.
 
 ## Architecture decisions
 
@@ -88,6 +96,23 @@ only — there is no `/messages` route.
 - **Tutor profile pages are public** and viewable **without auth**.
 - **Auth is required only for:** posting content, sending inquiries, and accessing
   notifications and profile.
+
+## Onboarding state & persistence
+
+All onboarding input is kept in a shared **in-memory** store —
+`components/onboarding/onboardingStore.ts` (`usePersistentState`, `getStored`,
+`setStored`). Expo Router rebuilds a screen from scratch when you navigate back and
+then forward again, which would wipe local `useState`; the store lets a rebuilt
+screen re-seed itself so **input is never lost while the app is open**.
+
+- **In-memory only** — no AsyncStorage, no backend. Drafts clear on a full app
+  reload/close (consistent with the "no backend writes" rule above).
+- **Keyed by stable IDs** (subject id, child slot index, etc.) so removing then
+  re-adding an item restores its previously-entered data.
+- **Any new onboarding screen that collects input must wire into the store** — use
+  `usePersistentState("<role>:<thing>", initial)` for top-level state, or pass a
+  unique stable `persistKey` to the shared `PreferencesScreen` / `CategorySelect`
+  cores (which auto-save on every change).
 
 ## Development workflow
 
