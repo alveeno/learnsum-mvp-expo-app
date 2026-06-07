@@ -200,16 +200,33 @@ const EXTRA: Record<string, Sub[]> = {
   ],
 };
 
+/** One chosen subject, as handed back through `onContinue`. */
+export type Interest = {
+  catId: string;
+  subId: string;
+  category?: string;
+  label?: string;
+  color?: string;
+};
+
 export type CategorySelectProps = {
   /** Main heading. Defaults to the student copy. */
   heading?: string;
   subtitle?: string;
-  /** Optional gold banner shown above the heading (e.g. "Selecting for Child 2 of 3"). */
+  /** Optional gold banner shown above the heading (e.g. "Alex · Child 1 of 2"). */
   banner?: string;
-  /** Carried forward to the next screen untouched. */
-  educationLevel?: string;
   /** Progress bar fill, 0..1. */
   progress?: number;
+  /** Pre-select these subjects (used when returning to edit). */
+  initialValue?: Interest[] | null;
+  /** Label for the Continue button. */
+  continueLabel?: string;
+  /** Called with the chosen subjects when Continue is tapped. */
+  onContinue: (interests: Interest[]) => void;
+  /** Optional Skip handler; the Skip link is hidden when omitted. */
+  onSkip?: () => void;
+  /** Optional Back handler for grid mode; defaults to router.back(). */
+  onBack?: () => void;
 };
 
 /**
@@ -220,18 +237,43 @@ export function CategorySelect({
   heading = "What are you interested in?",
   subtitle = "Pick a category to explore subjects.",
   banner,
-  educationLevel,
   progress = 0.66,
+  initialValue,
+  continueLabel = "Continue",
+  onContinue,
+  onSkip,
+  onBack,
 }: CategorySelectProps) {
   const [view, setView] = useState<"grid" | "subs">("grid");
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   // Composite keys "<catId>:<subId>" of every chosen subcategory.
-  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    (initialValue ?? []).forEach((it) => {
+      if (it.catId && it.subId) s.add(`${it.catId}:${it.subId}`);
+    });
+    return s;
+  });
   // "Others" search: whether the bar is open and the current query.
   const [searchOpen, setSearchOpen] = useState(false);
   const [query, setQuery] = useState("");
   // User-typed custom subjects per category — session only, NO backend.
-  const [customSubs, setCustomSubs] = useState<Record<string, Sub[]>>({});
+  const [customSubs, setCustomSubs] = useState<Record<string, Sub[]>>(() => {
+    // Rebuild any user-typed ("custom-…") subjects so they render on re-entry.
+    const cs: Record<string, Sub[]> = {};
+    (initialValue ?? []).forEach((it) => {
+      if (it.catId && it.subId && it.subId.startsWith("custom-")) {
+        if (!cs[it.catId]) cs[it.catId] = [];
+        cs[it.catId].push({
+          id: it.subId,
+          label: it.label ?? "Custom",
+          color: it.color ?? "#2D6A4F",
+          icon: "tag",
+        });
+      }
+    });
+    return cs;
+  });
 
   const keyFor = (catId: string, subId: string) => `${catId}:${subId}`;
   const totalCount = selected.size;
@@ -332,9 +374,11 @@ export function CategorySelect({
   // A divider sits above the main grid when search is open OR the top section shows.
   const hasDividerAbove = searchOpen || othersSelected.length > 0;
 
-  // Back chevron: subcategory mode returns to the grid; grid mode leaves the screen.
-  const onBack = () => {
+  // Back chevron: subcategory mode returns to the grid; grid mode hands off to
+  // the supplied onBack (or leaves the screen).
+  const handleBackPress = () => {
     if (view === "subs") setView("grid");
+    else if (onBack) onBack();
     else router.back();
   };
 
@@ -354,13 +398,7 @@ export function CategorySelect({
         color: sub?.color,
       };
     });
-    router.push({
-      pathname: "/onboarding/StudentPrefs",
-      params: {
-        ...(educationLevel ? { educationLevel } : {}),
-        interests: JSON.stringify(interests),
-      },
-    });
+    onContinue(interests);
   };
 
   return (
@@ -374,12 +412,16 @@ export function CategorySelect({
 
       {/* Top bar — stays across both modes. */}
       <View style={styles.headerRow}>
-        <Pressable hitSlop={8} onPress={onBack} accessibilityRole="button" accessibilityLabel="Back">
+        <Pressable hitSlop={8} onPress={handleBackPress} accessibilityRole="button" accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={28} color="#111827" />
         </Pressable>
-        <Pressable hitSlop={8} onPress={goNext} accessibilityRole="button" accessibilityLabel="Skip">
-          <Text style={styles.skip}>Skip</Text>
-        </Pressable>
+        {onSkip ? (
+          <Pressable hitSlop={8} onPress={onSkip} accessibilityRole="button" accessibilityLabel="Skip">
+            <Text style={styles.skip}>Skip</Text>
+          </Pressable>
+        ) : (
+          <View />
+        )}
       </View>
 
       <ScrollView
@@ -592,7 +634,7 @@ export function CategorySelect({
 
         {/* Continue — stays across both modes; disabled until something is picked. */}
         <Button
-          label="Continue"
+          label={continueLabel}
           variant="primary"
           disabled={totalCount === 0}
           onPress={goNext}
@@ -609,11 +651,21 @@ export function CategorySelect({
  */
 export default function StudentCatSel() {
   const { educationLevel } = useLocalSearchParams<{ educationLevel?: string }>();
+  const toPrefs = (interests: Interest[]) =>
+    router.push({
+      pathname: "/onboarding/StudentPrefs",
+      params: {
+        ...(educationLevel ? { educationLevel } : {}),
+        interests: JSON.stringify(interests),
+      },
+    });
   return (
     <CategorySelect
       heading="What are you interested in?"
       subtitle="Pick a category to explore subjects."
-      educationLevel={educationLevel}
+      onContinue={toPrefs}
+      onSkip={() => toPrefs([])}
+      onBack={() => router.back()}
     />
   );
 }

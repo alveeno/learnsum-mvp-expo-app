@@ -73,7 +73,7 @@ export default function ParentNumChild() {
 
   const goNext = () =>
     router.push({
-      pathname: "/onboarding/ParentPrefs",
+      pathname: "/onboarding/ParentChildSetup",
       params: {
         childCount: String(count),
         children: JSON.stringify(children),

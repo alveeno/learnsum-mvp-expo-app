@@ -210,9 +210,9 @@ function fmt(min: number): string {
   return `${hr12}:${m.toString().padStart(2, "0")} ${ampm}`;
 }
 function shortHour(h: number): string {
-  if (h === 0 || h === 24) return "12a";
-  if (h === 12) return "12p";
-  const ap = h < 12 ? "a" : "p";
+  if (h === 0 || h === 24) return "12am";
+  if (h === 12) return "12pm";
+  const ap = h < 12 ? "am" : "pm";
   const hr = h % 12 === 0 ? 12 : h % 12;
   return `${hr}${ap}`;
 }
@@ -468,9 +468,9 @@ export function PreferencesScreen({
     setPendingStart(null);
     setPendingEnd(null);
   };
-  // Cancel an end-edit (reached via "Edit End"): keep the original times and
-  // return to the review screen.
-  const cancelEndEdit = () => setSlotMode("review");
+  // Cancel an edit reached from review ("Edit Start" / "Edit End"): keep the
+  // original times and return to the review screen, changing nothing.
+  const cancelEdit = () => setSlotMode("review");
   const editStart = () => {
     const m = pendingStart ?? DEFAULT_MIN;
     setSlotMode("start");
@@ -801,7 +801,7 @@ export function PreferencesScreen({
                   {TICKS.filter((t) => t.label).map((t) => (
                     <Text
                       key={`l${t.min}`}
-                      style={[styles.tickLabel, { left: t.min * PX_PER_MIN - 14 }]}
+                      style={[styles.tickLabel, { left: t.min * PX_PER_MIN - 17 }]}
                     >
                       {t.label}
                     </Text>
@@ -863,7 +863,9 @@ export function PreferencesScreen({
                 <Button
                   label="Cancel"
                   variant="ghost"
-                  onPress={cancelSlot}
+                  // Editing an existing slot's start → keep it unchanged and go
+                  // back to review. A brand-new slot → discard it.
+                  onPress={pendingEnd != null ? cancelEdit : cancelSlot}
                   style={[styles.pairBtn, styles.outlineBtn]}
                 />
               </View>
@@ -876,7 +878,7 @@ export function PreferencesScreen({
                     <Button
                       label="Cancel"
                       variant="ghost"
-                      onPress={cancelEndEdit}
+                      onPress={cancelEdit}
                       style={[styles.pairBtn, styles.outlineBtn]}
                     />
                   ) : (
@@ -1225,7 +1227,7 @@ const styles = StyleSheet.create({
   tickLabel: {
     position: "absolute",
     top: 52,
-    width: 28,
+    width: 34,
     textAlign: "center",
     fontSize: 10,
     color: "#9CA3AF",
