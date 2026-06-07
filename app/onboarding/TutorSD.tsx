@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -357,21 +357,44 @@ function ValueSlider({
   const ratio = (value - min) / (max - min);
   const thumbX = ratio * usable;
 
-  // Keep the gesture handler reading the latest layout/value (the PanResponder
-  // is created once, so it must not close over stale values).
-  const onXRef = useRef((_x: number) => {});
-  onXRef.current = (x: number) => {
-    const clamped = Math.max(0, Math.min(usable, x - THUMB / 2));
+  // The track's left edge in screen coordinates. We map the finger's ABSOLUTE x
+  // (pageX) against this — NOT the per-touch locationX, which React Native
+  // reports relative to whichever child the finger is over (the thumb). That
+  // relative reading was the cause of the price jumping to a low value and back
+  // as the thumb caught up under the finger.
+  const trackRef = useRef<View>(null);
+  const trackLeftRef = useRef(0);
+  const measureTrack = () =>
+    trackRef.current?.measureInWindow((x) => {
+      trackLeftRef.current = x;
+    });
+
+  // Reassigned every render so the (once-created) PanResponder always reads the
+  // latest layout/value rather than a stale closure.
+  const onXRef = useRef((_pageX: number) => {});
+  onXRef.current = (pageX: number) => {
+    const rel = pageX - trackLeftRef.current - THUMB / 2;
+    const clamped = Math.max(0, Math.min(usable, rel));
     let v = min + (clamped / usable) * (max - min);
     v = Math.max(min, Math.min(max, Math.round(v / step) * step));
     if (v !== value) onChange(v);
   };
+
   const pan = useRef(
     PanResponder.create({
+      // Claim the touch (including at the capture phase) so neither a child nor
+      // a parent scroll view can steal the horizontal drag.
       onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => onXRef.current(e.nativeEvent.locationX),
-      onPanResponderMove: (e) => onXRef.current(e.nativeEvent.locationX),
+      onMoveShouldSetPanResponderCapture: () => true,
+      // Once dragging, never hand the gesture off mid-drag.
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: (e) => {
+        measureTrack();
+        onXRef.current(e.nativeEvent.pageX);
+      },
+      onPanResponderMove: (e) => onXRef.current(e.nativeEvent.pageX),
     }),
   ).current;
 
@@ -389,8 +412,12 @@ function ValueSlider({
         ) : null}
       </View>
       <View
+        ref={trackRef}
         style={styles.track}
-        onLayout={(e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width)}
+        onLayout={(e: LayoutChangeEvent) => {
+          setW(e.nativeEvent.layout.width);
+          measureTrack();
+        }}
         {...pan.panHandlers}
       >
         <View style={styles.trackBg} />
@@ -833,6 +860,10 @@ export default function TutorSD() {
       levels.length > 0 ? levels.map((k) => LEVEL_LABELS[k] ?? k).join(", ") : "Not set";
     return (
       <SafeAreaView style={styles.safeArea}>
+        {/* Disable the iOS swipe-from-edge "back" gesture on this screen so it
+            can't hijack a rightward drag on the pay slider. The on-screen back
+            arrow still works. */}
+        <Stack.Screen options={{ gestureEnabled: false }} />
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: "100%" }]} />
         </View>
@@ -910,6 +941,7 @@ export default function TutorSD() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${PROGRESS * 100}%` }]} />
       </View>
