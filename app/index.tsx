@@ -18,7 +18,7 @@ type UserType = {
   route:
     | "/onboarding/StudentEducationLevel"
     | "/onboarding/ParentNumChild"
-    | "/onboarding/tutor";
+    | "/onboarding/TutorInspiration";
 };
 
 const USER_TYPES: UserType[] = [
@@ -44,7 +44,7 @@ const USER_TYPES: UserType[] = [
     description: "I want to offer my teaching services",
     icon: "book",
     color: "#2D6A4F", // Forest Green
-    route: "/onboarding/tutor",
+    route: "/onboarding/TutorInspiration",
   },
 ];
 
