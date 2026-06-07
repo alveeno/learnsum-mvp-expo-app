@@ -14,7 +14,7 @@ export default function TutorCatSel() {
 
   const goNext = (interests: Interest[]) =>
     router.push({
-      pathname: "/onboarding/TutorNext",
+      pathname: "/onboarding/TutorSD",
       params: {
         ...(levels ? { levels } : {}),
         interests: JSON.stringify(interests),

@@ -200,6 +200,17 @@ const EXTRA: Record<string, Sub[]> = {
   ],
 };
 
+/** The MaterialCommunityIcons glyph for a subject (main subs + the extended
+ * "Others" list). Custom user-typed subjects fall back to "tag". */
+export function subIconFor(
+  catId: string,
+  subId: string,
+): keyof typeof MaterialCommunityIcons.glyphMap {
+  const cat = CATEGORIES.find((c) => c.id === catId);
+  const pool = [...(cat?.subs ?? []), ...(EXTRA[catId] ?? [])];
+  return pool.find((s) => s.id === subId)?.icon ?? "tag";
+}
+
 /** One chosen subject, as handed back through `onContinue`. */
 export type Interest = {
   catId: string;

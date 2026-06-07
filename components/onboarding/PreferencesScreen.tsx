@@ -2,7 +2,6 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-ic
 import { useRef, useState } from "react";
 import {
   Animated,
-  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -16,6 +15,7 @@ import {
   type NativeSyntheticEvent,
 } from "react-native";
 
+import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { SelectableCircle } from "../ui/SelectableCircle";
 
@@ -944,24 +944,11 @@ export function PreferencesScreen({
       </View>
 
       {/* Language pop-up */}
-      <Modal
+      <BottomSheet
         visible={sheetOpen}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setSheetOpen(false)}
+        onClose={() => setSheetOpen(false)}
+        title={proficiency ? "Languages you teach" : "Add languages"}
       >
-        <View style={styles.sheetBackdrop}>
-          <TouchableOpacity
-            style={StyleSheet.absoluteFill}
-            activeOpacity={1}
-            onPress={() => setSheetOpen(false)}
-            accessibilityLabel="Close"
-          />
-          <View style={styles.sheet}>
-            <View style={styles.sheetGrabber} />
-            <Text style={styles.sheetTitle}>
-              {proficiency ? "Languages you teach" : "Add languages"}
-            </Text>
 
             {proficiency ? (
               <ScrollView
@@ -1024,15 +1011,13 @@ export function PreferencesScreen({
               </>
             )}
 
-            <Button
-              label="Done"
-              variant="primary"
-              onPress={() => setSheetOpen(false)}
-              style={styles.sheetDone}
-            />
-          </View>
-        </View>
-      </Modal>
+        <Button
+          label="Done"
+          variant="primary"
+          onPress={() => setSheetOpen(false)}
+          style={styles.sheetDone}
+        />
+      </BottomSheet>
     </SafeAreaView>
   );
 }

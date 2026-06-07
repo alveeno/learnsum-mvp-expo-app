@@ -29,9 +29,10 @@ const LEVEL_LABELS: Record<string, string> = {
 type ForwardedInterest = { category?: string; label?: string };
 
 export default function TutorNext() {
-  const { levels, interests } = useLocalSearchParams<{
+  const { levels, interests, tutorDetails } = useLocalSearchParams<{
     levels?: string;
     interests?: string;
+    tutorDetails?: string;
   }>();
 
   const parsedLevels = useMemo<string[]>(() => {
@@ -54,6 +55,16 @@ export default function TutorNext() {
     }
   }, [interests]);
 
+  const detailCount = useMemo<number>(() => {
+    if (!tutorDetails) return 0;
+    try {
+      const o = JSON.parse(tutorDetails);
+      return o && typeof o === "object" ? Object.keys(o).length : 0;
+    } catch {
+      return 0;
+    }
+  }, [tutorDetails]);
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -73,6 +84,10 @@ export default function TutorNext() {
               </Text>
             ))}
           </View>
+
+          <Text style={styles.passed}>
+            Details captured for {detailCount} subject(s)
+          </Text>
 
           <Text style={styles.passed}>Subjects to teach: {parsedInterests.length}</Text>
           <View style={styles.list}>
