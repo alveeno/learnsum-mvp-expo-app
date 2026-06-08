@@ -23,16 +23,21 @@ export function LanguagePicker({ style }: { style?: StyleProp<ViewStyle> }) {
   const { lang, setLang, t } = useLanguage();
   const [open, setOpen] = useState(false);
 
+  const current = LANGUAGES.find((l) => l.id === lang);
+  const currentName = current ? current.native || current.label : "";
+  const buttonText = t("lang.button", { lang: currentName });
+
   return (
     <>
       <Pressable
-        style={[styles.globe, style]}
+        style={[styles.pill, style]}
         hitSlop={8}
         onPress={() => setOpen(true)}
         accessibilityRole="button"
-        accessibilityLabel={t("lang.title")}
+        accessibilityLabel={buttonText}
       >
         <Ionicons name="globe-outline" size={20} color="#2D6A4F" />
+        <Text style={styles.pillText}>{buttonText}</Text>
       </Pressable>
 
       <BottomSheet visible={open} onClose={() => setOpen(false)} title={t("lang.title")}>
@@ -70,14 +75,19 @@ export function LanguagePicker({ style }: { style?: StyleProp<ViewStyle> }) {
 }
 
 const styles = StyleSheet.create({
-  globe: {
-    width: 44,
-    height: 44,
+  pill: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+    height: 40,
+    paddingHorizontal: 14,
     borderRadius: 999,
     backgroundColor: "#F9F9F7",
-    alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
+  pillText: { fontSize: 14, fontWeight: "700", color: "#2D6A4F" },
   list: { paddingBottom: 4 },
   row: {
     flexDirection: "row",

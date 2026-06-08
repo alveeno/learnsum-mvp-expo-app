@@ -27,6 +27,11 @@ export const DEFAULT_LANG: Lang = "en";
 export const translations = {
   // ---- language picker ----
   "lang.title": { en: "Language", "zh-Hant": "語言", "zh-Hans": "语言" },
+  "lang.button": {
+    en: "Language: {lang}",
+    "zh-Hant": "語言：{lang}",
+    "zh-Hans": "语言：{lang}",
+  },
 
   // ---- welcome / index ----
   "welcome.tagline": {

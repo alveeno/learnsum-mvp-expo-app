@@ -5,6 +5,7 @@ import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { LoginSheet } from "../components/auth/LoginSheet";
 import { LanguagePicker } from "../components/i18n/LanguagePicker";
 import { useT } from "../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../components/i18n/translations";
@@ -55,6 +56,8 @@ export default function Index() {
   const t = useT();
   // Which role card is currently selected (only one at a time, or none).
   const [selectedKey, setSelectedKey] = useState<UserTypeKey | null>(null);
+  // Login bottom-sheet (placeholder — not wired to a backend yet).
+  const [loginOpen, setLoginOpen] = useState(false);
 
   const selectedType = USER_TYPES.find((u) => u.key === selectedKey) ?? null;
 
@@ -126,7 +129,7 @@ export default function Index() {
             label={t("welcome.login")}
             variant="accent"
             style={styles.loginButton}
-            onPress={() => router.push("/auth/login")}
+            onPress={() => setLoginOpen(true)}
           />
 
           {/* Continue appears only once a role is selected. */}
@@ -140,6 +143,8 @@ export default function Index() {
           )}
         </View>
       </View>
+
+      <LoginSheet visible={loginOpen} onClose={() => setLoginOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -247,6 +252,10 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     marginTop: 12,
+    // Narrower, centred pill (per the welcome-screen design) rather than the
+    // full-width Continue button below it.
+    alignSelf: "center",
+    paddingHorizontal: 48,
   },
   continueButton: {
     marginTop: 12,
