@@ -65,12 +65,12 @@ File-based routes (Expo Router). v1 route map:
 | Route            | Purpose |
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
-| `/feed`          | Home feed — *not built yet* |
+| `/feed`          | Home feed — **placeholder built** (real feed not yet) |
 | `/tutors/[slug]` | Tutor profile page — *not built yet* |
 | `/search`        | Browse and filter — *not built yet* |
 | `/notifications` | Notification centre — *not built yet* |
 | `/profile`       | Own profile and settings — *not built yet* |
-| `/auth/*`        | Login / sign-up — *not built yet* |
+| `/auth/*`        | Login / sign-up — *not built; login is a placeholder bottom sheet (below), not a route* |
 
 Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
 one flow per role. The welcome screen routes into the first screen of each:
@@ -82,8 +82,11 @@ one flow per role. The welcome screen routes into the first screen of each:
   (Strengths & Details) → `TutorPrefs` → `TutorNext` *(placeholder landing — the
   real post-onboarding screen isn't built yet)*
 
-Screens already navigate to the not-built routes above (e.g. `/feed`, `/auth/login`),
-so those are the next things to build.
+The student and parent flows land on `/feed` (a placeholder "You're all set" screen) and
+the tutor flow lands on `TutorNext` (placeholder). **Log in** is a placeholder bottom sheet
+(`components/auth/LoginSheet.tsx`) opened from the welcome screen — email/password +
+Google/Apple/Microsoft buttons, nothing wired to a backend yet — **not** a route. Fleshing
+out these placeholders (and the real `/feed`, `/auth`) is the next work.
 
 **No messaging screen in v1.** Contact happens via WhatsApp redirect and inquiry form
 only — there is no `/messages` route.
@@ -113,6 +116,47 @@ screen re-seed itself so **input is never lost while the app is open**.
   `usePersistentState("<role>:<thing>", initial)` for top-level state, or pass a
   unique stable `persistKey` to the shared `PreferencesScreen` / `CategorySelect`
   cores (which auto-save on every change).
+
+## Onboarding shared pieces
+
+- **Two reusable cores drive most screens:** `PreferencesScreen`
+  (`components/onboarding/`) and `CategorySelect` (exported from
+  `app/onboarding/StudentCatSel.tsx`). Role wrappers (Student/Parent/Tutor) pass copy +
+  callbacks; both take a `persistKey` and auto-save. The parent flow (`ParentChildSetup`)
+  reuses them per child.
+- **Skip confirmation:** every onboarding "Skip" routes through `useSkipGuard()`
+  (`components/onboarding/useSkipGuard.tsx`), which shows a one-time "Skip this step?"
+  warning (`components/ui/ConfirmModal.tsx`) the first time per app session, then skips
+  silently after. Wire any new Skip button through it.
+- **Reusable UI:** `components/ui/BottomSheet.tsx` (instant-dim + slide-up sheet — used by
+  the language picker, the login sheet and the dropdowns) and `ConfirmModal.tsx` (centred
+  warning dialog).
+
+## Internationalization (i18n)
+
+The app switches between **English / Traditional Chinese / Simplified Chinese** live.
+Everything lives in `components/i18n/`:
+
+- `translations.ts` — the `t()` dictionary: one key per phrase, each with all three
+  languages (a `satisfies` check forces every entry to provide all three).
+- `LanguageProvider.tsx` — React Context holding the current language; mounted once in
+  `app/_layout.tsx` so changing it re-renders the whole app. Exposes `useT()` /
+  `useLanguage()`.
+- `LanguagePicker.tsx` — the globe button + language bottom-sheet (welcome screen).
+
+Rules:
+
+- **Never hardcode user-facing text.** Add the phrase to `translations.ts` (all three
+  languages) and render it via `const t = useT(); … t("some.key")`. For data arrays,
+  store a `labelKey: TranslationKey` instead of a literal label.
+- Watch for `(t) => …` callback params (e.g. `onChangeText`) **shadowing** the translate
+  function — name them `(text)`.
+- **Current language is in-memory only** (resets on a full app restart), matching the
+  onboarding store. Persisting it across restarts needs a native storage module
+  (AsyncStorage = one EAS rebuild); only the provider's state line would change.
+- **Deferred (still English on purpose):** content-list *names* — subjects/categories,
+  HK districts + regions, language names, and qualification/exam option values
+  (`tutorQuals.ts`). These are a later "content pass"; the UI chrome is already translated.
 
 ## Development workflow
 
@@ -150,8 +194,10 @@ Stored in **`.env.local`** — **never committed**.
 - Push notifications
 - Post likes and comments UI
 - Saved filter preferences
-- Per-day availability scheduling UI
 - Advanced search beyond category and district
 - In-app payments
 - In-app messaging
 - Real-time chat
+
+> Note: a per-day availability picker **is** built (the "When are you available?"
+> section of `PreferencesScreen`), so it's no longer out of scope.
