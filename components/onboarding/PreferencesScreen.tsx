@@ -46,8 +46,8 @@ type Avail = Record<DayKey, Slot[]>;
 /** Everything this screen collects for one person / child. */
 export type Prefs = {
   format: FormatId | null;
-  region: RegionId | null;
-  district: string | null;
+  /** Chosen districts, each keyed "<regionId>:<District Name>". May span regions. */
+  districts: string[];
   /** "select" mode: chosen main-language ids. */
   langs: string[];
   /** "select" mode: chosen extra-language labels. */
@@ -61,8 +61,7 @@ export type Prefs = {
 export function prefsToParams(d: Prefs) {
   return {
     format: d.format ?? "",
-    region: d.region ?? "",
-    district: d.district ?? "",
+    districts: JSON.stringify(d.districts),
     langs: JSON.stringify(d.langs),
     moreLangs: JSON.stringify(d.moreLangs),
     langLevels: JSON.stringify(d.langLevels),
@@ -369,9 +368,13 @@ export function PreferencesScreen({
 
   // Section 1
   const [format, setFormat] = useState<FormatId | null>(seed?.format ?? null);
-  // Section 2
-  const [region, setRegion] = useState<RegionId | null>(seed?.region ?? null);
-  const [district, setDistrict] = useState<string | null>(seed?.district ?? null);
+  // Section 2 — districts may span regions; activeRegion is only which tab's
+  // districts are currently shown.
+  const [districts, setDistricts] = useState<string[]>(seed?.districts ?? []);
+  const [activeRegion, setActiveRegion] = useState<RegionId | null>(() => {
+    const first = (seed?.districts ?? [])[0];
+    return first ? (first.split(":")[0] as RegionId) : null;
+  });
   // Section 3
   const [langs, setLangs] = useState<string[]>(seed?.langs ?? []);
   const [moreLangs, setMoreLangs] = useState<string[]>(seed?.moreLangs ?? []);
@@ -397,23 +400,22 @@ export function PreferencesScreen({
     if (!persistKey) return;
     setStored<Prefs>(persistKey, {
       format,
-      region,
-      district,
+      districts,
       langs,
       moreLangs,
       langLevels,
       avail,
     });
-  }, [persistKey, format, region, district, langs, moreLangs, langLevels, avail]);
+  }, [persistKey, format, districts, langs, moreLangs, langLevels, avail]);
 
   const needLoc = format === "in_person" || format === "both";
-  const ready = !!format && (!needLoc || !!district);
+  const ready = !!format && (!needLoc || districts.length > 0);
   // A time slot is mid-edit when a start/end is pending but not yet saved with
   // "Done". Block Continue until it's committed or cancelled so a half-made slot
   // can't be silently lost. (A freshly opened picker with nothing chosen yet is
   // not "dirty", so Continue stays available.)
   const slotDirty = pendingStart != null || pendingEnd != null;
-  const regionObj = REGIONS.find((r) => r.id === region) ?? null;
+  const activeRegionObj = REGIONS.find((r) => r.id === activeRegion) ?? null;
 
   const locAnim = useRef(new Animated.Value(needLoc ? 1 : 0)).current;
   const animateLoc = () => {
@@ -429,6 +431,16 @@ export function PreferencesScreen({
     setFormat(id);
     if ((id === "in_person" || id === "both") && !wasLoc) animateLoc();
   };
+
+  // ---- location handlers (districts can span multiple regions) ----
+  const districtKey = (regionId: RegionId, d: string) => `${regionId}:${d}`;
+  const countForRegion = (regionId: RegionId) =>
+    districts.filter((k) => k.startsWith(`${regionId}:`)).length;
+  const toggleDistrict = (regionId: RegionId, d: string) =>
+    setDistricts((prev) => {
+      const k = districtKey(regionId, d);
+      return prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k];
+    });
 
   // ---- language handlers ----
   const toggleLang = (id: string) =>
@@ -596,7 +608,7 @@ export function PreferencesScreen({
   })();
 
   const submit = () =>
-    onContinue({ format, region, district, langs, moreLangs, langLevels, avail });
+    onContinue({ format, districts, langs, moreLangs, langLevels, avail });
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -677,35 +689,41 @@ export function PreferencesScreen({
             <Text style={styles.sectionLabel}>LOCATION</Text>
             <View style={styles.segment}>
               {REGIONS.map((r) => {
-                const on = region === r.id;
+                const on = activeRegion === r.id;
+                const count = countForRegion(r.id);
                 return (
                   <TouchableOpacity
                     key={r.id}
                     style={[styles.segmentTab, on && styles.segmentTabOn]}
-                    onPress={() => {
-                      setRegion(r.id);
-                      setDistrict(null);
-                    }}
+                    onPress={() => setActiveRegion(r.id)}
                     activeOpacity={0.85}
                     accessibilityRole="button"
                     accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${r.label}${count > 0 ? `, ${count} selected` : ""}`}
                   >
                     <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
                       {r.label}
                     </Text>
+                    {count > 0 ? (
+                      <View style={styles.regionBadge}>
+                        <Text style={styles.regionBadgeText}>{count}</Text>
+                      </View>
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
             </View>
-            {regionObj ? (
+            {/* Pick a region tab to reveal its districts; selections persist
+                across tabs so districts can be chosen in several regions. */}
+            {activeRegionObj ? (
               <View style={styles.districtGrid}>
-                {regionObj.districts.map((d) => {
-                  const on = district === d;
+                {activeRegionObj.districts.map((d) => {
+                  const on = districts.includes(districtKey(activeRegionObj.id, d));
                   return (
                     <TouchableOpacity
                       key={d}
                       style={styles.districtItem}
-                      onPress={() => setDistrict(d)}
+                      onPress={() => toggleDistrict(activeRegionObj.id, d)}
                       activeOpacity={0.85}
                       accessibilityRole="button"
                       accessibilityLabel={d}
@@ -741,6 +759,12 @@ export function PreferencesScreen({
 
         {/* ---- Section 3: language ---- */}
         <Text style={styles.sectionLabel}>{languageSectionLabel}</Text>
+        {proficiency ? (
+          <Text style={styles.langHint}>
+            Tap a language to set your fluency. Tap again to raise it: Beginner →
+            Intermediate → Advanced → Fluent (one more tap clears it).
+          </Text>
+        ) : null}
         <View style={styles.langRowWrap}>
           {proficiency
             ? MAIN_LANGS.map((l) => (
@@ -1107,6 +1131,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     color: "#6B7280",
   },
+  langHint: {
+    marginTop: -6,
+    marginBottom: 14,
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: "#6B7280",
+  },
 
   formatRow: { flexDirection: "row" },
   formatItem: { width: "33.333%" },
@@ -1134,6 +1165,21 @@ const styles = StyleSheet.create({
   },
   segmentText: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
   segmentTextOn: { color: "#111827", fontWeight: "700" },
+  regionBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 20,
+    height: 20,
+    paddingHorizontal: 5,
+    borderRadius: 10,
+    backgroundColor: "#2D6A4F",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  regionBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
   districtGrid: {
     flexDirection: "row",
     flexWrap: "wrap",

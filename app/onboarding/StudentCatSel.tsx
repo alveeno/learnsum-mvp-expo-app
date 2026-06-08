@@ -662,25 +662,29 @@ export function CategorySelect({
                 )}
               />
             </View>
-
-            <Button
-              label="Back to categories"
-              variant="ghost"
-              onPress={() => setView("grid")}
-              style={styles.backToCats}
-              icon={<MaterialCommunityIcons name="view-grid-outline" size={20} color="#111827" />}
-            />
           </>
         ) : null}
 
-        {/* Continue — stays across both modes; disabled until something is picked. */}
-        <Button
-          label={continueLabel}
-          variant="primary"
-          disabled={totalCount === 0}
-          onPress={goNext}
-          style={styles.continue}
-        />
+        {/* Bottom action. The real "Continue" (advances to the next screen) lives
+            ONLY on the main category grid. Inside a subcategory screen it is a
+            "Confirm" that simply returns to the grid, so an accidental tap can't
+            skip ahead. Confirm is always tappable; picks are already saved. */}
+        {view === "grid" ? (
+          <Button
+            label={continueLabel}
+            variant="primary"
+            disabled={totalCount === 0}
+            onPress={goNext}
+            style={styles.continue}
+          />
+        ) : (
+          <Button
+            label="Confirm"
+            variant="primary"
+            onPress={() => setView("grid")}
+            style={styles.continue}
+          />
+        )}
       </ScrollView>
 
       {skipModal}
@@ -831,6 +835,5 @@ const styles = StyleSheet.create({
   searchDivider: { height: 1, backgroundColor: "#ECECEC", marginTop: 16 },
   // Tighten the grid's top gap when it sits below the search divider.
   gridSearchOpen: { marginTop: 16 },
-  backToCats: { marginTop: 24 },
   continue: { marginTop: 24 },
 });

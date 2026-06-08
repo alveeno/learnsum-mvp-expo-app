@@ -84,6 +84,19 @@ function summariseLangs(pf: Prefs): string {
   return all.length ? all.join(", ") : "Any";
 }
 
+function summariseDistricts(pf: Prefs): string {
+  const list = pf.districts ?? [];
+  if (list.length === 0) return "—";
+  return list
+    .map((k) => {
+      const idx = k.indexOf(":");
+      const regionId = idx >= 0 ? k.slice(0, idx) : k;
+      const name = idx >= 0 ? k.slice(idx + 1) : k;
+      return `${name} (${REGION_LABELS[regionId] ?? regionId})`;
+    })
+    .join(", ");
+}
+
 function summariseAvail(avail: Prefs["avail"]): string {
   const days = avail as Record<string, { start: number; end: number }[]>;
   const parts = DAY_LABELS.filter((d) => (days[d.key]?.length ?? 0) > 0).map(
@@ -302,8 +315,7 @@ export default function ParentChildSetup() {
                     </Text>
                     {needLoc ? (
                       <Text style={styles.sectionBody}>
-                        Location: {pf.region ? REGION_LABELS[pf.region] ?? pf.region : "—"}
-                        {pf.district ? ` · ${pf.district}` : ""}
+                        Location: {summariseDistricts(pf)}
                       </Text>
                     ) : null}
                     <Text style={styles.sectionBody}>
