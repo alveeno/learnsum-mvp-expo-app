@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { useT } from "../../components/i18n/LanguageProvider";
 
 /**
  * Tutor onboarding — step 1: the "inspiration deck" of sample tutor profiles.
@@ -13,6 +14,7 @@ import { Button } from "../../components/ui/Button";
 const PROGRESS = 0.25;
 
 export default function TutorInspiration() {
+  const t = useT();
   const goNext = () => router.push("/onboarding/TutorTeachLevels");
 
   return (
@@ -37,14 +39,12 @@ export default function TutorInspiration() {
           <View style={styles.iconWrap}>
             <Ionicons name="sparkles" size={34} color="#2D6A4F" />
           </View>
-          <Text style={styles.title}>Inspiration deck</Text>
-          <Text style={styles.subtitle}>
-            Sample tutor profiles to inspire your own will appear here. Coming soon.
-          </Text>
+          <Text style={styles.title}>{t("tutor.inspiration.title")}</Text>
+          <Text style={styles.subtitle}>{t("tutor.inspiration.subtitle")}</Text>
         </View>
 
         <Button
-          label="Continue"
+          label={t("common.continue")}
           variant="primary"
           onPress={goNext}
           style={styles.continue}

@@ -14,6 +14,8 @@ import { Button } from "../../components/ui/Button";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
+import { useT } from "../../components/i18n/LanguageProvider";
+import { type TranslationKey } from "../../components/i18n/translations";
 
 /**
  * Parent onboarding — step 1: "Your children".
@@ -29,13 +31,13 @@ import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 
 type Child = { name: string; level: string | null };
 
-const LEVELS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: "kindergarten", label: "Kindergarten", icon: "happy" },
-  { key: "primary", label: "Primary", icon: "pencil" },
-  { key: "middle", label: "Middle School", icon: "book" },
-  { key: "high", label: "High School", icon: "school" },
-  { key: "university", label: "University", icon: "library" },
-  { key: "adult", label: "Adult / Pro", icon: "briefcase" },
+const LEVELS: { key: string; labelKey: TranslationKey; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "kindergarten", labelKey: "level.kindergarten", icon: "happy" },
+  { key: "primary", labelKey: "level.primary", icon: "pencil" },
+  { key: "middle", labelKey: "level.middle", icon: "book" },
+  { key: "high", labelKey: "level.high", icon: "school" },
+  { key: "university", labelKey: "level.university", icon: "library" },
+  { key: "adult", labelKey: "level.adult", icon: "briefcase" },
 ];
 
 const MIN_CHILDREN = 1;
@@ -43,6 +45,7 @@ const MAX_CHILDREN = 6;
 const PROGRESS = 0.33; // first of three parent steps
 
 export default function ParentNumChild() {
+  const t = useT();
   // Persisted roster: names + levels survive navigating away and back, and feed
   // the per-child setup that follows (see onboardingStore).
   const [children, setChildren] = usePersistentState<Child[]>("parent:roster", [
@@ -106,7 +109,7 @@ export default function ParentNumChild() {
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >
-          <Text style={styles.skip}>Skip</Text>
+          <Text style={styles.skip}>{t("common.skip")}</Text>
         </Pressable>
       </View>
 
@@ -116,10 +119,10 @@ export default function ParentNumChild() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Your children</Text>
+        <Text style={styles.title}>{t("parent.children.title")}</Text>
         <Text style={styles.subtitle}>
-          Set each child&apos;s education level.{" "}
-          <Text style={styles.subtitleStrong}>You can edit this later.</Text>
+          {t("parent.children.subtitle")}{" "}
+          <Text style={styles.subtitleStrong}>{t("parent.children.editLater")}</Text>
         </Text>
 
         {/* Number-of-children stepper */}
@@ -137,7 +140,9 @@ export default function ParentNumChild() {
           <View style={styles.counterCenter}>
             <Text style={styles.counterNumber}>{count}</Text>
             <Text style={styles.counterCaption}>
-              {count === 1 ? "child" : "children"}
+              {count === 1
+                ? t("parent.children.unit.one")
+                : t("parent.children.unit.other")}
             </Text>
           </View>
 
@@ -161,7 +166,9 @@ export default function ParentNumChild() {
                 <View style={styles.numberBadge}>
                   <Text style={styles.numberBadgeText}>{i + 1}</Text>
                 </View>
-                <Text style={styles.childHeading}>Child {i + 1}</Text>
+                <Text style={styles.childHeading}>
+                  {t("parent.child.heading", { n: i + 1 })}
+                </Text>
                 {complete ? (
                   <View style={styles.checkOn}>
                     <Ionicons name="checkmark" size={15} color="#FFFFFF" />
@@ -176,10 +183,12 @@ export default function ParentNumChild() {
                   be overlooked (older users missed the old thin underline). */}
               <View style={styles.nameBlock}>
                 <View style={styles.nameLabelRow}>
-                  <Text style={styles.nameLabel}>CHILD&apos;S NAME</Text>
+                  <Text style={styles.nameLabel}>{t("parent.child.nameLabel")}</Text>
                   {child.name.trim().length === 0 ? (
                     <View style={styles.requiredTag}>
-                      <Text style={styles.requiredTagText}>Required</Text>
+                      <Text style={styles.requiredTagText}>
+                        {t("parent.child.required")}
+                      </Text>
                     </View>
                   ) : null}
                 </View>
@@ -199,8 +208,8 @@ export default function ParentNumChild() {
                   <TextInput
                     style={styles.nameInput}
                     value={child.name}
-                    onChangeText={(t) => setName(i, t)}
-                    placeholder="Enter their name"
+                    onChangeText={(text) => setName(i, text)}
+                    placeholder={t("parent.child.namePlaceholder")}
                     placeholderTextColor="#B58A3C"
                     returnKeyType="done"
                     accessibilityLabel={`Name for child ${i + 1}`}
@@ -224,12 +233,12 @@ export default function ParentNumChild() {
                     key={lvl.key}
                     style={styles.eduItem}
                     size={56}
-                    label={lvl.label}
+                    label={t(lvl.labelKey)}
                     labelStyle={styles.eduLabel}
                     selected={child.level === lvl.key}
                     color="#F4A923"
                     onPress={() => setLevel(i, lvl.key)}
-                    accessibilityLabel={`${lvl.label} for child ${i + 1}`}
+                    accessibilityLabel={t(lvl.labelKey)}
                     renderIcon={({ size, color }) => (
                       <Ionicons name={lvl.icon} size={size} color={color} />
                     )}
@@ -241,7 +250,7 @@ export default function ParentNumChild() {
         })}
 
         <Button
-          label="Continue"
+          label={t("common.continue")}
           variant="primary"
           disabled={!allComplete}
           onPress={goNext}

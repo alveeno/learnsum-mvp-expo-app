@@ -22,6 +22,8 @@ import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
+import { useT } from "../../components/i18n/LanguageProvider";
+import { type TranslationKey } from "../../components/i18n/translations";
 import {
   EXAM_GRADES,
   EXAM_SUBJECTS,
@@ -98,20 +100,22 @@ function isLightColor(hex: string): boolean {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.72;
 }
 
-const LEVEL_LABELS: Record<string, string> = {
-  kindergarten: "Kindergarten",
-  primary: "Primary",
-  middle: "Middle School",
-  high: "High School",
-  university: "University",
-  adult: "Adult / Pro",
+const LEVEL_KEYS: Record<string, TranslationKey> = {
+  kindergarten: "level.kindergarten",
+  primary: "level.primary",
+  middle: "level.middle",
+  high: "level.high",
+  university: "level.university",
+  adult: "level.adult",
 };
 
+type TFn = (key: TranslationKey, params?: Record<string, string | number>) => string;
+
 // One-line summaries used by the review view.
-function formatExp(ex: Experience): string {
-  const name = ex.text.trim() || "(unnamed)";
+function formatExp(ex: Experience, t: TFn): string {
+  const name = ex.text.trim() || t("sd.exp.unnamed");
   if (ex.kind === "event") return ex.year ? `${name} · ${ex.year}` : name;
-  return `${name} · ${ex.dur} ${ex.unit} · ${ex.ongoing ? "Ongoing" : "Ended"}`;
+  return `${name} · ${ex.dur} ${ex.unit} · ${ex.ongoing ? t("sd.seg.ongoing") : t("sd.seg.ended")}`;
 }
 
 function formatQual(q: Qualification): string {
@@ -132,6 +136,7 @@ function formatQual(q: Qualification): string {
 
 /** A labelled block on the review view; shows "None added" when empty. */
 function RevSection({ label, lines }: { label: string; lines: string[] }) {
+  const t = useT();
   return (
     <View style={styles.revSection}>
       <Text style={styles.revLabel}>{label}</Text>
@@ -142,7 +147,7 @@ function RevSection({ label, lines }: { label: string; lines: string[] }) {
           </Text>
         ))
       ) : (
-        <Text style={styles.revMuted}>None added</Text>
+        <Text style={styles.revMuted}>{t("sd.review.noneAdded")}</Text>
       )}
     </View>
   );
@@ -441,25 +446,26 @@ function QualResult({
   qual: Qualification;
   onUpdate: (patch: Partial<Qualification>) => void;
 }) {
+  const t = useT();
   const kind = qualDetailKind(qual.type);
   if (kind === "none" || !qual.type) return null;
 
   if (kind === "exam") {
     return (
       <>
-        <FieldLabel>Subject</FieldLabel>
+        <FieldLabel>{t("sd.field.subject")}</FieldLabel>
         <Select
           value={qual.subject}
-          placeholder="Select subject"
-          sheetTitle="Subject"
+          placeholder={t("sd.select.subject")}
+          sheetTitle={t("sd.field.subject")}
           options={EXAM_SUBJECTS[qual.type] ?? []}
           onChange={(v) => onUpdate({ subject: v })}
         />
-        <FieldLabel>Grade</FieldLabel>
+        <FieldLabel>{t("sd.field.grade")}</FieldLabel>
         <Select
           value={qual.grade}
-          placeholder="Select grade"
-          sheetTitle="Grade"
+          placeholder={t("sd.select.grade")}
+          sheetTitle={t("sd.field.grade")}
           options={EXAM_GRADES[qual.type] ?? []}
           onChange={(v) => onUpdate({ grade: v })}
         />
@@ -470,20 +476,20 @@ function QualResult({
   if (kind === "degree") {
     return (
       <>
-        <FieldLabel>Subject</FieldLabel>
+        <FieldLabel>{t("sd.field.subject")}</FieldLabel>
         <TextInput
           style={styles.input}
           value={qual.subject ?? ""}
-          onChangeText={(t) => onUpdate({ subject: t })}
-          placeholder="e.g. Computer Science"
+          onChangeText={(text) => onUpdate({ subject: text })}
+          placeholder={t("sd.placeholder.degreeSubject")}
           placeholderTextColor="#9CA3AF"
         />
-        <FieldLabel>Grade</FieldLabel>
+        <FieldLabel>{t("sd.field.grade")}</FieldLabel>
         <TextInput
           style={styles.input}
           value={qual.grade ?? ""}
-          onChangeText={(t) => onUpdate({ grade: t })}
-          placeholder="e.g. First Class Honours"
+          onChangeText={(text) => onUpdate({ grade: text })}
+          placeholder={t("sd.placeholder.degreeGrade")}
           placeholderTextColor="#9CA3AF"
         />
       </>
@@ -493,10 +499,10 @@ function QualResult({
   if (kind === "dropdown") {
     return (
       <>
-        <FieldLabel>Detail</FieldLabel>
+        <FieldLabel>{t("sd.field.detail")}</FieldLabel>
         <Select
           value={qual.detail}
-          placeholder="Select…"
+          placeholder={t("sd.select.generic")}
           options={QUAL_DETAIL_OPTS[qual.type] ?? []}
           onChange={(v) => onUpdate({ detail: v })}
         />
@@ -507,11 +513,11 @@ function QualResult({
   if (kind === "ielts") {
     return (
       <>
-        <FieldLabel>Detail</FieldLabel>
+        <FieldLabel>{t("sd.field.detail")}</FieldLabel>
         <Select
           value={qual.test}
-          placeholder="Select test"
-          sheetTitle="Select test"
+          placeholder={t("sd.select.test")}
+          sheetTitle={t("sd.select.test")}
           options={QUAL_IELTS_TESTS}
           onChange={(v) => onUpdate({ test: v, detail: undefined })}
         />
@@ -519,8 +525,8 @@ function QualResult({
           <View style={{ marginTop: 10 }}>
             <Select
               value={qual.detail}
-              placeholder={`Select ${qual.test} score`}
-              sheetTitle={`Select ${qual.test} score`}
+              placeholder={t("sd.select.generic")}
+              sheetTitle={t("sd.select.generic")}
               options={QUAL_IELTS_SCORES[qual.test] ?? []}
               onChange={(v) => onUpdate({ detail: v })}
             />
@@ -537,7 +543,7 @@ function QualResult({
       <TextInput
         style={styles.input}
         value={qual.detail ?? ""}
-        onChangeText={(t) => onUpdate({ detail: t })}
+        onChangeText={(text) => onUpdate({ detail: text })}
         placeholder={QUAL_FREETEXT_PLACEHOLDERS[qual.type] ?? ""}
         placeholderTextColor="#9CA3AF"
       />
@@ -560,6 +566,7 @@ function DetailCard({
   onToggle: () => void;
   onPatch: (partial: Partial<Detail>) => void;
 }) {
+  const t = useT();
   const rise = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     if (open) {
@@ -609,7 +616,7 @@ function DetailCard({
           ]}
         >
           {/* Years of experience */}
-          <FieldLabel icon="schedule">Years of experience</FieldLabel>
+          <FieldLabel icon="schedule">{t("sd.field.years")}</FieldLabel>
           <View style={styles.wheelCard}>
             <ScrollWheel
               values={YEARS_VALUES}
@@ -619,7 +626,7 @@ function DetailCard({
           </View>
 
           {/* Preferred pay */}
-          <FieldLabel icon="payments">Preferred pay (HKD/hr)</FieldLabel>
+          <FieldLabel icon="payments">{t("sd.field.pay")}</FieldLabel>
           <ValueSlider
             min={PAY_MIN}
             max={PAY_MAX}
@@ -631,26 +638,26 @@ function DetailCard({
           />
 
           {/* Achievements */}
-          <FieldLabel icon="emoji-events">Achievements</FieldLabel>
+          <FieldLabel icon="emoji-events">{t("sd.field.achievements")}</FieldLabel>
           {detail.achievements.map((a, i) => (
             <TextInput
               key={i}
               style={[styles.input, styles.stackInput]}
               value={a}
-              onChangeText={(t) =>
-                onPatch({ achievements: detail.achievements.map((x, j) => (j === i ? t : x)) })
+              onChangeText={(text) =>
+                onPatch({ achievements: detail.achievements.map((x, j) => (j === i ? text : x)) })
               }
-              placeholder="e.g., HK Maths Olympiad — Gold"
+              placeholder={t("sd.placeholder.achievement")}
               placeholderTextColor="#9CA3AF"
             />
           ))}
           <AddRow
-            label="Add achievement"
+            label={t("sd.add.achievement")}
             onPress={() => onPatch({ achievements: [...detail.achievements, ""] })}
           />
 
           {/* Relevant experience */}
-          <FieldLabel icon="work-history">Relevant experience</FieldLabel>
+          <FieldLabel icon="work-history">{t("sd.field.experience")}</FieldLabel>
           {detail.experiences.map((ex, i) => {
             const upd = (p: Partial<Experience>) =>
               onPatch({
@@ -661,14 +668,14 @@ function DetailCard({
                 <TextInput
                   style={styles.input}
                   value={ex.text}
-                  onChangeText={(t) => upd({ text: t })}
-                  placeholder="e.g., Learn-to-swim coach"
+                  onChangeText={(text) => upd({ text: text })}
+                  placeholder={t("sd.placeholder.experience")}
                   placeholderTextColor="#9CA3AF"
                 />
                 <Segmented
                   options={[
-                    { key: "duration", label: "Duration" },
-                    { key: "event", label: "One-off event" },
+                    { key: "duration", label: t("sd.seg.duration") },
+                    { key: "event", label: t("sd.seg.event") },
                   ]}
                   value={ex.kind}
                   onChange={(k) => upd({ kind: k as "duration" | "event" })}
@@ -695,8 +702,8 @@ function DetailCard({
                     </View>
                     <Segmented
                       options={[
-                        { key: "ongoing", label: "Ongoing" },
-                        { key: "ended", label: "Ended" },
+                        { key: "ongoing", label: t("sd.seg.ongoing") },
+                        { key: "ended", label: t("sd.seg.ended") },
                       ]}
                       value={ex.ongoing ? "ongoing" : "ended"}
                       onChange={(k) => upd({ ongoing: k === "ongoing" })}
@@ -706,8 +713,8 @@ function DetailCard({
                   <Select
                     value={ex.year}
                     options={YEAR_VALUES}
-                    placeholder="Year"
-                    sheetTitle="Year"
+                    placeholder={t("sd.select.year")}
+                    sheetTitle={t("sd.select.year")}
                     onChange={(v) => upd({ year: v })}
                   />
                 )}
@@ -715,7 +722,7 @@ function DetailCard({
             );
           })}
           <AddRow
-            label="Add experience"
+            label={t("sd.add.experience")}
             onPress={() =>
               onPatch({
                 experiences: [
@@ -727,15 +734,12 @@ function DetailCard({
           />
 
           {/* Qualifications */}
-          <FieldLabel icon="workspace-premium">Qualifications</FieldLabel>
-          <Text style={styles.qualHelper}>
-            Adding qualifications is strongly recommended — it significantly improves your
-            match quality.
-          </Text>
+          <FieldLabel icon="workspace-premium">{t("sd.field.qualifications")}</FieldLabel>
+          <Text style={styles.qualHelper}>{t("sd.qualHelper")}</Text>
           {detail.quals.map((qu, i) => (
             <View key={i} style={styles.qualCard}>
               <View style={styles.qualCardHead}>
-                <Text style={styles.qualCardTitle}>Qualification {i + 1}</Text>
+                <Text style={styles.qualCardTitle}>{t("sd.qual.n", { n: i + 1 })}</Text>
                 <TouchableOpacity
                   onPress={() =>
                     onPatch({ quals: detail.quals.filter((_, j) => j !== i) })
@@ -749,7 +753,7 @@ function DetailCard({
               </View>
               <Select
                 value={qu.type}
-                placeholder="Qualification type"
+                placeholder={t("sd.select.qualType")}
                 options={qualTypes(subject.id, subject.catId)}
                 onChange={(v) => setQualType(i, v)}
               />
@@ -757,7 +761,7 @@ function DetailCard({
             </View>
           ))}
           <AddRow
-            label="Add qualification"
+            label={t("sd.add.qualification")}
             onPress={() => onPatch({ quals: [...detail.quals, {}] })}
           />
         </Animated.View>
@@ -816,6 +820,7 @@ export default function TutorSD() {
 
   // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
   const { requestSkip, skipModal } = useSkipGuard();
+  const t = useT();
 
   const keyOf = (s: Subject) => `${s.catId}:${s.id}`;
   const getDetail = (key: string) => details[key] ?? DEFAULT_DETAIL;
@@ -861,7 +866,9 @@ export default function TutorSD() {
 
   if (view === "review") {
     const levelsText =
-      levels.length > 0 ? levels.map((k) => LEVEL_LABELS[k] ?? k).join(", ") : "Not set";
+      levels.length > 0
+        ? levels.map((k) => (LEVEL_KEYS[k] ? t(LEVEL_KEYS[k]) : k)).join(", ")
+        : t("common.notSet");
     return (
       <SafeAreaView style={styles.safeArea}>
         {/* Disable the iOS swipe-from-edge "back" gesture on this screen so it
@@ -887,12 +894,10 @@ export default function TutorSD() {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.h1}>Review your profile</Text>
-          <Text style={styles.sub}>
-            Check everything&apos;s right. Tap Edit on a subject to change it.
-          </Text>
+          <Text style={styles.h1}>{t("sd.review.title")}</Text>
+          <Text style={styles.sub}>{t("sd.review.subtitle")}</Text>
           <Text style={styles.levelsLine}>
-            <Text style={styles.levelsLabel}>Teaches: </Text>
+            <Text style={styles.levelsLabel}>{t("sd.review.teaches")}</Text>
             {levelsText}
           </Text>
 
@@ -915,21 +920,25 @@ export default function TutorSD() {
                       accessibilityLabel={`Edit ${s.label}`}
                     >
                       <MaterialIcons name="edit" size={15} color="#2D6A4F" />
-                      <Text style={styles.revEditText}>Edit</Text>
+                      <Text style={styles.revEditText}>{t("common.edit")}</Text>
                     </TouchableOpacity>
                   </View>
                   <View style={styles.revBody}>
                     <RevSection
-                      label="Years of experience"
-                      lines={[`${d.years} ${d.years === "1" ? "year" : "years"}`]}
+                      label={t("sd.field.years")}
+                      lines={[
+                        d.years === "1"
+                          ? t("sd.years.one", { n: d.years })
+                          : t("sd.years.other", { n: d.years }),
+                      ]}
                     />
-                    <RevSection label="Preferred pay (HKD/hr)" lines={[payText]} />
-                    <RevSection label="Achievements" lines={achievements} />
+                    <RevSection label={t("sd.field.pay")} lines={[payText]} />
+                    <RevSection label={t("sd.field.achievements")} lines={achievements} />
                     <RevSection
-                      label="Relevant experience"
-                      lines={d.experiences.map(formatExp)}
+                      label={t("sd.field.experience")}
+                      lines={d.experiences.map((ex) => formatExp(ex, t))}
                     />
-                    <RevSection label="Qualifications" lines={quals.map(formatQual)} />
+                    <RevSection label={t("sd.field.qualifications")} lines={quals.map(formatQual)} />
                   </View>
                 </View>
               );
@@ -937,7 +946,7 @@ export default function TutorSD() {
           </View>
         </ScrollView>
         <View style={styles.footer}>
-          <Button label="Confirm" variant="primary" onPress={proceed} />
+          <Button label={t("common.confirm")} variant="primary" onPress={proceed} />
         </View>
       </SafeAreaView>
     );
@@ -964,7 +973,7 @@ export default function TutorSD() {
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >
-          <Text style={styles.skip}>Skip</Text>
+          <Text style={styles.skip}>{t("common.skip")}</Text>
         </Pressable>
       </View>
 
@@ -974,10 +983,8 @@ export default function TutorSD() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.h1}>Strengths &amp; Details</Text>
-        <Text style={styles.sub}>
-          Add details per subject to improve your matches. You can skip for now.
-        </Text>
+        <Text style={styles.h1}>{t("sd.title")}</Text>
+        <Text style={styles.sub}>{t("sd.subtitle")}</Text>
 
         {showBanner ? (
           <View style={[styles.banner, allDone ? styles.bannerGreen : styles.bannerGold]}>
@@ -988,11 +995,11 @@ export default function TutorSD() {
                 color={allDone ? "#235741" : "#D98E0A"}
               />
               <Text style={[styles.bannerTitle, { color: allDone ? "#235741" : "#D98E0A" }]}>
-                Qualifications recommended for High School + University
+                {t("sd.banner.title")}
               </Text>
             </View>
             <Text style={styles.bannerProgress}>
-              Completed {completed} / {academic.length} subjects
+              {t("sd.banner.progress", { completed, total: academic.length })}
             </Text>
             {!allDone ? (
               <TouchableOpacity
@@ -1001,7 +1008,7 @@ export default function TutorSD() {
                 accessibilityRole="button"
               >
                 <MaterialIcons name="bolt" size={18} color="#D98E0A" />
-                <Text style={styles.bannerChipText}>Add missing subjects</Text>
+                <Text style={styles.bannerChipText}>{t("sd.banner.addMissing")}</Text>
               </TouchableOpacity>
             ) : null}
           </View>
@@ -1025,7 +1032,7 @@ export default function TutorSD() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button label="Continue" variant="primary" onPress={onContinue} />
+        <Button label={t("common.continue")} variant="primary" onPress={onContinue} />
       </View>
 
       {/* Finish later? modal */}
@@ -1045,18 +1052,16 @@ export default function TutorSD() {
             <View style={styles.modalIconWrap}>
               <MaterialIcons name="bookmark" size={26} color="#2D6A4F" />
             </View>
-            <Text style={styles.modalTitle}>Finish later?</Text>
-            <Text style={styles.modalText}>
-              You can complete this later in your profile.
-            </Text>
+            <Text style={styles.modalTitle}>{t("sd.modal.title")}</Text>
+            <Text style={styles.modalText}>{t("sd.modal.text")}</Text>
             <Button
-              label="Add now"
+              label={t("sd.modal.addNow")}
               variant="primary"
               onPress={() => setModal(false)}
               style={styles.modalBtn}
             />
             <Button
-              label="Continue anyway"
+              label={t("sd.modal.continueAnyway")}
               variant="ghost"
               onPress={() => {
                 setModal(false);

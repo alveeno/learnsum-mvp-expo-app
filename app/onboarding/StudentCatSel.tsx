@@ -15,6 +15,7 @@ import { Button } from "../../components/ui/Button";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
+import { useT } from "../../components/i18n/LanguageProvider";
 
 /**
  * Interest / category selection — ONE screen with two display modes:
@@ -254,17 +255,22 @@ export type CategorySelectProps = {
  * renders this with its own heading / banner (see StudentCatSel below).
  */
 export function CategorySelect({
-  heading = "What are you interested in?",
-  subtitle = "Pick a category to explore subjects.",
+  heading,
+  subtitle,
   banner,
   progress = 0.66,
   initialValue,
   persistKey,
-  continueLabel = "Continue",
+  continueLabel,
   onContinue,
   onSkip,
   onBack,
 }: CategorySelectProps) {
+  const t = useT();
+  const headingText = heading ?? t("cat.heading.default");
+  const subtitleText = subtitle ?? t("cat.subtitle.default");
+  const continueText = continueLabel ?? t("common.continue");
+
   // Seed once: prefer anything saved under persistKey, else the initialValue.
   const [seed] = useState<Interest[]>(() =>
     persistKey ? getStored<Interest[]>(persistKey, initialValue ?? []) : initialValue ?? [],
@@ -458,7 +464,7 @@ export function CategorySelect({
             accessibilityRole="button"
             accessibilityLabel="Skip"
           >
-            <Text style={styles.skip}>Skip</Text>
+            <Text style={styles.skip}>{t("common.skip")}</Text>
           </Pressable>
         ) : (
           <View />
@@ -481,8 +487,8 @@ export function CategorySelect({
         {view === "grid" ? (
           /* ---- Mode 1: category grid ---- */
           <>
-            <Text style={styles.title}>{heading}</Text>
-            <Text style={styles.subtitle}>{subtitle}</Text>
+            <Text style={styles.title}>{headingText}</Text>
+            <Text style={styles.subtitle}>{subtitleText}</Text>
 
             <View style={styles.grid}>
               {CATEGORIES.map((cat) => {
@@ -508,7 +514,9 @@ export function CategorySelect({
 
             {totalCount > 0 ? (
               <Text style={styles.countNote}>
-                {totalCount} {totalCount > 1 ? "subjects" : "subject"} selected
+                {totalCount > 1
+                  ? t("cat.selected.other", { n: totalCount })
+                  : t("cat.selected.one", { n: totalCount })}
               </Text>
             ) : null}
           </>
@@ -554,7 +562,7 @@ export function CategorySelect({
                     style={styles.searchInput}
                     value={query}
                     onChangeText={setQuery}
-                    placeholder={`Search for ${activeCat.label.toLowerCase()}…`}
+                    placeholder={t("cat.search.placeholder")}
                     placeholderTextColor="#9CA3AF"
                     autoFocus
                     autoCapitalize="none"
@@ -617,11 +625,9 @@ export function CategorySelect({
                 {/* No match → let them add exactly what they typed. */}
                 {noMatch ? (
                   <View style={styles.noMatch}>
-                    <Text style={styles.noMatchText}>
-                      Can't find what you're looking for?
-                    </Text>
+                    <Text style={styles.noMatchText}>{t("cat.noMatch")}</Text>
                     <Button
-                      label="Suggest a new category"
+                      label={t("cat.suggest")}
                       variant="tint"
                       onPress={handleSuggest}
                       style={styles.suggestBtn}
@@ -652,7 +658,7 @@ export function CategorySelect({
               {/* "Others": toggles the search bar; lit dark while search is open. */}
               <SelectableCircle
                 style={styles.gridItem}
-                label="Others"
+                label={t("common.others")}
                 selected={searchOpen}
                 color={OTHERS_ACTIVE_COLOR}
                 onPress={toggleSearch}
@@ -671,7 +677,7 @@ export function CategorySelect({
             skip ahead. Confirm is always tappable; picks are already saved. */}
         {view === "grid" ? (
           <Button
-            label={continueLabel}
+            label={continueText}
             variant="primary"
             disabled={totalCount === 0}
             onPress={goNext}
@@ -679,7 +685,7 @@ export function CategorySelect({
           />
         ) : (
           <Button
-            label="Confirm"
+            label={t("cat.confirm")}
             variant="primary"
             onPress={() => setView("grid")}
             style={styles.continue}
@@ -708,8 +714,6 @@ export default function StudentCatSel() {
     });
   return (
     <CategorySelect
-      heading="What are you interested in?"
-      subtitle="Pick a category to explore subjects."
       persistKey="student:interests"
       onContinue={toPrefs}
       onSkip={() => toPrefs([])}

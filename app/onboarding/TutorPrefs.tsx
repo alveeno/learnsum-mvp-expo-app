@@ -5,6 +5,7 @@ import {
   prefsToParams,
   type Prefs,
 } from "../../components/onboarding/PreferencesScreen";
+import { useT } from "../../components/i18n/LanguageProvider";
 
 /**
  * Tutor preferences. Same layout as the student's preference screen, except the
@@ -13,6 +14,7 @@ import {
  * subjects, Strengths & Details) forward alongside the preferences — no backend.
  */
 export default function TutorPrefs() {
+  const t = useT();
   const { levels, interests, tutorDetails } = useLocalSearchParams<{
     levels?: string;
     interests?: string;
@@ -34,11 +36,11 @@ export default function TutorPrefs() {
 
   return (
     <PreferencesScreen
-      heading="Your teaching preferences"
-      subtitle="Tell students how and what you teach."
+      heading={t("tutor.prefs.heading")}
+      subtitle={t("tutor.prefs.subtitle")}
       progress={1}
       languageMode="proficiency"
-      languageSectionLabel="LANGUAGES YOU TEACH"
+      languageSectionLabel={t("prefs.section.language.tutor")}
       persistKey="tutor:prefs"
       onContinue={goNext}
       onSkip={() =>

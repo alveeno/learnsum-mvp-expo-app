@@ -16,6 +16,8 @@ import {
   type Prefs,
 } from "../../components/onboarding/PreferencesScreen";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
+import { useT } from "../../components/i18n/LanguageProvider";
+import { type TranslationKey } from "../../components/i18n/translations";
 import { CategorySelect, type Interest } from "./StudentCatSel";
 
 /**
@@ -35,18 +37,18 @@ type ChildInput = { name: string; level: string | null };
 type Phase = "category" | "preferences";
 type Step = { kind: "child"; index: number; phase: Phase } | { kind: "review" };
 
-const LEVEL_LABELS: Record<string, string> = {
-  kindergarten: "Kindergarten",
-  primary: "Primary",
-  middle: "Middle School",
-  high: "High School",
-  university: "University",
-  adult: "Adult / Pro",
+const LEVEL_KEYS: Record<string, TranslationKey> = {
+  kindergarten: "level.kindergarten",
+  primary: "level.primary",
+  middle: "level.middle",
+  high: "level.high",
+  university: "level.university",
+  adult: "level.adult",
 };
-const FORMAT_LABELS: Record<string, string> = {
-  in_person: "In person",
-  online: "Online",
-  both: "Both",
+const FORMAT_KEYS: Record<string, TranslationKey> = {
+  in_person: "format.in_person",
+  online: "format.online",
+  both: "format.both",
 };
 const REGION_LABELS: Record<string, string> = {
   hk: "HK Island",
@@ -109,6 +111,7 @@ function summariseAvail(avail: Prefs["avail"]): string {
 }
 
 export default function ParentChildSetup() {
+  const t = useT();
   const params = useLocalSearchParams<{ children?: string }>();
   const roster = useMemo<ChildInput[]>(() => {
     try {
@@ -132,8 +135,10 @@ export default function ParentChildSetup() {
   // return to the review instead of walking the normal sequence).
   const [editing, setEditing] = useState(false);
 
-  const nameOf = (i: number) => roster[i]?.name?.trim() || `Child ${i + 1}`;
-  const bannerFor = (i: number) => `${nameOf(i)} · Child ${i + 1} of ${n}`;
+  const nameOf = (i: number) =>
+    roster[i]?.name?.trim() || t("parent.child.heading", { n: i + 1 });
+  const bannerFor = (i: number) =>
+    t("parent.banner", { name: nameOf(i), i: i + 1, n });
 
   const totalSteps = n * 2;
   const stepNo =
@@ -250,10 +255,8 @@ export default function ParentChildSetup() {
         contentContainerStyle={styles.reviewContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Review</Text>
-        <Text style={styles.subtitle}>
-          Check everything looks right. Tap a section to edit it.
-        </Text>
+        <Text style={styles.title}>{t("parent.review.title")}</Text>
+        <Text style={styles.subtitle}>{t("parent.review.subtitle")}</Text>
 
         {roster.map((child, i) => {
           const it = getStored<Interest[] | null>(catKey(i), null);
@@ -267,7 +270,9 @@ export default function ParentChildSetup() {
                 </View>
                 <Text style={styles.cardName}>{nameOf(i)}</Text>
                 <Text style={styles.cardLevel}>
-                  {child.level ? LEVEL_LABELS[child.level] ?? child.level : "No level"}
+                  {child.level && LEVEL_KEYS[child.level]
+                    ? t(LEVEL_KEYS[child.level])
+                    : t("parent.review.noLevel")}
                 </Text>
               </View>
 
@@ -279,10 +284,10 @@ export default function ParentChildSetup() {
                 accessibilityLabel={`Edit interests for ${nameOf(i)}`}
               >
                 <View style={styles.sectionHead}>
-                  <Text style={styles.sectionTitle}>Interests</Text>
+                  <Text style={styles.sectionTitle}>{t("parent.review.interests")}</Text>
                   <View style={styles.editLink}>
                     <MaterialCommunityIcons name="pencil" size={13} color="#2D6A4F" />
-                    <Text style={styles.editLinkText}>Edit</Text>
+                    <Text style={styles.editLinkText}>{t("common.edit")}</Text>
                   </View>
                 </View>
                 {it && it.length > 0 ? (
@@ -290,7 +295,7 @@ export default function ParentChildSetup() {
                     {it.map((x) => x.label).filter(Boolean).join(", ")}
                   </Text>
                 ) : (
-                  <Text style={styles.sectionMuted}>Not set</Text>
+                  <Text style={styles.sectionMuted}>{t("common.notSet")}</Text>
                 )}
               </Pressable>
 
@@ -302,31 +307,34 @@ export default function ParentChildSetup() {
                 accessibilityLabel={`Edit preferences for ${nameOf(i)}`}
               >
                 <View style={styles.sectionHead}>
-                  <Text style={styles.sectionTitle}>Preferences</Text>
+                  <Text style={styles.sectionTitle}>{t("parent.review.preferences")}</Text>
                   <View style={styles.editLink}>
                     <MaterialCommunityIcons name="pencil" size={13} color="#2D6A4F" />
-                    <Text style={styles.editLinkText}>Edit</Text>
+                    <Text style={styles.editLinkText}>{t("common.edit")}</Text>
                   </View>
                 </View>
                 {pf ? (
                   <View style={styles.kvList}>
                     <Text style={styles.sectionBody}>
-                      Format: {pf.format ? FORMAT_LABELS[pf.format] : "—"}
+                      {t("parent.review.format")}:{" "}
+                      {pf.format && FORMAT_KEYS[pf.format]
+                        ? t(FORMAT_KEYS[pf.format])
+                        : "—"}
                     </Text>
                     {needLoc ? (
                       <Text style={styles.sectionBody}>
-                        Location: {summariseDistricts(pf)}
+                        {t("parent.review.location")}: {summariseDistricts(pf)}
                       </Text>
                     ) : null}
                     <Text style={styles.sectionBody}>
-                      Languages: {summariseLangs(pf)}
+                      {t("parent.review.languages")}: {summariseLangs(pf)}
                     </Text>
                     <Text style={styles.sectionBody}>
-                      Availability: {summariseAvail(pf.avail)}
+                      {t("parent.review.availability")}: {summariseAvail(pf.avail)}
                     </Text>
                   </View>
                 ) : (
-                  <Text style={styles.sectionMuted}>Not set</Text>
+                  <Text style={styles.sectionMuted}>{t("common.notSet")}</Text>
                 )}
               </Pressable>
             </View>
@@ -334,7 +342,7 @@ export default function ParentChildSetup() {
         })}
 
         <Button
-          label="Confirm"
+          label={t("common.confirm")}
           variant="primary"
           onPress={confirm}
           style={styles.confirmBtn}

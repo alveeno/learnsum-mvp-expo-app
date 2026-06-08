@@ -1,17 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { LanguagePicker } from "../components/i18n/LanguagePicker";
+import { useT } from "../components/i18n/LanguageProvider";
+import { type TranslationKey } from "../components/i18n/translations";
 
 type UserTypeKey = "student" | "parent" | "tutor";
 
 type UserType = {
   key: UserTypeKey;
-  label: string;
-  description: string;
+  labelKey: TranslationKey;
+  descKey: TranslationKey;
   icon: keyof typeof Ionicons.glyphMap;
   /** The "coloured version" shown in the icon circle when selected. */
   color: string;
@@ -24,24 +27,24 @@ type UserType = {
 const USER_TYPES: UserType[] = [
   {
     key: "student",
-    label: "Student",
-    description: "I am looking for a tutor to help me learn",
+    labelKey: "role.student",
+    descKey: "role.student.desc",
     icon: "school",
     color: "#2D6A4F", // Forest Green
     route: "/onboarding/StudentEducationLevel",
   },
   {
     key: "parent",
-    label: "Parent",
-    description: "I am looking for a tutor for my children",
+    labelKey: "role.parent",
+    descKey: "role.parent.desc",
     icon: "people",
     color: "#F4A923", // Gold
     route: "/onboarding/ParentNumChild",
   },
   {
     key: "tutor",
-    label: "Tutor",
-    description: "I want to offer my teaching services",
+    labelKey: "role.tutor",
+    descKey: "role.tutor.desc",
     icon: "book",
     color: "#2D6A4F", // Forest Green
     route: "/onboarding/TutorInspiration",
@@ -49,10 +52,11 @@ const USER_TYPES: UserType[] = [
 ];
 
 export default function Index() {
+  const t = useT();
   // Which role card is currently selected (only one at a time, or none).
   const [selectedKey, setSelectedKey] = useState<UserTypeKey | null>(null);
 
-  const selectedType = USER_TYPES.find((t) => t.key === selectedKey) ?? null;
+  const selectedType = USER_TYPES.find((u) => u.key === selectedKey) ?? null;
 
   const handleContinue = () => {
     if (selectedType) {
@@ -63,11 +67,9 @@ export default function Index() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>
-        {/* Language switcher placeholder — left as-is for now. */}
+        {/* Language switcher — globe opens a bottom-sheet of languages. */}
         <View style={styles.topBar}>
-          <Pressable style={styles.langButton} hitSlop={8}>
-            <Ionicons name="globe-outline" size={20} color="#2D6A4F" />
-          </Pressable>
+          <LanguagePicker />
         </View>
 
         {/* Logo block centred in the upper half */}
@@ -81,14 +83,12 @@ export default function Index() {
               <Text style={styles.logoSum}>Sum</Text>
             </Text>
           </View>
-          <Text style={styles.subtitle}>
-            Find the perfect tutor within minutes.
-          </Text>
+          <Text style={styles.subtitle}>{t("welcome.tagline")}</Text>
         </View>
 
         {/* Bottom section */}
         <View style={styles.bottomSection}>
-          <Text style={styles.iAmA}>I AM A...</Text>
+          <Text style={styles.iAmA}>{t("welcome.iAmA")}</Text>
 
           <View style={styles.cardRow}>
             {USER_TYPES.map((type) => {
@@ -97,7 +97,7 @@ export default function Index() {
                 <Card
                   key={type.key}
                   selected={isSelected}
-                  accessibilityLabel={type.label}
+                  accessibilityLabel={t(type.labelKey)}
                   onPress={() => setSelectedKey(type.key)}
                   style={styles.card}
                 >
@@ -114,16 +114,16 @@ export default function Index() {
                       color={isSelected ? "#FFFFFF" : "#6B7280"}
                     />
                   </View>
-                  <Text style={styles.cardLabel}>{type.label}</Text>
-                  <Text style={styles.cardDescription}>{type.description}</Text>
+                  <Text style={styles.cardLabel}>{t(type.labelKey)}</Text>
+                  <Text style={styles.cardDescription}>{t(type.descKey)}</Text>
                 </Card>
               );
             })}
           </View>
 
-          <Text style={styles.memberPrompt}>Already a member?</Text>
+          <Text style={styles.memberPrompt}>{t("welcome.member")}</Text>
           <Button
-            label="Log in now"
+            label={t("welcome.login")}
             variant="accent"
             style={styles.loginButton}
             onPress={() => router.push("/auth/login")}
@@ -132,7 +132,7 @@ export default function Index() {
           {/* Continue appears only once a role is selected. */}
           {selectedType && (
             <Button
-              label="Continue"
+              label={t("common.continue")}
               variant="primary"
               style={styles.continueButton}
               onPress={handleContinue}
@@ -157,14 +157,6 @@ const styles = StyleSheet.create({
   },
   topBar: {
     paddingTop: 8,
-  },
-  langButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    backgroundColor: "#F9F9F7",
-    alignItems: "center",
-    justifyContent: "center",
   },
   logoSection: {
     flex: 1,

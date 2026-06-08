@@ -18,6 +18,8 @@ import {
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { SelectableCircle } from "../ui/SelectableCircle";
+import { useT } from "../i18n/LanguageProvider";
+import { type TranslationKey } from "../i18n/translations";
 import { getStored, setStored } from "./onboardingStore";
 import { useSkipGuard } from "./useSkipGuard";
 
@@ -72,13 +74,13 @@ export function prefsToParams(d: Prefs) {
 // ---- Section 1: lesson format ------------------------------------------------
 const FORMATS: {
   id: FormatId;
-  label: string;
+  labelKey: TranslationKey;
   color: string;
   icon: keyof typeof MaterialIcons.glyphMap;
 }[] = [
-  { id: "in_person", label: "In Person", color: "#2D6A4F", icon: "person" },
-  { id: "online", label: "Online", color: "#2D6A4F", icon: "videocam" },
-  { id: "both", label: "Both", color: "#F4A923", icon: "swap-horiz" },
+  { id: "in_person", labelKey: "format.in_person", color: "#2D6A4F", icon: "person" },
+  { id: "online", labelKey: "format.online", color: "#2D6A4F", icon: "videocam" },
+  { id: "both", labelKey: "format.both", color: "#F4A923", icon: "swap-horiz" },
 ];
 
 // ---- Section 2: location -----------------------------------------------------
@@ -162,12 +164,20 @@ const MORE_LANGS: { id: string; label: string; abbr: string }[] = [
 ];
 
 // Proficiency levels (tutor): index 1..4. Colours follow the design palette.
-const LEVELS: { word: string; color: string; frac: number }[] = [
-  { word: "", color: "transparent", frac: 0 }, // 0 = unset
-  { word: "Beginner", color: "#2D6A4F", frac: 0.25 }, // green
-  { word: "Intermediate", color: "#F4A923", frac: 0.5 }, // gold / yellow
-  { word: "Advanced", color: "#E63946", frac: 0.75 }, // red
-  { word: "Fluent", color: "#9B5DE5", frac: 1 }, // purple
+const LEVELS: { color: string; frac: number }[] = [
+  { color: "transparent", frac: 0 }, // 0 = unset
+  { color: "#2D6A4F", frac: 0.25 }, // green
+  { color: "#F4A923", frac: 0.5 }, // gold / yellow
+  { color: "#E63946", frac: 0.75 }, // red
+  { color: "#9B5DE5", frac: 1 }, // purple
+];
+/** The fluency word per level (1..4); index 0 is unset. */
+const FLUENCY_KEYS: (TranslationKey | null)[] = [
+  null,
+  "fluency.beginner",
+  "fluency.intermediate",
+  "fluency.advanced",
+  "fluency.fluent",
 ];
 
 // ---- Section 4: availability / timeline -------------------------------------
@@ -253,7 +263,10 @@ function LangFillCircle({
   size?: number;
   style?: object;
 }) {
+  const t = useT();
   const lv = LEVELS[level] ?? LEVELS[0];
+  const fluencyKey = FLUENCY_KEYS[level] ?? null;
+  const word = fluencyKey ? t(fluencyKey) : "";
   const letterColor =
     level === 0 ? "#9CA3AF" : level >= 3 ? "#FFFFFF" : "#1A1A1A";
   return (
@@ -261,7 +274,7 @@ function LangFillCircle({
       style={[styles.langItem, style]}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={`${label}${level > 0 ? `, ${lv.word}` : ""}`}
+      accessibilityLabel={`${label}${level > 0 ? `, ${word}` : ""}`}
     >
       <View
         style={[styles.fillCircle, { width: size, height: size, borderRadius: size / 2 }]}
@@ -279,7 +292,7 @@ function LangFillCircle({
       <Text style={styles.circleLabel}>{label}</Text>
       {/* Always rendered (transparent when unset) so rows don't jump. */}
       <Text style={[styles.levelWord, { color: level > 0 ? lv.color : "transparent" }]}>
-        {level > 0 ? lv.word : "•"}
+        {level > 0 ? word : "•"}
       </Text>
     </Pressable>
   );
@@ -287,6 +300,7 @@ function LangFillCircle({
 
 /** The "Others" opener circle (magnifier + gold +N badge). */
 function OthersOpener({ count, onPress }: { count: number; onPress: () => void }) {
+  const t = useT();
   return (
     <Pressable
       style={styles.langItem}
@@ -313,7 +327,7 @@ function OthersOpener({ count, onPress }: { count: number; onPress: () => void }
           </View>
         ) : null}
       </View>
-      <Text style={styles.circleLabel}>Others</Text>
+      <Text style={styles.circleLabel}>{t("common.others")}</Text>
     </Pressable>
   );
 }
@@ -343,20 +357,26 @@ export type PreferencesScreenProps = {
 };
 
 export function PreferencesScreen({
-  heading = "Your preferences",
-  subtitle = "Help us find you the best matches.",
+  heading,
+  subtitle,
   banner,
   progress = 1,
   languageMode = "select",
-  languageSectionLabel = "PREFERRED LANGUAGE",
+  languageSectionLabel,
   initialValue = null,
   persistKey,
-  continueLabel = "Continue",
+  continueLabel,
   onContinue,
   onSkip,
   onBack,
 }: PreferencesScreenProps) {
   const proficiency = languageMode === "proficiency";
+
+  const t = useT();
+  const headingText = heading ?? t("prefs.heading.default");
+  const subtitleText = subtitle ?? t("prefs.subtitle.default");
+  const languageLabel = languageSectionLabel ?? t("prefs.section.language");
+  const continueText = continueLabel ?? t("common.continue");
 
   // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
   const { requestSkip, skipModal } = useSkipGuard();
@@ -632,7 +652,7 @@ export function PreferencesScreen({
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >
-          <Text style={styles.skip}>Skip</Text>
+          <Text style={styles.skip}>{t("common.skip")}</Text>
         </Pressable>
       </View>
 
@@ -649,18 +669,18 @@ export function PreferencesScreen({
           </View>
         ) : null}
 
-        <Text style={styles.title}>{heading}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={styles.title}>{headingText}</Text>
+        <Text style={styles.subtitle}>{subtitleText}</Text>
 
         {/* ---- Section 1: lesson format ---- */}
-        <Text style={styles.sectionLabel}>LESSON FORMAT</Text>
+        <Text style={styles.sectionLabel}>{t("prefs.section.format")}</Text>
         <View style={styles.formatRow}>
           {FORMATS.map((f) => (
             <SelectableCircle
               key={f.id}
               style={styles.formatItem}
               size={64}
-              label={f.label}
+              label={t(f.labelKey)}
               selected={format === f.id}
               color={f.color}
               onPress={() => chooseFormat(f.id)}
@@ -686,7 +706,7 @@ export function PreferencesScreen({
               ],
             }}
           >
-            <Text style={styles.sectionLabel}>LOCATION</Text>
+            <Text style={styles.sectionLabel}>{t("prefs.section.location")}</Text>
             <View style={styles.segment}>
               {REGIONS.map((r) => {
                 const on = activeRegion === r.id;
@@ -758,12 +778,9 @@ export function PreferencesScreen({
         ) : null}
 
         {/* ---- Section 3: language ---- */}
-        <Text style={styles.sectionLabel}>{languageSectionLabel}</Text>
+        <Text style={styles.sectionLabel}>{languageLabel}</Text>
         {proficiency ? (
-          <Text style={styles.langHint}>
-            Tap a language to set your fluency. Tap again to raise it: Beginner →
-            Intermediate → Advanced → Fluent (one more tap clears it).
-          </Text>
+          <Text style={styles.langHint}>{t("prefs.langHint")}</Text>
         ) : null}
         <View style={styles.langRowWrap}>
           {proficiency
@@ -795,7 +812,7 @@ export function PreferencesScreen({
         </View>
 
         {/* ---- Section 4: availability ---- */}
-        <Text style={styles.sectionLabel}>WHEN ARE YOU AVAILABLE?</Text>
+        <Text style={styles.sectionLabel}>{t("prefs.section.availability")}</Text>
         <View style={styles.dayRow}>
           {DAYS.map((d) => {
             const on = activeDay === d.key;
@@ -831,10 +848,10 @@ export function PreferencesScreen({
             {slotMode !== "idle" ? (
               <Text style={styles.timelinePrompt}>
                 {slotMode === "start"
-                  ? "Scroll to your start time"
+                  ? t("prefs.slot.scrollStart")
                   : slotMode === "end"
-                    ? "Scroll to your end time"
-                    : "Review your time slot"}
+                    ? t("prefs.slot.scrollEnd")
+                    : t("prefs.slot.review")}
               </Text>
             ) : null}
 
@@ -898,7 +915,7 @@ export function PreferencesScreen({
             {slotMode === "idle" ? (
               <>
                 <Button
-                  label="Add time slot"
+                  label={t("prefs.slot.add")}
                   variant="primary"
                   onPress={beginAddSlot}
                   style={styles.addSlotBtn}
@@ -922,7 +939,7 @@ export function PreferencesScreen({
                         accessibilityRole="button"
                         accessibilityLabel="Delete time slot"
                       >
-                        <Text style={styles.chipDeleteText}>Delete</Text>
+                        <Text style={styles.chipDeleteText}>{t("common.delete")}</Text>
                       </TouchableOpacity>
                     ) : null}
                   </TouchableOpacity>
@@ -930,9 +947,9 @@ export function PreferencesScreen({
               </>
             ) : slotMode === "start" ? (
               <View style={styles.btnPair}>
-                <Button label="Set Start" variant="primary" onPress={setStart} style={styles.pairBtn} />
+                <Button label={t("prefs.slot.setStart")} variant="primary" onPress={setStart} style={styles.pairBtn} />
                 <Button
-                  label="Cancel"
+                  label={t("common.cancel")}
                   variant="ghost"
                   // Editing an existing slot's start → keep it unchanged and go
                   // back to review. A brand-new slot → discard it.
@@ -943,11 +960,11 @@ export function PreferencesScreen({
             ) : slotMode === "end" ? (
               <>
                 <View style={styles.btnPair}>
-                  <Button label="Set End" variant="primary" onPress={setEnd} style={styles.pairBtn} />
+                  <Button label={t("prefs.slot.setEnd")} variant="primary" onPress={setEnd} style={styles.pairBtn} />
                   {pendingEnd != null ? (
                     // Reached via "Edit End": Cancel keeps the original end.
                     <Button
-                      label="Cancel"
+                      label={t("common.cancel")}
                       variant="ghost"
                       onPress={cancelEdit}
                       style={[styles.pairBtn, styles.outlineBtn]}
@@ -955,33 +972,35 @@ export function PreferencesScreen({
                   ) : (
                     // Fresh slot: step back to re-pick the start just set.
                     <Button
-                      label="Edit Start"
+                      label={t("prefs.slot.editStart")}
                       variant="ghost"
                       onPress={editStart}
                       style={[styles.pairBtn, styles.outlineBtn]}
                     />
                   )}
                 </View>
-                <Text style={styles.pendingText}>Start: {fmt(pendingStart ?? 0)}</Text>
+                <Text style={styles.pendingText}>
+                  {t("prefs.slot.startAt", { time: fmt(pendingStart ?? 0) })}
+                </Text>
               </>
             ) : (
               <>
                 <View style={styles.reviewRow}>
                   <Button
-                    label="Done"
+                    label={t("common.done")}
                     variant="primary"
                     onPress={commitSlot}
                     style={styles.reviewBtn}
                     icon={<MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />}
                   />
                   <Button
-                    label="Edit Start"
+                    label={t("prefs.slot.editStart")}
                     variant="ghost"
                     onPress={editStart}
                     style={[styles.reviewBtn, styles.outlineBtn]}
                   />
                   <Button
-                    label="Edit End"
+                    label={t("prefs.slot.editEnd")}
                     variant="ghost"
                     onPress={editEnd}
                     style={[styles.reviewBtn, styles.outlineBtn]}
@@ -995,10 +1014,10 @@ export function PreferencesScreen({
 
             <View style={styles.applyRow}>
               <TouchableOpacity onPress={applyToAll} accessibilityRole="button">
-                <Text style={styles.applyLink}>Apply to all days</Text>
+                <Text style={styles.applyLink}>{t("prefs.slot.applyAll")}</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={clearAll} accessibilityRole="button">
-                <Text style={styles.clearLink}>Clear all days</Text>
+                <Text style={styles.clearLink}>{t("prefs.slot.clearAll")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1007,7 +1026,7 @@ export function PreferencesScreen({
 
       <View style={styles.footer}>
         <Button
-          label={continueLabel}
+          label={continueText}
           variant="primary"
           disabled={!ready || slotDirty}
           onPress={submit}
@@ -1018,7 +1037,7 @@ export function PreferencesScreen({
       <BottomSheet
         visible={sheetOpen}
         onClose={() => setSheetOpen(false)}
-        title={proficiency ? "Languages you teach" : "Add languages"}
+        title={proficiency ? t("prefs.sheet.title.tutor") : t("prefs.sheet.title.add")}
       >
 
             {proficiency ? (
@@ -1048,7 +1067,7 @@ export function PreferencesScreen({
                     style={styles.sheetInput}
                     value={lq}
                     onChangeText={setLq}
-                    placeholder="Search languages…"
+                    placeholder={t("prefs.sheet.search")}
                     placeholderTextColor="#9CA3AF"
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -1083,7 +1102,7 @@ export function PreferencesScreen({
             )}
 
         <Button
-          label="Done"
+          label={t("common.done")}
           variant="primary"
           onPress={() => setSheetOpen(false)}
           style={styles.sheetDone}

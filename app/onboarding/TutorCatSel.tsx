@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 
+import { useT } from "../../components/i18n/LanguageProvider";
 import { CategorySelect, type Interest } from "./StudentCatSel";
 
 /**
@@ -10,6 +11,7 @@ import { CategorySelect, type Interest } from "./StudentCatSel";
  * step and are carried forward alongside the chosen subjects — no backend.
  */
 export default function TutorCatSel() {
+  const t = useT();
   const { levels } = useLocalSearchParams<{ levels?: string }>();
 
   const goNext = (interests: Interest[]) =>
@@ -23,8 +25,8 @@ export default function TutorCatSel() {
 
   return (
     <CategorySelect
-      heading="What subject would you like to teach?"
-      subtitle="Select all that applies."
+      heading={t("tutor.cat.heading")}
+      subtitle={t("tutor.cat.subtitle")}
       progress={0.75}
       persistKey="tutor:interests"
       onContinue={goNext}

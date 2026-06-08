@@ -1,6 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
+
+import { useT } from "../../components/i18n/LanguageProvider";
 import {
   Pressable,
   SafeAreaView,
@@ -29,6 +31,7 @@ const LEVEL_LABELS: Record<string, string> = {
 type ForwardedInterest = { category?: string; label?: string };
 
 export default function TutorNext() {
+  const t = useT();
   const { levels, interests, tutorDetails, format, langLevels } =
     useLocalSearchParams<{
       levels?: string;
@@ -86,8 +89,8 @@ export default function TutorNext() {
         </Pressable>
 
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
-          <Text style={styles.title}>Next step</Text>
-          <Text style={styles.subtitle}>Coming soon — placeholder.</Text>
+          <Text style={styles.title}>{t("next.title")}</Text>
+          <Text style={styles.subtitle}>{t("next.subtitle")}</Text>
 
           <Text style={styles.passed}>Levels you teach: {parsedLevels.length}</Text>
           <View style={styles.list}>

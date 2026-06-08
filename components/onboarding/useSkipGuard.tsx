@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { ConfirmModal } from "../ui/ConfirmModal";
+import { useT } from "../i18n/LanguageProvider";
 import { getStored, setStored } from "./onboardingStore";
 
 /**
@@ -22,6 +23,7 @@ import { getStored, setStored } from "./onboardingStore";
 const SEEN_KEY = "onboarding:skipWarningSeen";
 
 export function useSkipGuard() {
+  const t = useT();
   // The skip action awaiting confirmation; null means the pop-up is closed.
   const [pending, setPending] = useState<(() => void) | null>(null);
 
@@ -46,10 +48,10 @@ export function useSkipGuard() {
   const skipModal = (
     <ConfirmModal
       visible={pending !== null}
-      title="Skip this step?"
-      message="Skipping this step may reduce the quality of your matches. Are you sure?"
-      confirmLabel="Skip anyway"
-      cancelLabel="Go back"
+      title={t("skip.title")}
+      message={t("skip.message")}
+      confirmLabel={t("skip.confirm")}
+      cancelLabel={t("skip.cancel")}
       onConfirm={skipAnyway}
       onCancel={close}
     />

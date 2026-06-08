@@ -11,6 +11,8 @@ import {
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
+import { useT } from "../../components/i18n/LanguageProvider";
+import { type TranslationKey } from "../../components/i18n/translations";
 
 /**
  * Step 1 of student onboarding: pick an education level.
@@ -30,7 +32,7 @@ type LevelKey =
 
 type Level = {
   key: LevelKey;
-  label: string;
+  labelKey: TranslationKey;
   icon: keyof typeof Ionicons.glyphMap;
   /** Colour the icon circle grows into once selected. */
   color: string;
@@ -40,18 +42,19 @@ type Level = {
 // system; orange / yellow / blue / indigo are not design tokens, so they use
 // clean conventional hues (this screen's spec asks for six distinct colours).
 const LEVELS: Level[] = [
-  { key: "kindergarten", label: "Kindergarten", icon: "happy", color: "#E63946" },
-  { key: "primary", label: "Primary", icon: "pencil", color: "#F97316" },
-  { key: "middle", label: "Middle School", icon: "book", color: "#EAB308" },
-  { key: "high", label: "High School", icon: "school", color: "#2D6A4F" },
-  { key: "university", label: "University", icon: "library", color: "#2563EB" },
-  { key: "adult", label: "Adult / Pro", icon: "briefcase", color: "#4F46E5" },
+  { key: "kindergarten", labelKey: "level.kindergarten", icon: "happy", color: "#E63946" },
+  { key: "primary", labelKey: "level.primary", icon: "pencil", color: "#F97316" },
+  { key: "middle", labelKey: "level.middle", icon: "book", color: "#EAB308" },
+  { key: "high", labelKey: "level.high", icon: "school", color: "#2D6A4F" },
+  { key: "university", labelKey: "level.university", icon: "library", color: "#2563EB" },
+  { key: "adult", labelKey: "level.adult", icon: "briefcase", color: "#4F46E5" },
 ];
 
 // This screen is step 1; advancing lands on the category screen further along.
 const PROGRESS = 0.33;
 
 export default function StudentEducationLevel() {
+  const t = useT();
   // Single-select: one level or none. Persisted so returning to this step keeps
   // the choice (see onboardingStore).
   const [selectedKey, setSelectedKey] = usePersistentState<LevelKey | null>(
@@ -84,15 +87,13 @@ export default function StudentEducationLevel() {
             <Ionicons name="chevron-back" size={28} color="#111827" />
           </Pressable>
           <Pressable hitSlop={8} onPress={() => requestSkip(goToCategory)}>
-            <Text style={styles.skip}>Skip</Text>
+            <Text style={styles.skip}>{t("common.skip")}</Text>
           </Pressable>
         </View>
 
         {/* Heading */}
-        <Text style={styles.title}>What's your education level?</Text>
-        <Text style={styles.subtitle}>
-          We'll find tutors who specialise in your stage.
-        </Text>
+        <Text style={styles.title}>{t("student.level.title")}</Text>
+        <Text style={styles.subtitle}>{t("student.level.subtitle")}</Text>
 
         {/* 3 x 2 grid of selectable levels */}
         <View style={styles.grid}>
@@ -110,7 +111,7 @@ export default function StudentEducationLevel() {
                 key={level.key}
                 style={styles.gridItem}
                 accessibilityRole="button"
-                accessibilityLabel={level.label}
+                accessibilityLabel={t(level.labelKey)}
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => setSelectedKey(level.key)}
               >
@@ -121,7 +122,7 @@ export default function StudentEducationLevel() {
                     color={isSelected ? "#FFFFFF" : "#9CA3AF"}
                   />
                 </View>
-                <Text style={styles.itemLabel}>{level.label}</Text>
+                <Text style={styles.itemLabel}>{t(level.labelKey)}</Text>
               </Pressable>
             );
           })}
@@ -129,7 +130,7 @@ export default function StudentEducationLevel() {
 
         {/* Continue — enabled only once a level is chosen. */}
         <Button
-          label="Continue"
+          label={t("common.continue")}
           variant="primary"
           disabled={selectedKey === null}
           style={styles.continue}

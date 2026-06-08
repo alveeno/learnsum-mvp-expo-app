@@ -16,8 +16,6 @@ export default function StudentPrefs() {
 
   return (
     <PreferencesScreen
-      heading="Your preferences"
-      subtitle="Help us find you the best matches."
       progress={1}
       languageMode="select"
       persistKey="student:prefs"

@@ -5,6 +5,8 @@ import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
+import { useT } from "../../components/i18n/LanguageProvider";
+import { type TranslationKey } from "../../components/i18n/translations";
 
 /**
  * Tutor onboarding — step 2: "Who do you teach?".
@@ -22,21 +24,22 @@ type LevelKey =
   | "university"
   | "adult";
 
-type Level = { key: LevelKey; label: string; icon: keyof typeof Ionicons.glyphMap };
+type Level = { key: LevelKey; labelKey: TranslationKey; icon: keyof typeof Ionicons.glyphMap };
 
 const LEVELS: Level[] = [
-  { key: "kindergarten", label: "Kindergarten", icon: "happy" },
-  { key: "primary", label: "Primary", icon: "pencil" },
-  { key: "middle", label: "Middle School", icon: "book" },
-  { key: "high", label: "High School", icon: "school" },
-  { key: "university", label: "University", icon: "library" },
-  { key: "adult", label: "Adult / Pro", icon: "briefcase" },
+  { key: "kindergarten", labelKey: "level.kindergarten", icon: "happy" },
+  { key: "primary", labelKey: "level.primary", icon: "pencil" },
+  { key: "middle", labelKey: "level.middle", icon: "book" },
+  { key: "high", labelKey: "level.high", icon: "school" },
+  { key: "university", labelKey: "level.university", icon: "library" },
+  { key: "adult", labelKey: "level.adult", icon: "briefcase" },
 ];
 
 const SELECTED_COLOR = "#2D6A4F"; // uniform glow for every chosen level
 const PROGRESS = 0.5;
 
 export default function TutorTeachLevels() {
+  const t = useT();
   // Multi-select: a set of chosen level keys. Persisted so the choices survive
   // navigating away and back (see onboardingStore).
   const [selected, setSelected] = usePersistentState<Set<LevelKey>>(
@@ -83,12 +86,12 @@ export default function TutorTeachLevels() {
             accessibilityRole="button"
             accessibilityLabel="Skip"
           >
-            <Text style={styles.skip}>Skip</Text>
+            <Text style={styles.skip}>{t("common.skip")}</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.title}>Who do you teach?</Text>
-        <Text style={styles.subtitle}>Select all the levels you can teach.</Text>
+        <Text style={styles.title}>{t("tutor.levels.title")}</Text>
+        <Text style={styles.subtitle}>{t("tutor.levels.subtitle")}</Text>
 
         <View style={styles.grid}>
           {LEVELS.map((level) => {
@@ -104,7 +107,7 @@ export default function TutorTeachLevels() {
                 key={level.key}
                 style={styles.gridItem}
                 accessibilityRole="button"
-                accessibilityLabel={level.label}
+                accessibilityLabel={t(level.labelKey)}
                 accessibilityState={{ selected: isSelected }}
                 onPress={() => toggle(level.key)}
               >
@@ -115,14 +118,14 @@ export default function TutorTeachLevels() {
                     color={isSelected ? "#FFFFFF" : "#9CA3AF"}
                   />
                 </View>
-                <Text style={styles.itemLabel}>{level.label}</Text>
+                <Text style={styles.itemLabel}>{t(level.labelKey)}</Text>
               </Pressable>
             );
           })}
         </View>
 
         <Button
-          label="Continue"
+          label={t("common.continue")}
           variant="primary"
           disabled={selected.size === 0}
           style={styles.continue}
