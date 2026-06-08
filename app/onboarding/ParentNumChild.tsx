@@ -47,7 +47,6 @@ export default function ParentNumChild() {
   // the per-child setup that follows (see onboardingStore).
   const [children, setChildren] = usePersistentState<Child[]>("parent:roster", [
     { name: "", level: null },
-    { name: "", level: null },
   ]);
   const count = children.length;
 
@@ -162,22 +161,7 @@ export default function ParentNumChild() {
                 <View style={styles.numberBadge}>
                   <Text style={styles.numberBadgeText}>{i + 1}</Text>
                 </View>
-
-                <View style={styles.nameField}>
-                  <TextInput
-                    style={styles.nameInput}
-                    value={child.name}
-                    onChangeText={(t) => setName(i, t)}
-                    placeholder={`Click here to add name for Child ${i + 1}`}
-                    placeholderTextColor="#9CA3AF"
-                    returnKeyType="done"
-                    accessibilityLabel={`Name for child ${i + 1}`}
-                  />
-                  {child.name.trim().length > 0 ? (
-                    <MaterialIcons name="edit" size={16} color="#9CA3AF" />
-                  ) : null}
-                </View>
-
+                <Text style={styles.childHeading}>Child {i + 1}</Text>
                 {complete ? (
                   <View style={styles.checkOn}>
                     <Ionicons name="checkmark" size={15} color="#FFFFFF" />
@@ -185,6 +169,48 @@ export default function ParentNumChild() {
                 ) : (
                   <View style={styles.checkOff} />
                 )}
+              </View>
+
+              {/* Name — a labelled, boxed field that stays visible after typing,
+                  with a gold highlight + "Required" tag while empty, so it can't
+                  be overlooked (older users missed the old thin underline). */}
+              <View style={styles.nameBlock}>
+                <View style={styles.nameLabelRow}>
+                  <Text style={styles.nameLabel}>CHILD&apos;S NAME</Text>
+                  {child.name.trim().length === 0 ? (
+                    <View style={styles.requiredTag}>
+                      <Text style={styles.requiredTagText}>Required</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <View
+                  style={[
+                    styles.nameBox,
+                    child.name.trim().length === 0
+                      ? styles.nameBoxEmpty
+                      : styles.nameBoxFilled,
+                  ]}
+                >
+                  <Ionicons
+                    name="person"
+                    size={20}
+                    color={child.name.trim().length === 0 ? "#D98E0A" : "#2D6A4F"}
+                  />
+                  <TextInput
+                    style={styles.nameInput}
+                    value={child.name}
+                    onChangeText={(t) => setName(i, t)}
+                    placeholder="Enter their name"
+                    placeholderTextColor="#B58A3C"
+                    returnKeyType="done"
+                    accessibilityLabel={`Name for child ${i + 1}`}
+                  />
+                  {child.name.trim().length > 0 ? (
+                    <MaterialIcons name="check-circle" size={20} color="#2D6A4F" />
+                  ) : (
+                    <MaterialIcons name="edit" size={18} color="#D98E0A" />
+                  )}
+                </View>
               </View>
 
               <ScrollView
@@ -286,20 +312,47 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   numberBadgeText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
-  nameField: {
+  childHeading: {
     flex: 1,
+    marginLeft: 12,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  nameBlock: { marginBottom: 16 },
+  nameLabelRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginLeft: 12,
-    marginRight: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-    paddingBottom: 4,
+    gap: 8,
+    marginBottom: 8,
   },
+  nameLabel: {
+    fontSize: 12.5,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    color: "#6B7280",
+  },
+  requiredTag: {
+    backgroundColor: "#FDECC8",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  requiredTagText: { fontSize: 11, fontWeight: "800", color: "#B26A00" },
+  nameBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+  },
+  nameBoxEmpty: { borderColor: "#F4A923", backgroundColor: "#FDF7E8" },
+  nameBoxFilled: { borderColor: "#E5E7EB", backgroundColor: "#FFFFFF" },
   nameInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: "600",
     color: "#111827",
     paddingVertical: 0,

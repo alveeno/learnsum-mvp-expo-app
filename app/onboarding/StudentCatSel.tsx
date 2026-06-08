@@ -473,7 +473,7 @@ export function CategorySelect({
       >
         {banner ? (
           <View style={styles.banner}>
-            <MaterialCommunityIcons name="account-child" size={18} color="#8A6D1A" />
+            <MaterialCommunityIcons name="account-child" size={22} color="#8A6D1A" />
             <Text style={styles.bannerText}>{banner}</Text>
           </View>
         ) : null}
@@ -731,15 +731,15 @@ const styles = StyleSheet.create({
   banner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     backgroundColor: "#FDF3DC", // gold tint
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    marginTop: 4,
-    marginBottom: 4,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 6,
+    marginBottom: 6,
   },
-  bannerText: { color: "#8A6D1A", fontSize: 13.5, fontWeight: "700" },
+  bannerText: { color: "#8A6D1A", fontSize: 17, fontWeight: "800" },
   title: {
     marginTop: 10,
     // 26 (matching the subcategory headers) keeps the heading on one line.
