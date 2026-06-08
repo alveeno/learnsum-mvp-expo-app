@@ -408,6 +408,11 @@ export function PreferencesScreen({
 
   const needLoc = format === "in_person" || format === "both";
   const ready = !!format && (!needLoc || !!district);
+  // A time slot is mid-edit when a start/end is pending but not yet saved with
+  // "Done". Block Continue until it's committed or cancelled so a half-made slot
+  // can't be silently lost. (A freshly opened picker with nothing chosen yet is
+  // not "dirty", so Continue stays available.)
+  const slotDirty = pendingStart != null || pendingEnd != null;
   const regionObj = REGIONS.find((r) => r.id === region) ?? null;
 
   const locAnim = useRef(new Animated.Value(needLoc ? 1 : 0)).current;
@@ -461,10 +466,19 @@ export function PreferencesScreen({
   };
   const selectDay = (day: DayKey) => {
     setActiveDay(day);
-    setSlotMode("idle");
     setPendingStart(null);
     setPendingEnd(null);
     setSelectedChip(null);
+    // First time on a day (no slots yet): skip the redundant "Add time slot"
+    // button and drop straight into picking the start time. Days that already
+    // have slots open to their list — the button is for adding MORE slots there.
+    if (avail[day].length === 0) {
+      setSlotMode("start");
+      setScrollMin(DEFAULT_MIN);
+      scrollToMin(DEFAULT_MIN);
+    } else {
+      setSlotMode("idle");
+    }
   };
   const beginAddSlot = () => {
     setSelectedChip(null);
@@ -971,7 +985,7 @@ export function PreferencesScreen({
         <Button
           label={continueLabel}
           variant="primary"
-          disabled={!ready}
+          disabled={!ready || slotDirty}
           onPress={submit}
         />
       </View>
