@@ -413,6 +413,11 @@ export function PreferencesScreen({
   const [scrollMin, setScrollMin] = useState(0);
   const [viewportW, setViewportW] = useState(0);
   const scrollRef = useRef<ScrollView>(null);
+  // The vertical page scroller + a one-shot flag. Availability now leads the
+  // form; when a day is tapped we scroll its freshly expanded timeline into
+  // view (consumed in the availability onLayout) so parents don't miss it.
+  const pageScrollRef = useRef<ScrollView>(null);
+  const scrollToTimelineRef = useRef(false);
 
   // Auto-save to the shared store on every change, so input is never lost when
   // the user navigates away (and the screen is later rebuilt from scratch).
@@ -497,6 +502,7 @@ export function PreferencesScreen({
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ x, animated: false }));
   };
   const selectDay = (day: DayKey) => {
+    scrollToTimelineRef.current = true;
     setActiveDay(day);
     setPendingStart(null);
     setPendingEnd(null);
@@ -657,6 +663,7 @@ export function PreferencesScreen({
       </View>
 
       <ScrollView
+        ref={pageScrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -672,146 +679,11 @@ export function PreferencesScreen({
         <Text style={styles.title}>{headingText}</Text>
         <Text style={styles.subtitle}>{subtitleText}</Text>
 
-        {/* ---- Section 1: lesson format ---- */}
-        <Text style={styles.sectionLabel}>{t("prefs.section.format")}</Text>
-        <View style={styles.formatRow}>
-          {FORMATS.map((f) => (
-            <SelectableCircle
-              key={f.id}
-              style={styles.formatItem}
-              size={64}
-              label={t(f.labelKey)}
-              selected={format === f.id}
-              color={f.color}
-              onPress={() => chooseFormat(f.id)}
-              renderIcon={({ size, color }) => (
-                <MaterialIcons name={f.icon} size={size} color={color} />
-              )}
-            />
-          ))}
-        </View>
-
-        {/* ---- Section 2: location (in-person / both) ---- */}
-        {needLoc ? (
-          <Animated.View
-            style={{
-              opacity: locAnim,
-              transform: [
-                {
-                  translateY: locAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-10, 0],
-                  }),
-                },
-              ],
-            }}
-          >
-            <Text style={styles.sectionLabel}>{t("prefs.section.location")}</Text>
-            <View style={styles.segment}>
-              {REGIONS.map((r) => {
-                const on = activeRegion === r.id;
-                const count = countForRegion(r.id);
-                return (
-                  <TouchableOpacity
-                    key={r.id}
-                    style={[styles.segmentTab, on && styles.segmentTabOn]}
-                    onPress={() => setActiveRegion(r.id)}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={`${r.label}${count > 0 ? `, ${count} selected` : ""}`}
-                  >
-                    <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
-                      {r.label}
-                    </Text>
-                    {count > 0 ? (
-                      <View style={styles.regionBadge}>
-                        <Text style={styles.regionBadgeText}>{count}</Text>
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {/* Pick a region tab to reveal its districts; selections persist
-                across tabs so districts can be chosen in several regions. */}
-            {activeRegionObj ? (
-              <View style={styles.districtGrid}>
-                {activeRegionObj.districts.map((d) => {
-                  const on = districts.includes(districtKey(activeRegionObj.id, d));
-                  return (
-                    <TouchableOpacity
-                      key={d}
-                      style={styles.districtItem}
-                      onPress={() => toggleDistrict(activeRegionObj.id, d)}
-                      activeOpacity={0.85}
-                      accessibilityRole="button"
-                      accessibilityLabel={d}
-                      accessibilityState={{ selected: on }}
-                    >
-                      <View
-                        style={[
-                          styles.districtCircle,
-                          on ? styles.districtCircleOn : styles.districtCircleOff,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.districtChar,
-                            { color: on ? "#FFFFFF" : "#111827" },
-                          ]}
-                        >
-                          {DISTRICT_ZH[d] ?? d[0]}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[styles.districtLabel, on && styles.districtLabelOn]}
-                      >
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : null}
-          </Animated.View>
-        ) : null}
-
-        {/* ---- Section 3: language ---- */}
-        <Text style={styles.sectionLabel}>{languageLabel}</Text>
-        {proficiency ? (
-          <Text style={styles.langHint}>{t("prefs.langHint")}</Text>
-        ) : null}
-        <View style={styles.langRowWrap}>
-          {proficiency
-            ? MAIN_LANGS.map((l) => (
-                <LangFillCircle
-                  key={l.id}
-                  abbr={l.abbr}
-                  label={l.label}
-                  level={langLevels[l.id] ?? 0}
-                  onPress={() => cycleLevel(l.id)}
-                  size={56}
-                />
-              ))
-            : MAIN_LANGS.map((l) => (
-                <SelectableCircle
-                  key={l.id}
-                  style={styles.langItem}
-                  size={56}
-                  label={l.label}
-                  selected={langs.includes(l.id)}
-                  color={l.color}
-                  onPress={() => toggleLang(l.id)}
-                  renderIcon={({ size, color }) => (
-                    <MaterialIcons name={l.icon} size={size} color={color} />
-                  )}
-                />
-              ))}
-          <OthersOpener count={othersCount} onPress={() => setSheetOpen(true)} />
-        </View>
-
-        {/* ---- Section 4: availability ---- */}
+        {/* ---- Availability (the "Section 4" data block defined above) is
+             rendered FIRST on purpose: parents kept tapping a day, missing the
+             timeline that expands below the day row, and pressing Continue.
+             Leading with it — and auto-scrolling it into view on day-select
+             (see the timelineWrap onLayout) — makes it hard to skip. ---- */}
         <Text style={styles.sectionLabel}>{t("prefs.section.availability")}</Text>
         <View style={styles.dayRow}>
           {DAYS.map((d) => {
@@ -844,7 +716,21 @@ export function PreferencesScreen({
         </View>
 
         {activeDay ? (
-          <View style={styles.timelineWrap}>
+          <View
+            style={styles.timelineWrap}
+            onLayout={(e) => {
+              // Fired when the timeline first mounts (and when it grows on
+              // day-switch). Only act on a fresh day-select; bring the timeline
+              // up to the top of the viewport, keeping the day row above it for
+              // context, so the expanded selector can't be missed.
+              if (!scrollToTimelineRef.current) return;
+              scrollToTimelineRef.current = false;
+              const y = Math.max(0, e.nativeEvent.layout.y - 96);
+              requestAnimationFrame(() =>
+                pageScrollRef.current?.scrollTo({ y, animated: true }),
+              );
+            }}
+          >
             {slotMode !== "idle" ? (
               <Text style={styles.timelinePrompt}>
                 {slotMode === "start"
@@ -1022,6 +908,145 @@ export function PreferencesScreen({
             </View>
           </View>
         ) : null}
+
+        {/* ---- Section 1: lesson format ---- */}
+        <Text style={styles.sectionLabel}>{t("prefs.section.format")}</Text>
+        <View style={styles.formatRow}>
+          {FORMATS.map((f) => (
+            <SelectableCircle
+              key={f.id}
+              style={styles.formatItem}
+              size={64}
+              label={t(f.labelKey)}
+              selected={format === f.id}
+              color={f.color}
+              onPress={() => chooseFormat(f.id)}
+              renderIcon={({ size, color }) => (
+                <MaterialIcons name={f.icon} size={size} color={color} />
+              )}
+            />
+          ))}
+        </View>
+
+        {/* ---- Section 2: location (in-person / both) ---- */}
+        {needLoc ? (
+          <Animated.View
+            style={{
+              opacity: locAnim,
+              transform: [
+                {
+                  translateY: locAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-10, 0],
+                  }),
+                },
+              ],
+            }}
+          >
+            <Text style={styles.sectionLabel}>{t("prefs.section.location")}</Text>
+            <View style={styles.segment}>
+              {REGIONS.map((r) => {
+                const on = activeRegion === r.id;
+                const count = countForRegion(r.id);
+                return (
+                  <TouchableOpacity
+                    key={r.id}
+                    style={[styles.segmentTab, on && styles.segmentTabOn]}
+                    onPress={() => setActiveRegion(r.id)}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${r.label}${count > 0 ? `, ${count} selected` : ""}`}
+                  >
+                    <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
+                      {r.label}
+                    </Text>
+                    {count > 0 ? (
+                      <View style={styles.regionBadge}>
+                        <Text style={styles.regionBadgeText}>{count}</Text>
+                      </View>
+                    ) : null}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            {/* Pick a region tab to reveal its districts; selections persist
+                across tabs so districts can be chosen in several regions. */}
+            {activeRegionObj ? (
+              <View style={styles.districtGrid}>
+                {activeRegionObj.districts.map((d) => {
+                  const on = districts.includes(districtKey(activeRegionObj.id, d));
+                  return (
+                    <TouchableOpacity
+                      key={d}
+                      style={styles.districtItem}
+                      onPress={() => toggleDistrict(activeRegionObj.id, d)}
+                      activeOpacity={0.85}
+                      accessibilityRole="button"
+                      accessibilityLabel={d}
+                      accessibilityState={{ selected: on }}
+                    >
+                      <View
+                        style={[
+                          styles.districtCircle,
+                          on ? styles.districtCircleOn : styles.districtCircleOff,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.districtChar,
+                            { color: on ? "#FFFFFF" : "#111827" },
+                          ]}
+                        >
+                          {DISTRICT_ZH[d] ?? d[0]}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[styles.districtLabel, on && styles.districtLabelOn]}
+                      >
+                        {d}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ) : null}
+          </Animated.View>
+        ) : null}
+
+        {/* ---- Section 3: language ---- */}
+        <Text style={styles.sectionLabel}>{languageLabel}</Text>
+        {proficiency ? (
+          <Text style={styles.langHint}>{t("prefs.langHint")}</Text>
+        ) : null}
+        <View style={styles.langRowWrap}>
+          {proficiency
+            ? MAIN_LANGS.map((l) => (
+                <LangFillCircle
+                  key={l.id}
+                  abbr={l.abbr}
+                  label={l.label}
+                  level={langLevels[l.id] ?? 0}
+                  onPress={() => cycleLevel(l.id)}
+                  size={56}
+                />
+              ))
+            : MAIN_LANGS.map((l) => (
+                <SelectableCircle
+                  key={l.id}
+                  style={styles.langItem}
+                  size={56}
+                  label={l.label}
+                  selected={langs.includes(l.id)}
+                  color={l.color}
+                  onPress={() => toggleLang(l.id)}
+                  renderIcon={({ size, color }) => (
+                    <MaterialIcons name={l.icon} size={size} color={color} />
+                  )}
+                />
+              ))}
+          <OthersOpener count={othersCount} onPress={() => setSheetOpen(true)} />
+        </View>
       </ScrollView>
 
       <View style={styles.footer}>
