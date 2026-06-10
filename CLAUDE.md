@@ -65,12 +65,13 @@ File-based routes (Expo Router). v1 route map:
 | Route            | Purpose |
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
-| `/feed`          | Home feed — **placeholder built** (real feed not yet) |
-| `/tutors/[slug]` | Tutor profile page — *not built yet* |
-| `/search`        | Browse and filter — *not built yet* |
-| `/notifications` | Notification centre — *not built yet* |
-| `/profile`       | Own profile and settings — *not built yet* |
-| `/auth/*`        | Login / sign-up — *not built; login is a placeholder bottom sheet (below), not a route* |
+| `/feed`          | Home feed (personalized matches; guest = latest tutors) — **placeholder built** (real feed not yet) |
+| `/tutors/[slug]` | Tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — *not built yet* |
+| `/search`        | Browse + full filters + Quick Match card — *not built yet* |
+| `/profile`       | Own profile, editing, account deletion; tutor "complete your profile" + publish/unpublish — *not built yet* |
+| `/auth/*`        | Email+password **and** social login — *not built; login is a placeholder bottom sheet (below), not a route* |
+
+> **No `/notifications` route — notifications are fully out of v1.**
 
 Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
 one flow per role. The welcome screen routes into the first screen of each:
@@ -82,23 +83,37 @@ one flow per role. The welcome screen routes into the first screen of each:
   (Strengths & Details) → `TutorPrefs` → `TutorNext` *(placeholder landing — the
   real post-onboarding screen isn't built yet)*
 
-The student and parent flows land on `/feed` (a placeholder "You're all set" screen) and
-the tutor flow lands on `TutorNext` (placeholder). **Log in** is a placeholder bottom sheet
-(`components/auth/LoginSheet.tsx`) opened from the welcome screen — email/password +
-Google/Apple/Microsoft buttons, nothing wired to a backend yet — **not** a route. Fleshing
-out these placeholders (and the real `/feed`, `/auth`) is the next work.
+The student and parent flows currently land on `/feed` (a placeholder "You're all set"
+screen) and the tutor flow lands on `TutorNext` (placeholder). **The real next work:** add a
+**final credential step (Option A)** to the end of each flow that collects email + password,
+creates the Supabase account, and **persists the whole onboarding store to the backend in one
+shot** (email verification is OFF, so the new session is live immediately). **Social login
+(Google / Apple / Microsoft) is in v1** — wire the buttons in `components/auth/LoginSheet.tsx`
+(today they're dead UI). After onboarding a **tutor is unpublished**: the tutor home shows a
+persistent "complete your profile" prompt → a screen for bio, photo, WhatsApp, Instagram,
+WeChat and remaining details, then explicit publish (tutors can also self-unpublish). **Log
+in** is a placeholder bottom sheet opened from the welcome screen — not a route.
 
-**No messaging screen in v1.** Contact happens via WhatsApp redirect and inquiry form
-only — there is no `/messages` route.
+**No messaging screen in v1.** Contact happens via **WhatsApp, Instagram, and WeChat**
+buttons on the tutor profile (all optional, any combination) — there is no `/messages` route
+and **no inquiry form**.
 
 ## Architecture decisions
 
-- **Contact flow:** WhatsApp redirect is the primary path; the inquiry form is the
-  fallback. **No in-app messaging in v1.**
-- **Guest home feed** shows the latest published tutors with **no personalisation**.
-- **Tutor profile pages are public** and viewable **without auth**.
-- **Auth is required only for:** posting content, sending inquiries, and accessing
-  notifications and profile.
+- **Onboarding (Option A):** browse freely; each role's flow collects everything first and
+  takes **email + password on the final step**, which creates the account and persists the
+  onboarding store in one shot. Email verification is OFF.
+- **Contact flow:** **WhatsApp + Instagram + WeChat** buttons on the tutor profile — all
+  optional, any combination, all shown at once. WhatsApp pre-fills `Hi, I found you on
+  LearnSum and I'm interested in tutoring for [subject].` **No inquiry form. No in-app
+  messaging in v1.**
+- **Home feed:** personalized weighted matching for seekers (subject > availability > price
+  > language > district; per child for parents); **guests** get the latest published tutors
+  (`created_at` DESC, unfiltered).
+- **Tutor profile pages are public** and viewable **without auth**; a tutor is **not
+  published** until they complete their profile and publish.
+- **Auth is required only for:** posting content, profile editing / account deletion, and
+  saving filter preferences. **Notifications and chat are out of v1.**
 
 ## Onboarding state & persistence
 
@@ -108,8 +123,9 @@ All onboarding input is kept in a shared **in-memory** store —
 then forward again, which would wipe local `useState`; the store lets a rebuilt
 screen re-seed itself so **input is never lost while the app is open**.
 
-- **In-memory only** — no AsyncStorage, no backend. Drafts clear on a full app
-  reload/close (consistent with the "no backend writes" rule above).
+- **In-memory during onboarding** — no AsyncStorage, no per-screen backend calls; drafts
+  clear on a full app reload/close. The store is the **staging area**: it is flushed to the
+  backend **once**, at the final credential step (Option A — see Architecture decisions).
 - **Keyed by stable IDs** (subject id, child slot index, etc.) so removing then
   re-adding an item restores its previously-entered data.
 - **Any new onboarding screen that collects input must wire into the store** — use
@@ -124,6 +140,12 @@ screen re-seed itself so **input is never lost while the app is open**.
   `app/onboarding/StudentCatSel.tsx`). Role wrappers (Student/Parent/Tutor) pass copy +
   callbacks; both take a `persistKey` and auto-save. The parent flow (`ParentChildSetup`)
   reuses them per child.
+- **`PreferencesScreen` section order is deliberate:** **availability ("When are you
+  available?") is the first question**, above format / location / language. Parents kept
+  tapping a day, missing the timeline that expands below the day row, and pressing Continue
+  — so it leads the screen and **auto-scrolls into view** when a day is selected
+  (`scrollToTimelineRef` + the `timelineWrap` `onLayout`). Don't reorder it back down. (The
+  in-code `// Section 1..4` comments still number by data block, not on-screen position.)
 - **Skip confirmation:** every onboarding "Skip" routes through `useSkipGuard()`
   (`components/onboarding/useSkipGuard.tsx`), which shows a one-time "Skip this step?"
   warning (`components/ui/ConfirmModal.tsx`) the first time per app session, then skips
@@ -191,13 +213,17 @@ Stored in **`.env.local`** — **never committed**.
 
 ## Explicitly out of scope for v1
 
-- Push notifications
-- Post likes and comments UI
-- Saved filter preferences
-- Advanced search beyond category and district
+- Push notifications **and** in-app notifications (fully out — no `/notifications`)
+- Post likes and comments UI (schema only on the backend)
+- Inquiry form (contact is WhatsApp / Instagram / WeChat)
+- In-app messaging / real-time chat
 - In-app payments
-- In-app messaging
-- Real-time chat
+- Calendar / per-date scheduling (availability is recurring weekday time ranges)
 
-> Note: a per-day availability picker **is** built (the "When are you available?"
-> section of `PreferencesScreen`), so it's no longer out of scope.
+> **Now IN v1** (previously listed out): saved filter preferences + Quick Match card, and the
+> full filter set (preferred languages, districts, format, type, subcategory, price,
+> availability) — not just category + district.
+>
+> Note: the availability picker **is** built (the "When are you available?" section of
+> `PreferencesScreen`) and already collects **precise start/end time ranges** — which is the
+> shape the backend is moving to (it's replacing its old morning/afternoon/evening buckets).
