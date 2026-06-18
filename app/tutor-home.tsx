@@ -6,14 +6,16 @@
  * shares Like / Connect / Premium state across tabs. Viewing another tutor's
  * profile replaces the tab content while the bottom tab bar stays visible.
  *
- * Editorial look, first-time state, English-only text (see CLAUDE.md). Reachable
- * at /tutor-home via the temporary "Tutor Home ›" link on the welcome screen —
- * remove both once the design review is done.
+ * Editorial look, English-only text (see CLAUDE.md). Tutors reach this by picking
+ * "Tutor" on the welcome screen; the "set up your profile" banner (home) and gate
+ * (profile) start — or resume — onboarding, and hide once every step is done.
  */
-import { useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { isOnboardingComplete, startTutorSetup } from "../components/onboarding/tutorOnboarding";
 import { AnalyticsScreen } from "../components/tutor/AnalyticsScreen";
 import { ChatScreen } from "../components/tutor/ChatScreen";
 import { FeedScreen } from "../components/tutor/FeedScreen";
@@ -40,6 +42,16 @@ function TutorShell() {
   );
   const [premium, setPremium] = useState(false);
 
+  // Whether the "set up your profile" banner + gate should show. Re-checked when
+  // /tutor-home regains focus (e.g. returning from onboarding), since the
+  // in-memory store doesn't notify subscribers.
+  const [setupDone, setSetupDone] = useState(isOnboardingComplete);
+  useFocusEffect(
+    useCallback(() => {
+      setSetupDone(isOnboardingComplete());
+    }, []),
+  );
+
   const onLike = (id: string) => setLikes((s) => toggle(s, id));
   const onConnect = (id: string) => setConnected((s) => toggle(s, id));
   const openProfile = (id: string) => {
@@ -55,7 +67,15 @@ function TutorShell() {
   let screen;
   if (tab === "home") {
     screen = (
-      <FeedScreen likes={likes} connected={connected} onLike={onLike} onConnect={onConnect} onOpenProfile={openProfile} />
+      <FeedScreen
+        likes={likes}
+        connected={connected}
+        onLike={onLike}
+        onConnect={onConnect}
+        onOpenProfile={openProfile}
+        showSetup={!setupDone}
+        onSetup={startTutorSetup}
+      />
     );
   } else if (tab === "search") {
     screen = <SearchScreen connected={connected} onConnect={onConnect} onOpenProfile={openProfile} />;
@@ -64,7 +84,7 @@ function TutorShell() {
   } else if (tab === "analytics") {
     screen = <AnalyticsScreen premium={premium} onUpgrade={() => setPremium(true)} />;
   } else {
-    screen = <ProfileScreen premium={premium} />;
+    screen = <ProfileScreen premium={premium} showSetup={!setupDone} onSetup={startTutorSetup} />;
   }
 
   return (

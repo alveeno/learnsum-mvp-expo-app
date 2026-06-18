@@ -82,16 +82,26 @@ one flow per role:
   preferences, one child at a time, then a review)
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (name, bio,
-  gender, education — all optional) → `TutorNext` *(placeholder landing — the real
-  post-onboarding screen isn't built yet)*
+  gender, education — all optional), which returns to **`/tutor-home`** on Continue.
+  *(`TutorNext` still exists but is no longer used in the tutor flow.)*
 
 **Routing from the welcome screen:** **student** and **parent** go straight into the first
 screen of their onboarding flow (landing on `/feed`, a placeholder "You're all set" screen).
 **Tutor is home-first:** picking "Tutor" goes directly to **`/tutor-home`** (the tutor app
 shell, in its first-time / not-yet-set-up state). The tutor onboarding flow above is reached
 **from there** — via the gold **"Complete profile"** banner on the Home feed and the **"Set up
-your profile"** gate on the Profile tab (both push `/onboarding/SignUp`, the first step). It
-still ends on `TutorNext` (placeholder).
+your profile"** gate on the Profile tab. On Continue, the final step (`TutorAbout`) returns to
+`/tutor-home` (`TutorNext` is no longer used in the tutor flow).
+
+**Completion + resume (`components/onboarding/tutorOnboarding.ts`):** a step counts as done
+once the user presses **Continue** on it (Skip / never-reached = incomplete). The Home banner
+and Profile gate show only while ≥1 of the five profile steps is incomplete, and **hide once
+all are done** — re-checked when `/tutor-home` regains focus (the in-memory store has no
+subscription). Tapping the banner **resumes only the skipped steps** in order, jumping over
+completed ones; first-timers pass through `SignUp` first, returning (signed-up) tutors jump
+straight in. Because a resumed step can be entered directly, `TutorSD` reads its
+subjects/levels from the store (`tutor:interests` / `tutor:levels`) rather than route params.
+State is **session-only** (a full reload resets it).
 
 **Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
 that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is

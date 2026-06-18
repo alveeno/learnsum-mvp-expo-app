@@ -1,5 +1,5 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import {
   Pressable,
   SafeAreaView,
@@ -13,6 +13,7 @@ import {
 
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { finishToHome, onStepContinue } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../../components/i18n/translations";
 
@@ -23,8 +24,8 @@ import { type TranslationKey } from "../../components/i18n/translations";
  * education history (Kindergarten / Primary / Secondary / University — multiple
  * schools each, for people who switched) and what they're currently studying.
  * Everything is OPTIONAL and kept in the shared in-memory onboarding store
- * (`usePersistentState`). It forwards the params gathered by the earlier steps
- * straight through to TutorNext — no backend.
+ * (`usePersistentState`). On Continue it marks onboarding's final step done and
+ * returns to the tutor home — no backend.
  */
 
 const PROGRESS = 1; // final info step, just before the placeholder landing
@@ -55,23 +56,6 @@ const GENDERS: { key: string; labelKey: TranslationKey }[] = [
 export default function TutorAbout() {
   const t = useT();
 
-  // Earlier steps (levels, subjects, details, preferences) thread their answers
-  // through as route params; forward them on to the placeholder landing.
-  const params = useLocalSearchParams<{
-    levels?: string;
-    interests?: string;
-    tutorDetails?: string;
-    format?: string;
-    langLevels?: string;
-  }>();
-  const carried = {
-    ...(params.levels ? { levels: params.levels } : {}),
-    ...(params.interests ? { interests: params.interests } : {}),
-    ...(params.tutorDetails ? { tutorDetails: params.tutorDetails } : {}),
-    ...(params.format ? { format: params.format } : {}),
-    ...(params.langLevels ? { langLevels: params.langLevels } : {}),
-  };
-
   const [firstName, setFirstName] = usePersistentState("tutor:about:firstName", "");
   const [lastName, setLastName] = usePersistentState("tutor:about:lastName", "");
   const [bio, setBio] = usePersistentState("tutor:about:bio", "");
@@ -97,7 +81,7 @@ export default function TutorAbout() {
     setCurrent((prev) => prev.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   const removeCurrent = (i: number) => setCurrent((prev) => prev.filter((_, j) => j !== i));
 
-  const proceed = () => router.push({ pathname: "/onboarding/TutorNext", params: carried });
+  const proceed = () => onStepContinue("about", finishToHome);
 
   return (
     <SafeAreaView style={styles.safeArea}>

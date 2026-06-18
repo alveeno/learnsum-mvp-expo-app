@@ -1,5 +1,5 @@
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from "@expo/vector-icons";
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -20,7 +20,8 @@ import {
 
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
-import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { getStored, usePersistentState } from "../../components/onboarding/onboardingStore";
+import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 import { useT } from "../../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../../components/i18n/translations";
@@ -773,35 +774,25 @@ function DetailCard({
 // ---- screen -----------------------------------------------------------------
 
 export default function TutorSD() {
-  const params = useLocalSearchParams<{ levels?: string; interests?: string }>();
-
+  // Subjects + teaching levels come from the shared store (saved by TutorCatSel
+  // and TutorTeachLevels), not route params — so this screen also renders when
+  // it's jumped into directly during a "resume the skipped steps" pass.
   const subjects = useMemo<Subject[]>(() => {
-    if (!params.interests) return [];
-    try {
-      const arr = JSON.parse(params.interests) as Interest[];
-      if (!Array.isArray(arr)) return [];
-      return arr
-        .filter((it) => it.catId && it.subId)
-        .map((it) => ({
-          id: it.subId,
-          label: it.label ?? it.subId,
-          catId: it.catId,
-          color: it.color ?? "#2D6A4F",
-        }));
-    } catch {
-      return [];
-    }
-  }, [params.interests]);
+    const arr = getStored<Interest[]>("tutor:interests", []);
+    return arr
+      .filter((it) => it.catId && it.subId)
+      .map((it) => ({
+        id: it.subId,
+        label: it.label ?? it.subId,
+        catId: it.catId,
+        color: it.color ?? "#2D6A4F",
+      }));
+  }, []);
 
-  const levels = useMemo<string[]>(() => {
-    if (!params.levels) return [];
-    try {
-      const a = JSON.parse(params.levels);
-      return Array.isArray(a) ? (a as string[]) : [];
-    } catch {
-      return [];
-    }
-  }, [params.levels]);
+  const levels = useMemo<string[]>(
+    () => [...getStored<Set<string>>("tutor:levels", new Set<string>())],
+    [],
+  );
   const hasHighUni = levels.includes("high") && levels.includes("university");
 
   // Per-subject details, keyed by "<catId>:<subId>". Persisted so leaving this
@@ -845,15 +836,10 @@ export default function TutorSD() {
     if (target) setOpenKey(keyOf(target));
   };
 
-  const proceed = () =>
-    router.push({
-      pathname: "/onboarding/TutorPrefs",
-      params: {
-        ...(params.levels ? { levels: params.levels } : {}),
-        ...(params.interests ? { interests: params.interests } : {}),
-        tutorDetails: JSON.stringify(details),
-      },
-    });
+  const firstTimeNext = () => router.push("/onboarding/TutorPrefs");
+  // Confirm on the review = completing this step; Skip advances without it.
+  const proceed = () => onStepContinue("sd", firstTimeNext);
+  const skipProceed = () => onStepSkip("sd", firstTimeNext);
   const goReview = () => setView("review");
   const editSubject = (key: string) => {
     setOpenKey(key);
@@ -969,7 +955,7 @@ export default function TutorSD() {
         </Pressable>
         <Pressable
           hitSlop={8}
-          onPress={() => requestSkip(proceed)}
+          onPress={() => requestSkip(skipProceed)}
           accessibilityRole="button"
           accessibilityLabel="Skip"
         >

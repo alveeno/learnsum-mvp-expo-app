@@ -14,6 +14,7 @@ import {
 import { LoginSheet } from "../../components/auth/LoginSheet";
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { goAfterSignUp } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
 
 /**
@@ -27,10 +28,6 @@ import { useT } from "../../components/i18n/LanguageProvider";
  * is ready. If the email exists we open the existing LoginSheet (pre-filled);
  * otherwise we continue into the tutor onboarding flow.
  */
-
-// On continue, a new account continues to the first info step. Tutor-only for
-// now (per the product decision); parameterise this if other roles reuse it.
-const NEXT_ROUTE = "/onboarding/TutorTeachLevels";
 
 // MOCK: emails treated as "already registered". Replace with a backend lookup.
 const REGISTERED_EMAILS = ["existing@learnsum.com", "demo@learnsum.com"];
@@ -50,7 +47,8 @@ export default function SignUp() {
 
   const valid = EMAIL_RE.test(email.trim()) && password.length >= 6;
 
-  const proceed = () => router.push(NEXT_ROUTE);
+  // A new account continues into the first not-completed onboarding step.
+  const proceed = () => goAfterSignUp();
 
   const onContinue = () => {
     if (!valid) return;

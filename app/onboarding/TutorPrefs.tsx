@@ -5,6 +5,7 @@ import {
   prefsToParams,
   type Prefs,
 } from "../../components/onboarding/PreferencesScreen";
+import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
 
 /**
@@ -28,7 +29,7 @@ export default function TutorPrefs() {
     ...(tutorDetails ? { tutorDetails } : {}),
   };
 
-  const goNext = (data: Prefs) =>
+  const firstTimeNext = (data: Prefs) =>
     router.push({
       pathname: "/onboarding/TutorAbout",
       params: { ...carried, ...prefsToParams(data) },
@@ -42,9 +43,11 @@ export default function TutorPrefs() {
       languageMode="proficiency"
       languageSectionLabel={t("prefs.section.language.tutor")}
       persistKey="tutor:prefs"
-      onContinue={goNext}
+      onContinue={(data) => onStepContinue("prefs", () => firstTimeNext(data))}
       onSkip={() =>
-        router.push({ pathname: "/onboarding/TutorAbout", params: carried })
+        onStepSkip("prefs", () =>
+          router.push({ pathname: "/onboarding/TutorAbout", params: carried }),
+        )
       }
       onBack={() => router.back()}
     />

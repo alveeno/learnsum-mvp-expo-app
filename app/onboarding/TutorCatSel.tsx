@@ -1,5 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 
+import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
 import { CategorySelect, type Interest } from "./StudentCatSel";
 
@@ -14,7 +15,7 @@ export default function TutorCatSel() {
   const t = useT();
   const { levels } = useLocalSearchParams<{ levels?: string }>();
 
-  const goNext = (interests: Interest[]) =>
+  const firstTimeNext = (interests: Interest[]) =>
     router.push({
       pathname: "/onboarding/TutorSD",
       params: {
@@ -29,8 +30,8 @@ export default function TutorCatSel() {
       subtitle={t("tutor.cat.subtitle")}
       progress={0.75}
       persistKey="tutor:interests"
-      onContinue={goNext}
-      onSkip={() => goNext([])}
+      onContinue={(interests) => onStepContinue("catSel", () => firstTimeNext(interests))}
+      onSkip={() => onStepSkip("catSel", () => firstTimeNext([]))}
       onBack={() => router.back()}
     />
   );

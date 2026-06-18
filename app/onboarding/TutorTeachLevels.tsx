@@ -4,6 +4,7 @@ import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../../components/ui/Button";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
+import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 import { useT } from "../../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../../components/i18n/translations";
@@ -58,11 +59,13 @@ export default function TutorTeachLevels() {
       return next;
     });
 
-  const goNext = () =>
+  const firstTimeNext = () =>
     router.push({
       pathname: "/onboarding/TutorCatSel",
       params: { levels: JSON.stringify([...selected]) },
     });
+  const goContinue = () => onStepContinue("teachLevels", firstTimeNext);
+  const goSkip = () => onStepSkip("teachLevels", firstTimeNext);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -82,7 +85,7 @@ export default function TutorTeachLevels() {
           </Pressable>
           <Pressable
             hitSlop={8}
-            onPress={() => requestSkip(goNext)}
+            onPress={() => requestSkip(goSkip)}
             accessibilityRole="button"
             accessibilityLabel="Skip"
           >
@@ -129,7 +132,7 @@ export default function TutorTeachLevels() {
           variant="primary"
           disabled={selected.size === 0}
           style={styles.continue}
-          onPress={goNext}
+          onPress={goContinue}
         />
       </View>
 

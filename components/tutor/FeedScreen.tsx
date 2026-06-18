@@ -7,7 +7,6 @@
  * solid colours (RN has no CSS gradients without a native module → EAS rebuild).
  */
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
@@ -276,19 +275,23 @@ export function FeedScreen({
   onLike,
   onConnect,
   onOpenProfile,
+  showSetup,
+  onSetup,
 }: {
   likes: Set<string>;
   connected: Set<string>;
   onLike: (id: string) => void;
   onConnect: (id: string) => void;
   onOpenProfile: (id: string) => void;
+  showSetup: boolean;
+  onSetup: () => void;
 }) {
   const [sheet, setSheet] = useState<Tutor | null>(null);
   return (
     <>
       <FeedBar />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: TH.cardGap, paddingBottom: 24 }}>
-        <SetupBanner onPress={() => router.push("/onboarding/SignUp")} />
+        {showSetup && <SetupBanner onPress={onSetup} />}
         <StoryRow onOpen={onOpenProfile} />
         {TUTORS.map((t, i) => (
           <View key={t.id} style={{ gap: TH.cardGap }}>

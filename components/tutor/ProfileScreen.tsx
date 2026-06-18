@@ -5,7 +5,6 @@
  * controls are present but inert (the profile-setup form is not in this build).
  */
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -21,7 +20,15 @@ const MY_POSTS: { kind: PostKind }[] = [
   { kind: "whiteboard" },
 ];
 
-export function ProfileScreen({ premium }: { premium: boolean }) {
+export function ProfileScreen({
+  premium,
+  showSetup,
+  onSetup,
+}: {
+  premium: boolean;
+  showSetup: boolean;
+  onSetup: () => void;
+}) {
   // Profile is gated until onboarding, so the tabs are display-only (Posts active).
   const [tab] = useState<"posts" | "liked">("posts");
   const liked = LIKED.map((id) => ({ kind: lookupTutor(id).post?.kind ?? ("image" as PostKind) }));
@@ -41,7 +48,7 @@ export function ProfileScreen({ premium }: { premium: boolean }) {
       <View style={{ flex: 1 }}>
         {/* The placeholder profile is dimmed until the tutor completes onboarding. */}
         <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
-          <View style={{ opacity: 0.3 }} pointerEvents="none">
+          <View style={{ opacity: showSetup ? 0.3 : 1 }} pointerEvents={showSetup ? "none" : "auto"}>
             <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 15 }}>
                 <Avatar name={ME.name} size={72} />
@@ -110,20 +117,22 @@ export function ProfileScreen({ premium }: { premium: boolean }) {
         </ScrollView>
 
         {/* Centered setup gate (gold, matches the home banner) → tutor onboarding. */}
-        <View style={styles.gateOverlay} pointerEvents="box-none">
-          <Pressable style={styles.gateCard} onPress={() => router.push("/onboarding/SignUp")}>
-            <View style={styles.gateKicker}>
-              <Ionicons name="rocket" size={14} color="#3a2c06" />
-              <Text style={styles.gateKickerText}>Get started</Text>
-            </View>
-            <Text style={styles.gateTitle}>Set up your profile</Text>
-            <Text style={styles.gateBody}>Add your photo, subjects and rate so parents and students can find you.</Text>
-            <View style={styles.gateCta}>
-              <Text style={styles.gateCtaText}>Complete profile</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" />
-            </View>
-          </Pressable>
-        </View>
+        {showSetup && (
+          <View style={styles.gateOverlay} pointerEvents="box-none">
+            <Pressable style={styles.gateCard} onPress={onSetup}>
+              <View style={styles.gateKicker}>
+                <Ionicons name="rocket" size={14} color="#3a2c06" />
+                <Text style={styles.gateKickerText}>Get started</Text>
+              </View>
+              <Text style={styles.gateTitle}>Set up your profile</Text>
+              <Text style={styles.gateBody}>Add your photo, subjects and rate so parents and students can find you.</Text>
+              <View style={styles.gateCta}>
+                <Text style={styles.gateCtaText}>Complete profile</Text>
+                <Ionicons name="arrow-forward" size={18} color="#fff" />
+              </View>
+            </Pressable>
+          </View>
+        )}
       </View>
     </>
   );
