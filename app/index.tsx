@@ -22,7 +22,7 @@ type UserType = {
   route:
     | "/onboarding/StudentEducationLevel"
     | "/onboarding/ParentNumChild"
-    | "/onboarding/TutorInspiration";
+    | "/tutor-home";
 };
 
 const USER_TYPES: UserType[] = [
@@ -48,7 +48,8 @@ const USER_TYPES: UserType[] = [
     descKey: "role.tutor.desc",
     icon: "book",
     color: "#2D6A4F", // Forest Green
-    route: "/onboarding/TutorInspiration",
+    // Tutors land on the home feed first; "Complete profile" there starts onboarding.
+    route: "/tutor-home",
   },
 ];
 

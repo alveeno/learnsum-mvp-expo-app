@@ -65,16 +65,17 @@ File-based routes (Expo Router). v1 route map:
 | Route            | Purpose |
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
-| `/feed`          | Home feed (personalized matches; guest = latest tutors) — **placeholder built** (real feed not yet) |
-| `/tutors/[slug]` | Tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — *not built yet* |
-| `/search`        | Browse + full filters + Quick Match card — *not built yet* |
-| `/profile`       | Own profile, editing, account deletion; tutor "complete your profile" + publish/unpublish — *not built yet* |
+| `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built** (front-end only — see "Tutor app shell" below) |
+| `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows — **placeholder built** (real seeker feed not yet) |
+| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — *not built yet* |
+| `/search`        | Standalone seeker search route + Quick Match card — *not built* (a tutor-facing Search tab **is** built inside `/tutor-home`) |
+| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — *not built* (a tutor Profile tab **is** built inside `/tutor-home`) |
 | `/auth/*`        | Email+password **and** social login — *not built; login is a placeholder bottom sheet (below), not a route* |
 
 > **No `/notifications` route — notifications are fully out of v1.**
 
 Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
-one flow per role. The welcome screen routes into the first screen of each:
+one flow per role:
 
 - **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs`
 - **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
@@ -83,26 +84,60 @@ one flow per role. The welcome screen routes into the first screen of each:
   (Strengths & Details) → `TutorPrefs` → `TutorNext` *(placeholder landing — the
   real post-onboarding screen isn't built yet)*
 
-The student and parent flows currently land on `/feed` (a placeholder "You're all set"
-screen) and the tutor flow lands on `TutorNext` (placeholder). **The real next work:** add a
-**final credential step (Option A)** to the end of each flow that collects email + password,
-creates the Supabase account, and **persists the whole onboarding store to the backend in one
-shot** (email verification is OFF, so the new session is live immediately). **Social login
-(Google / Apple / Microsoft) is in v1** — wire the buttons in `components/auth/LoginSheet.tsx`
-(today they're dead UI). After onboarding a **tutor is unpublished**: the tutor home shows a
-persistent "complete your profile" prompt → a screen for bio, photo, WhatsApp, Instagram,
-WeChat and remaining details, then explicit publish (tutors can also self-unpublish). **Log
-in** is a placeholder bottom sheet opened from the welcome screen — not a route.
+**Routing from the welcome screen:** **student** and **parent** go straight into the first
+screen of their onboarding flow (landing on `/feed`, a placeholder "You're all set" screen).
+**Tutor is home-first:** picking "Tutor" goes directly to **`/tutor-home`** (the tutor app
+shell, in its first-time / not-yet-set-up state). The tutor onboarding flow above is reached
+**from there** — via the gold **"Complete profile"** banner on the Home feed and the **"Set up
+your profile"** gate on the Profile tab (both push `/onboarding/TutorInspiration`). It still
+ends on `TutorNext` (placeholder).
+
+**The real next work:** add a **final credential step (Option A)** to the end of each flow that
+collects email + password, creates the Supabase account, and **persists the whole onboarding
+store to the backend in one shot** (email verification is OFF, so the new session is live
+immediately). **Social login (Google / Apple / Microsoft) is in v1** — wire the buttons in
+`components/auth/LoginSheet.tsx` (today they're dead UI). A tutor is **unpublished** until they
+finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
++ remaining details) and explicit publish / self-unpublish are **not built yet** — for now the
+tutor onboarding flow stands in for it. **Log in** is a placeholder bottom sheet opened from
+the welcome screen — not a route.
 
 **No messaging screen in v1.** Contact happens via **WhatsApp, Instagram, and WeChat**
 buttons on the tutor profile (all optional, any combination) — there is no `/messages` route
 and **no inquiry form**.
 
+## Tutor app shell (`/tutor-home`)
+
+The tutor's post-pick landing, **ported from the Claude Design "Tutor Home" handoff** and
+living in `components/tutor/`. A single stateful shell (`app/tutor-home.tsx`) with a custom
+bottom tab bar that switches five tabs, plus a shared "view another tutor" overlay
+(`TutorProfileView`):
+
+- **Home** (`FeedScreen`) — editorial Instagram-style feed: gold **"Complete profile"** banner
+  (→ onboarding), stories row, post cards with like (red pop + count) and a comment sheet with
+  a composer, and a "Tutors you may know" strip.
+- **Search** (`SearchScreen` + `FilterSheet`) — text search over a sample directory, trending
+  tags, recent searches, and an advanced filter sheet (gesture-driven dual sliders, HK
+  district discs, gender, rating/years/sessions/followers).
+- **Chat** (`ChatScreen`) — conversation list + thread with a composer.
+- **Analytics** (`AnalyticsScreen`) — Premium paywall over a dimmed dashboard; "Upgrade"
+  reveals it locally.
+- **Profile** (`ProfileScreen`) — own profile, **dimmed behind a "Set up your profile" gate**
+  (→ onboarding) until setup is done.
+
+**Caveats (prototype):** front-end only — no backend, no real messaging, no real payment.
+**English-only** (not yet wired into i18n — unlike the rest of the app). Gradients and the
+blur/paywall use **flat-colour / opacity approximations** to avoid a native module (which would
+force an EAS rebuild). The Chat and Premium/payments tabs exist here only as UI from the
+design and remain **out of scope for shipping v1** (see below).
+
 ## Architecture decisions
 
 - **Onboarding (Option A):** browse freely; each role's flow collects everything first and
   takes **email + password on the final step**, which creates the account and persists the
-  onboarding store in one shot. Email verification is OFF.
+  onboarding store in one shot. Email verification is OFF. **Tutors are home-first:** they land
+  on `/tutor-home` and enter onboarding from its "Complete profile" / "Set up your profile"
+  prompts (student/parent still go straight into their flow).
 - **Contact flow:** **WhatsApp + Instagram + WeChat** buttons on the tutor profile — all
   optional, any combination, all shown at once. WhatsApp pre-fills `Hi, I found you on
   LearnSum and I'm interested in tutoring for [subject].` **No inquiry form. No in-app
@@ -216,8 +251,10 @@ Stored in **`.env.local`** — **never committed**.
 - Push notifications **and** in-app notifications (fully out — no `/notifications`)
 - Post likes and comments UI (schema only on the backend)
 - Inquiry form (contact is WhatsApp / Instagram / WeChat)
-- In-app messaging / real-time chat
-- In-app payments
+- In-app messaging / real-time chat *(a Chat-tab UI exists in `/tutor-home` from the design
+  handoff, but it's front-end-only and not part of shipping v1)*
+- In-app payments *(the `/tutor-home` Analytics tab shows a Premium paywall UI only — no real
+  payment)*
 - Calendar / per-date scheduling (availability is recurring weekday time ranges)
 
 > **Now IN v1** (previously listed out): saved filter preferences + Quick Match card, and the
