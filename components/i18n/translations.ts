@@ -524,6 +524,24 @@ export const translations = {
     "zh-Hans": "以 Microsoft 注册",
   },
 
+  // ---- onboarding complete (shared "Welcome to LearnSum" screen) ----
+  "welcomeDone.title": { en: "Welcome to LearnSum", "zh-Hant": "歡迎使用 LearnSum", "zh-Hans": "欢迎使用 LearnSum" },
+  "welcomeDone.subtitle": {
+    en: "You're all set. Let's get you started.",
+    "zh-Hant": "一切準備就緒，開始使用吧。",
+    "zh-Hans": "一切准备就绪，开始使用吧。",
+  },
+
+  // ---- tutor about: profile photo + required fields ----
+  "about.photo.add": { en: "Add profile photo", "zh-Hant": "新增個人相片", "zh-Hans": "添加个人照片" },
+  "about.photo.change": { en: "Change photo", "zh-Hant": "更換相片", "zh-Hans": "更换照片" },
+  "about.photo.remove": { en: "Remove photo", "zh-Hant": "移除相片", "zh-Hans": "移除照片" },
+  "about.requiredHint": {
+    en: "Add your first name, last name and gender to continue.",
+    "zh-Hant": "請填寫名字、姓氏及性別以繼續。",
+    "zh-Hans": "请填写名字、姓氏及性别以继续。",
+  },
+
   // ---- auth gate (shown when an unregistered tutor likes / comments / filters) ----
   "authGate.title": { en: "Join LearnSum", "zh-Hant": "加入 LearnSum", "zh-Hans": "加入 LearnSum" },
   "authGate.subtitle": {

@@ -14,7 +14,7 @@ import {
 import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
-import { finishToHome, onStepContinue } from "../../components/onboarding/tutorOnboarding";
+import { onStepContinue } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../../components/i18n/translations";
 
@@ -57,6 +57,7 @@ const GENDERS: { key: string; labelKey: TranslationKey }[] = [
 export default function TutorAbout() {
   const t = useT();
 
+  const [photo, setPhoto] = usePersistentState<boolean>("tutor:about:photo", false);
   const [firstName, setFirstName] = usePersistentState("tutor:about:firstName", "");
   const [lastName, setLastName] = usePersistentState("tutor:about:lastName", "");
   const [bio, setBio] = usePersistentState("tutor:about:bio", "");
@@ -82,7 +83,13 @@ export default function TutorAbout() {
     setCurrent((prev) => prev.map((e, j) => (j === i ? { ...e, ...patch } : e)));
   const removeCurrent = (i: number) => setCurrent((prev) => prev.filter((_, j) => j !== i));
 
-  const proceed = () => onStepContinue("about", finishToHome);
+  const proceed = () =>
+    onStepContinue("about", () =>
+      router.push({ pathname: "/onboarding/Welcome", params: { next: "/tutor-home" } }),
+    );
+
+  // First name, last name and gender are now required to continue (photo is optional).
+  const ready = firstName.trim().length > 0 && lastName.trim().length > 0 && !!gender;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -107,8 +114,44 @@ export default function TutorAbout() {
         <Text style={styles.h1}>{t("about.title")}</Text>
         <Text style={styles.sub}>{t("about.subtitle")}</Text>
 
-        {/* Name (optional) */}
-        <Text style={styles.fieldLabel}>{t("about.name.label")}</Text>
+        {/* Profile photo (optional) — placeholder uploader; selecting an image is
+            mocked for now (no native picker → no EAS rebuild). */}
+        <View style={styles.photoBlock}>
+          <View style={styles.photoWrap}>
+            <Pressable
+              onPress={() => setPhoto(true)}
+              style={[styles.photoCircle, photo && styles.photoCircleSet]}
+              accessibilityRole="button"
+              accessibilityLabel={photo ? t("about.photo.change") : t("about.photo.add")}
+            >
+              <Ionicons
+                name={photo ? "person" : "camera-outline"}
+                size={photo ? 44 : 30}
+                color={photo ? "#FFFFFF" : "#9CA3AF"}
+              />
+            </Pressable>
+            <View style={styles.photoBadge} pointerEvents="none">
+              <Ionicons name={photo ? "pencil" : "add"} size={14} color="#FFFFFF" />
+            </View>
+            {photo ? (
+              <Pressable
+                onPress={() => setPhoto(false)}
+                hitSlop={8}
+                style={styles.photoRemove}
+                accessibilityRole="button"
+                accessibilityLabel={t("about.photo.remove")}
+              >
+                <Ionicons name="close" size={14} color="#FFFFFF" />
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={styles.photoLabel}>{photo ? t("about.photo.change") : t("about.photo.add")}</Text>
+        </View>
+
+        {/* Name (required) */}
+        <Text style={styles.fieldLabel}>
+          {t("about.name.label")} <Text style={styles.req}>*</Text>
+        </Text>
         <View style={styles.nameRow}>
           <TextInput
             style={[styles.input, styles.nameInput]}
@@ -139,7 +182,9 @@ export default function TutorAbout() {
         />
 
         {/* Gender */}
-        <Text style={styles.fieldLabel}>{t("about.gender.label")}</Text>
+        <Text style={styles.fieldLabel}>
+          {t("about.gender.label")} <Text style={styles.req}>*</Text>
+        </Text>
         <View style={styles.genderGrid}>
           {GENDERS.map((g) => {
             const on = gender === g.key;
@@ -252,7 +297,8 @@ export default function TutorAbout() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button label={t("common.continue")} variant="primary" onPress={proceed} />
+        {!ready ? <Text style={styles.requiredHint}>{t("about.requiredHint")}</Text> : null}
+        <Button label={t("common.continue")} variant="primary" disabled={!ready} onPress={proceed} />
       </View>
       </KeyboardAvoider>
     </SafeAreaView>
@@ -311,6 +357,50 @@ const styles = StyleSheet.create({
   genderBtnOn: { backgroundColor: "#2D6A4F", borderColor: "#2D6A4F" },
   genderText: { fontSize: 15, fontWeight: "600", color: "#16201C" },
   genderTextOn: { color: "#FFFFFF" },
+
+  photoBlock: { alignItems: "center", marginTop: 18, marginBottom: 2 },
+  photoWrap: { width: 96, height: 96 },
+  photoCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#F1F3F2",
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
+    borderStyle: "dashed",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoCircleSet: { backgroundColor: "#2D6A4F", borderStyle: "solid", borderColor: "#2D6A4F" },
+  photoBadge: {
+    position: "absolute",
+    right: 2,
+    bottom: 2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#2D6A4F",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  photoRemove: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#E63946",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  photoLabel: { marginTop: 10, fontSize: 13.5, fontWeight: "600", color: "#2D6A4F" },
+  req: { color: "#E63946", fontWeight: "800" },
+  requiredHint: { fontSize: 12.5, color: "#6B7280", textAlign: "center", marginBottom: 10 },
 
   eduCard: {
     backgroundColor: "#FFFFFF",

@@ -66,7 +66,7 @@ File-based routes (Expo Router). Route map:
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built** (front-end only — see "Tutor app shell" below) |
-| `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows — **placeholder built** (real seeker feed **→ Todo**) |
+| `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows (reached via the shared `Welcome` screen on completion) — **placeholder built** (real seeker feed **→ Todo**) |
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — **→ Todo** |
 | `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
 | `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
@@ -81,17 +81,24 @@ one flow per role:
 - **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
   preferences, one child at a time, then a review)
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
-  `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (name, bio,
-  gender, education — all optional), which returns to **`/tutor-home`** on Continue.
-  *(The old `TutorNext` placeholder has been removed.)*
+  `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (a **profile
+  photo** — optional placeholder uploader, mocked, no native picker; **first name, last name and
+  gender are required to Continue**; bio + education stay optional). Continue goes to the shared
+  **`Welcome`** screen, then **`/tutor-home`**. *(The old `TutorNext` placeholder has been removed.)*
+- **Shared completion (`app/onboarding/Welcome.tsx`):** every role's final **Continue** lands on a
+  "Welcome to LearnSum" screen whose own Continue clears the onboarding stack and routes to the
+  role's home — **tutor → `/tutor-home`, student/parent → `/feed`** (passed in as a `next` route
+  param). Skipping out of a flow still goes straight to `/feed`, bypassing `Welcome`.
 
 **Routing from the welcome screen:** **student** and **parent** go straight into the first
-screen of their onboarding flow (landing on `/feed`, a placeholder "You're all set" screen).
-**Tutor is home-first:** picking "Tutor" goes directly to **`/tutor-home`** (the tutor app
-shell, in its first-time / not-yet-set-up state). The tutor onboarding flow above is reached
-**from there** — via the gold **"Complete profile"** banner on the Home feed and the **"Set up
-your profile"** gate on the Profile tab. On Continue, the final step (`TutorAbout`) returns to
-`/tutor-home` (the old `TutorNext` placeholder was removed).
+screen of their onboarding flow, which finishes on the shared `Welcome` screen and then `/feed`
+(a placeholder "You're all set" screen). **Tutor is home-first:** picking "Tutor" goes directly
+to **`/tutor-home`** (the tutor app shell, in its first-time / not-yet-set-up state). The tutor
+onboarding flow above is reached **from there** — via the gold **"Complete profile"** banner on
+the Home feed and the **"Set up your profile"** gate on the Profile tab. On Continue, the final
+step (`TutorAbout`) goes through `Welcome` and back to `/tutor-home` (the old `TutorNext`
+placeholder was removed). **Resuming** skipped steps from the banner goes straight home,
+bypassing `Welcome`.
 
 **Completion + resume (`components/onboarding/tutorOnboarding.ts`):** a step counts as done
 once the user presses **Continue** on it (Skip / never-reached = incomplete). The Home banner

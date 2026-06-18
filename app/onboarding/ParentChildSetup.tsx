@@ -198,7 +198,8 @@ export default function ParentChildSetup() {
     setStep({ kind: "child", index: i, phase: "preferences" });
   };
 
-  const confirm = () => router.push("/feed");
+  const confirm = () =>
+    router.push({ pathname: "/onboarding/Welcome", params: { next: "/feed" } });
 
   // ---- per-child category step ----
   if (step.kind === "child" && step.phase === "category") {

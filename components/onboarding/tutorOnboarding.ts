@@ -99,11 +99,6 @@ export function onStepSkip(id: TutorStep, firstTimeNext: () => void): void {
   else firstTimeNext();
 }
 
-/** The final step (About) returns to the tutor home. */
-export function finishToHome(): void {
-  goHome();
-}
-
 /**
  * "Set up your profile" banner tap (home feed + profile gate). First-timers go
  * through the SignUp gate; returning (signed-up) tutors jump straight to the
