@@ -83,7 +83,7 @@ one flow per role:
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (name, bio,
   gender, education — all optional), which returns to **`/tutor-home`** on Continue.
-  *(`TutorNext` still exists but is no longer used in the tutor flow.)*
+  *(The old `TutorNext` placeholder has been removed.)*
 
 **Routing from the welcome screen:** **student** and **parent** go straight into the first
 screen of their onboarding flow (landing on `/feed`, a placeholder "You're all set" screen).
@@ -91,7 +91,7 @@ screen of their onboarding flow (landing on `/feed`, a placeholder "You're all s
 shell, in its first-time / not-yet-set-up state). The tutor onboarding flow above is reached
 **from there** — via the gold **"Complete profile"** banner on the Home feed and the **"Set up
 your profile"** gate on the Profile tab. On Continue, the final step (`TutorAbout`) returns to
-`/tutor-home` (`TutorNext` is no longer used in the tutor flow).
+`/tutor-home` (the old `TutorNext` placeholder was removed).
 
 **Completion + resume (`components/onboarding/tutorOnboarding.ts`):** a step counts as done
 once the user presses **Continue** on it (Skip / never-reached = incomplete). The Home banner

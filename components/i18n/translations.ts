@@ -101,18 +101,6 @@ export const translations = {
     "zh-Hans": "选择你能教授的所有程度。",
   },
 
-  // ---- tutor: inspiration ----
-  "tutor.inspiration.title": {
-    en: "Inspiration deck",
-    "zh-Hant": "靈感範例",
-    "zh-Hans": "灵感范例",
-  },
-  "tutor.inspiration.subtitle": {
-    en: "Sample tutor profiles to inspire your own will appear here. Coming soon.",
-    "zh-Hant": "這裡將顯示導師檔案範例，啟發你建立自己的檔案。敬請期待。",
-    "zh-Hans": "这里将显示导师档案范例，启发你建立自己的档案。敬请期待。",
-  },
-
   // ---- parent: children ----
   "parent.children.title": { en: "Your children", "zh-Hant": "你的孩子", "zh-Hans": "你的孩子" },
   "parent.children.subtitle": {
@@ -427,7 +415,7 @@ export const translations = {
   "sd.years.one": { en: "{n} year", "zh-Hant": "{n} 年", "zh-Hans": "{n} 年" },
   "sd.years.other": { en: "{n} years", "zh-Hant": "{n} 年", "zh-Hans": "{n} 年" },
 
-  // ---- placeholders (feed / next) ----
+  // ---- placeholder (student/parent "you're all set" feed) ----
   "feed.title": { en: "You're all set!", "zh-Hant": "全部完成！", "zh-Hans": "全部完成！" },
   "feed.subtitle": {
     en: "Your home feed of matched tutors will live here. We're still building it — thanks for your patience.",
@@ -435,12 +423,6 @@ export const translations = {
     "zh-Hans": "你的匹配导师主页将会在这里显示。我们仍在建设中，感谢你的耐心。",
   },
   "feed.back": { en: "Back to start", "zh-Hant": "返回開始", "zh-Hans": "返回开始" },
-  "next.title": { en: "Next step", "zh-Hant": "下一步", "zh-Hans": "下一步" },
-  "next.subtitle": {
-    en: "Coming soon — placeholder.",
-    "zh-Hant": "即將推出 — 佔位畫面。",
-    "zh-Hans": "即将推出 — 占位画面。",
-  },
 
   // ---- tutor onboarding: About you ----
   "about.title": { en: "About you", "zh-Hant": "關於你", "zh-Hans": "关于你" },

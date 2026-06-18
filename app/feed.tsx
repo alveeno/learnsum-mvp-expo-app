@@ -9,7 +9,7 @@ import { useT } from "../components/i18n/LanguageProvider";
  * Home feed — placeholder.
  *
  * The student and parent onboarding flows land here when finished or skipped
- * (the tutor flow lands on TutorNext for now). The real feed of matched tutors
+ * (the tutor flow lands on /tutor-home instead). The real feed of matched tutors
  * isn't built yet (see the route map in CLAUDE.md); this just gives every flow a
  * real screen to arrive on instead of an unmatched route.
  */
