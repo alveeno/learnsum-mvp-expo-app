@@ -30,7 +30,7 @@ export default function TutorPrefs() {
 
   const goNext = (data: Prefs) =>
     router.push({
-      pathname: "/onboarding/TutorNext",
+      pathname: "/onboarding/TutorAbout",
       params: { ...carried, ...prefsToParams(data) },
     });
 
@@ -44,7 +44,7 @@ export default function TutorPrefs() {
       persistKey="tutor:prefs"
       onContinue={goNext}
       onSkip={() =>
-        router.push({ pathname: "/onboarding/TutorNext", params: carried })
+        router.push({ pathname: "/onboarding/TutorAbout", params: carried })
       }
       onBack={() => router.back()}
     />

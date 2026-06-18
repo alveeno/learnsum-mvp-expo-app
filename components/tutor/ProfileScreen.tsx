@@ -111,7 +111,7 @@ export function ProfileScreen({ premium }: { premium: boolean }) {
 
         {/* Centered setup gate (gold, matches the home banner) → tutor onboarding. */}
         <View style={styles.gateOverlay} pointerEvents="box-none">
-          <Pressable style={styles.gateCard} onPress={() => router.push("/onboarding/TutorInspiration")}>
+          <Pressable style={styles.gateCard} onPress={() => router.push("/onboarding/SignUp")}>
             <View style={styles.gateKicker}>
               <Ionicons name="rocket" size={14} color="#3a2c06" />
               <Text style={styles.gateKickerText}>Get started</Text>

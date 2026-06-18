@@ -441,6 +441,105 @@ export const translations = {
     "zh-Hant": "即將推出 — 佔位畫面。",
     "zh-Hans": "即将推出 — 占位画面。",
   },
+
+  // ---- tutor onboarding: About you ----
+  "about.title": { en: "About you", "zh-Hant": "關於你", "zh-Hans": "关于你" },
+  "about.subtitle": {
+    en: "Tell students and parents who you are — everything here is optional.",
+    "zh-Hant": "讓學生和家長認識你——以下全部為選填。",
+    "zh-Hans": "让学生和家长认识你——以下全部为选填。",
+  },
+  "about.name.label": { en: "Your name", "zh-Hant": "你的姓名", "zh-Hans": "你的姓名" },
+  "about.name.firstPlaceholder": { en: "First name", "zh-Hant": "名字", "zh-Hans": "名字" },
+  "about.name.lastPlaceholder": { en: "Last name", "zh-Hant": "姓氏", "zh-Hans": "姓氏" },
+  "about.bio.label": { en: "Bio", "zh-Hant": "個人簡介", "zh-Hans": "个人简介" },
+  "about.bio.placeholder": {
+    en: "Tell students and parents about your teaching style and what makes you a great tutor…",
+    "zh-Hant": "向學生和家長介紹你的教學風格，以及你作為導師的優勢⋯⋯",
+    "zh-Hans": "向学生和家长介绍你的教学风格，以及你作为导师的优势⋯⋯",
+  },
+  "about.gender.label": { en: "Gender", "zh-Hant": "性別", "zh-Hans": "性别" },
+  "about.gender.male": { en: "Male", "zh-Hant": "男", "zh-Hans": "男" },
+  "about.gender.female": { en: "Female", "zh-Hant": "女", "zh-Hans": "女" },
+  "about.gender.lgbtq": { en: "LGBTQ+", "zh-Hant": "LGBTQ+", "zh-Hans": "LGBTQ+" },
+  "about.gender.na": { en: "Rather not say", "zh-Hant": "不願透露", "zh-Hans": "不愿透露" },
+  "about.edu.label": { en: "Education", "zh-Hant": "學歷", "zh-Hans": "学历" },
+  "about.edu.helper": {
+    en: "List the schools you attended at each level — add more than one if you switched.",
+    "zh-Hant": "列出你在各階段就讀的學校——如有轉校可新增多於一間。",
+    "zh-Hans": "列出你在各阶段就读的学校——如有转校可新增多于一间。",
+  },
+  "about.edu.kindergarten": { en: "Kindergarten", "zh-Hant": "幼稚園", "zh-Hans": "幼儿园" },
+  "about.edu.primary": { en: "Primary school", "zh-Hant": "小學", "zh-Hans": "小学" },
+  "about.edu.secondary": { en: "Secondary school", "zh-Hant": "中學", "zh-Hans": "中学" },
+  "about.edu.university": { en: "University", "zh-Hant": "大學", "zh-Hans": "大学" },
+  "about.edu.schoolN": { en: "School {n}", "zh-Hant": "學校 {n}", "zh-Hans": "学校 {n}" },
+  "about.edu.addSchool": { en: "Add school", "zh-Hant": "新增學校", "zh-Hans": "新增学校" },
+  "about.edu.removeSchoolA11y": {
+    en: "Remove school {n}",
+    "zh-Hant": "移除學校 {n}",
+    "zh-Hans": "移除学校 {n}",
+  },
+  "about.edu.institution": { en: "School name", "zh-Hant": "學校名稱", "zh-Hans": "学校名称" },
+  "about.edu.qualification": {
+    en: "Qualification (e.g. IB, BSc Medicine)",
+    "zh-Hant": "學歷（例如 IB、醫學學士）",
+    "zh-Hans": "学历（例如 IB、医学学士）",
+  },
+  "about.edu.score": {
+    en: "Score / result (e.g. 45, First class)",
+    "zh-Hant": "成績／等級（例如 45、一級榮譽）",
+    "zh-Hans": "成绩／等级（例如 45、一级荣誉）",
+  },
+  "about.current.label": { en: "Currently studying", "zh-Hant": "現正修讀", "zh-Hans": "现正修读" },
+  "about.current.helper": {
+    en: "What you're studying now — add more than one if needed.",
+    "zh-Hant": "你現時正在修讀的課程——如有需要可新增多於一項。",
+    "zh-Hans": "你现时正在修读的课程——如有需要可新增多于一项。",
+  },
+  "about.current.n": { en: "Study {n}", "zh-Hant": "課程 {n}", "zh-Hans": "课程 {n}" },
+  "about.current.institution": { en: "Institution", "zh-Hant": "院校", "zh-Hans": "院校" },
+  "about.current.programme": {
+    en: "What you're studying (e.g. BSc Computing in AI)",
+    "zh-Hant": "修讀課程（例如人工智能計算學士）",
+    "zh-Hans": "修读课程（例如人工智能计算学士）",
+  },
+  "about.current.addStudy": { en: "Add study", "zh-Hant": "新增課程", "zh-Hans": "新增课程" },
+  "about.current.removeA11y": {
+    en: "Remove study {n}",
+    "zh-Hant": "移除課程 {n}",
+    "zh-Hans": "移除课程 {n}",
+  },
+
+  // ---- tutor onboarding: sign-up / account gate ----
+  "signup.title": { en: "Create your account", "zh-Hant": "建立你的帳戶", "zh-Hans": "创建你的账户" },
+  "signup.subtitle": {
+    en: "Sign up with your email to get started. Already registered? We'll take you to log in.",
+    "zh-Hant": "以電郵註冊即可開始。已有帳戶？我們會帶你前往登入。",
+    "zh-Hans": "以电邮注册即可开始。已有账户？我们会带你前往登录。",
+  },
+  "signup.existing": {
+    en: "This email already has an account — log in below.",
+    "zh-Hant": "此電郵已有帳戶——請在下方登入。",
+    "zh-Hans": "此电邮已有账户——请在下方登录。",
+  },
+  "signup.email": { en: "Email", "zh-Hant": "電郵", "zh-Hans": "电邮" },
+  "signup.password": { en: "Password", "zh-Hant": "密碼", "zh-Hans": "密码" },
+  "signup.passwordPlaceholder": {
+    en: "At least 6 characters",
+    "zh-Hant": "至少 6 個字元",
+    "zh-Hans": "至少 6 个字符",
+  },
+  "signup.or": { en: "or sign up with", "zh-Hant": "或使用以下方式註冊", "zh-Hans": "或使用以下方式注册" },
+  "signup.showPw": { en: "Show password", "zh-Hant": "顯示密碼", "zh-Hans": "显示密码" },
+  "signup.hidePw": { en: "Hide password", "zh-Hant": "隱藏密碼", "zh-Hans": "隐藏密码" },
+  "signup.social.google": { en: "Sign up with Google", "zh-Hant": "以 Google 註冊", "zh-Hans": "以 Google 注册" },
+  "signup.social.apple": { en: "Sign up with Apple", "zh-Hant": "以 Apple 註冊", "zh-Hans": "以 Apple 注册" },
+  "signup.social.microsoft": {
+    en: "Sign up with Microsoft",
+    "zh-Hant": "以 Microsoft 註冊",
+    "zh-Hans": "以 Microsoft 注册",
+  },
 } satisfies Record<string, Record<Lang, string>>;
 
 /** Every valid translation key (derived from the dictionary above). */

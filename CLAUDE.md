@@ -80,23 +80,32 @@ one flow per role:
 - **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs`
 - **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
   preferences, one child at a time, then a review)
-- **Tutor:** `TutorInspiration` → `TutorTeachLevels` → `TutorCatSel` → `TutorSD`
-  (Strengths & Details) → `TutorPrefs` → `TutorNext` *(placeholder landing — the
-  real post-onboarding screen isn't built yet)*
+- **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
+  `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (name, bio,
+  gender, education — all optional) → `TutorNext` *(placeholder landing — the real
+  post-onboarding screen isn't built yet)*
 
 **Routing from the welcome screen:** **student** and **parent** go straight into the first
 screen of their onboarding flow (landing on `/feed`, a placeholder "You're all set" screen).
 **Tutor is home-first:** picking "Tutor" goes directly to **`/tutor-home`** (the tutor app
 shell, in its first-time / not-yet-set-up state). The tutor onboarding flow above is reached
 **from there** — via the gold **"Complete profile"** banner on the Home feed and the **"Set up
-your profile"** gate on the Profile tab (both push `/onboarding/TutorInspiration`). It still
-ends on `TutorNext` (placeholder).
+your profile"** gate on the Profile tab (both push `/onboarding/SignUp`, the first step). It
+still ends on `TutorNext` (placeholder).
 
-**The real next work:** add a **final credential step (Option A)** to the end of each flow that
-collects email + password, creates the Supabase account, and **persists the whole onboarding
-store to the backend in one shot** (email verification is OFF, so the new session is live
-immediately). **Social login (Google / Apple / Microsoft) is in v1** — wire the buttons in
-`components/auth/LoginSheet.tsx` (today they're dead UI). A tutor is **unpublished** until they
+**Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
+that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is
+collected, to catch returning users. The existence check is a **front-end mock**
+(`REGISTERED_EMAILS` in `app/onboarding/SignUp.tsx` — swap for a backend lookup later); a known
+email opens the existing `LoginSheet` (pre-filled), otherwise it continues into onboarding.
+**This intentionally diverges from Option A below** (which collected credentials on the *final*
+step) — for the tutor flow, credentials now come first.
+
+**The real next work:** wire `SignUp` (and, for student/parent, a **final credential step,
+Option A**) to actually create the Supabase account and **persist the whole onboarding store to
+the backend in one shot** (email verification is OFF, so the new session is live immediately).
+**Social login (Google / Apple / Microsoft) is in v1** — the buttons on `SignUp` and in
+`components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
 + remaining details) and explicit publish / self-unpublish are **not built yet** — for now the
 tutor onboarding flow stands in for it. **Log in** is a placeholder bottom sheet opened from

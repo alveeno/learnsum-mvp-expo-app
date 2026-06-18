@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { BottomSheet } from "../ui/BottomSheet";
@@ -16,13 +16,21 @@ import { BottomSheet } from "../ui/BottomSheet";
 export function LoginSheet({
   visible,
   onClose,
+  initialEmail,
 }: {
   visible: boolean;
   onClose: () => void;
+  /** Pre-fill the email field (e.g. when redirected here from sign-up). */
+  initialEmail?: string;
 }) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+
+  // Seed the email when the sheet is opened with a pre-filled value.
+  useEffect(() => {
+    if (visible && initialEmail) setEmail(initialEmail);
+  }, [visible, initialEmail]);
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>

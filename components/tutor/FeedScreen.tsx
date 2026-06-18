@@ -288,7 +288,7 @@ export function FeedScreen({
     <>
       <FeedBar />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: TH.cardGap, paddingBottom: 24 }}>
-        <SetupBanner onPress={() => router.push("/onboarding/TutorInspiration")} />
+        <SetupBanner onPress={() => router.push("/onboarding/SignUp")} />
         <StoryRow onOpen={onOpenProfile} />
         {TUTORS.map((t, i) => (
           <View key={t.id} style={{ gap: TH.cardGap }}>
