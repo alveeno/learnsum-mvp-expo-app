@@ -60,19 +60,19 @@ UI conventions:
 
 ## Navigation structure
 
-File-based routes (Expo Router). v1 route map:
+File-based routes (Expo Router). Route map:
 
 | Route            | Purpose |
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built** (front-end only — see "Tutor app shell" below) |
-| `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows — **placeholder built** (real seeker feed not yet) |
-| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — *not built yet* |
-| `/search`        | Standalone seeker search route + Quick Match card — *not built* (a tutor-facing Search tab **is** built inside `/tutor-home`) |
-| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — *not built* (a tutor Profile tab **is** built inside `/tutor-home`) |
-| `/auth/*`        | Email+password **and** social login — *not built; login is a placeholder bottom sheet (below), not a route* |
+| `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows — **placeholder built** (real seeker feed **→ Todo**) |
+| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — **→ Todo** |
+| `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
+| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
+| `/auth/*`        | Email+password **and** social login — **→ Todo** (login is a placeholder bottom sheet, not a route) |
 
-> **No `/notifications` route — notifications are fully out of v1.**
+> **No `/notifications` route — notifications aren't built (see the Todo list).**
 
 Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
 one flow per role:
@@ -114,16 +114,16 @@ step) — for the tutor flow, credentials now come first.
 **The real next work:** wire `SignUp` (and, for student/parent, a **final credential step,
 Option A**) to actually create the Supabase account and **persist the whole onboarding store to
 the backend in one shot** (email verification is OFF, so the new session is live immediately).
-**Social login (Google / Apple / Microsoft) is in v1** — the buttons on `SignUp` and in
+**Social login (Google / Apple / Microsoft) is planned** — the buttons on `SignUp` and in
 `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
 + remaining details) and explicit publish / self-unpublish are **not built yet** — for now the
 tutor onboarding flow stands in for it. **Log in** is a placeholder bottom sheet opened from
 the welcome screen — not a route.
 
-**No messaging screen in v1.** Contact happens via **WhatsApp, Instagram, and WeChat**
-buttons on the tutor profile (all optional, any combination) — there is no `/messages` route
-and **no inquiry form**.
+**No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp,
+Instagram, and WeChat** buttons on the tutor profile (all optional, any combination) — there is
+no `/messages` route and **no inquiry form**.
 
 ## Tutor app shell (`/tutor-home`)
 
@@ -148,7 +148,7 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
 **English-only** (not yet wired into i18n — unlike the rest of the app). Gradients and the
 blur/paywall use **flat-colour / opacity approximations** to avoid a native module (which would
 force an EAS rebuild). The Chat and Premium/payments tabs exist here only as UI from the
-design and remain **out of scope for shipping v1** (see below).
+design and are **not wired to a backend yet** (see the Todo list).
 
 ## Architecture decisions
 
@@ -160,14 +160,14 @@ design and remain **out of scope for shipping v1** (see below).
 - **Contact flow:** **WhatsApp + Instagram + WeChat** buttons on the tutor profile — all
   optional, any combination, all shown at once. WhatsApp pre-fills `Hi, I found you on
   LearnSum and I'm interested in tutoring for [subject].` **No inquiry form. No in-app
-  messaging in v1.**
+  messaging** (the Chat tab in `/tutor-home` is UI-only — see the Todo list).
 - **Home feed:** personalized weighted matching for seekers (subject > availability > price
   > language > district; per child for parents); **guests** get the latest published tutors
   (`created_at` DESC, unfiltered).
 - **Tutor profile pages are public** and viewable **without auth**; a tutor is **not
   published** until they complete their profile and publish.
 - **Auth is required only for:** posting content, profile editing / account deletion, and
-  saving filter preferences. **Notifications and chat are out of v1.**
+  saving filter preferences. **Notifications and chat aren't built** (see the Todo list).
 
 ## Onboarding state & persistence
 
@@ -265,21 +265,51 @@ Stored in **`.env.local`** — **never committed**.
 | `EXPO_PUBLIC_SUPABASE_URL`     | Supabase project URL |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY`| Supabase anon key |
 
-## Explicitly out of scope for v1
+## Todo (not yet built)
 
-- Push notifications **and** in-app notifications (fully out — no `/notifications`)
-- Post likes and comments UI (schema only on the backend)
-- Inquiry form (contact is WhatsApp / Instagram / WeChat)
-- In-app messaging / real-time chat *(a Chat-tab UI exists in `/tutor-home` from the design
-  handoff, but it's front-end-only and not part of shipping v1)*
-- In-app payments *(the `/tutor-home` Analytics tab shows a Premium paywall UI only — no real
-  payment)*
-- Calendar / per-date scheduling (availability is recurring weekday time ranges)
+There's no fixed version or deadline — this is the running list of everything still to build.
+Items marked **→ Todo** elsewhere in this doc are tracked here.
 
-> **Now IN v1** (previously listed out): saved filter preferences + Quick Match card, and the
-> full filter set (preferred languages, districts, format, type, subcategory, price,
-> availability) — not just category + district.
->
-> Note: the availability picker **is** built (the "When are you available?" section of
-> `PreferencesScreen`) and already collects **precise start/end time ranges** — which is the
-> shape the backend is moving to (it's replacing its old morning/afternoon/evening buckets).
+**Screens & routes**
+
+- Public tutor profile page `/tutors/[slug]` — bio + post feed + WhatsApp / Instagram / WeChat
+  buttons.
+- Standalone seeker **Search** route + **Quick Match** card (a tutor-facing Search tab already
+  exists inside `/tutor-home`).
+- Standalone **Profile** route — editing, account deletion, publish / self-unpublish (a tutor
+  Profile tab already exists inside `/tutor-home`).
+- Auth routes `/auth/*` (email + password and social); today log in is a placeholder bottom
+  sheet, not a route.
+- Real personalized **home feed** for seekers — `/feed` is currently just a "you're all set"
+  placeholder.
+- Tutor **profile-completion** screen — bio, photo, WhatsApp / Instagram / WeChat + remaining
+  details — plus explicit **publish / self-unpublish**.
+
+**Auth & data**
+
+- Wire `SignUp` (and a final credential step for student / parent) to actually create the
+  Supabase account and **persist the onboarding store to the backend in one shot**.
+- Real **email-existence check** on `SignUp` (currently a front-end mock — `REGISTERED_EMAILS`).
+- **Social login** (Google / Apple / Microsoft) — the buttons are placeholder UI.
+- **Saved filter preferences** — persist a seeker's filters across sessions.
+
+**`/tutor-home` shell — front-end only today, needs backend**
+
+- **Chat / in-app messaging** — the Chat tab is UI-only (no messaging backend).
+- **Premium / in-app payments** — the Analytics tab shows a paywall UI only (no real payment).
+- Replace the prototype sample data and **English-only copy** with live data + i18n (the rest of
+  the app is already trilingual).
+
+**Deferred by design (may stay out)**
+
+- Push notifications **and** in-app notifications (no `/notifications`).
+- Post **likes & comments** UI (schema only on the backend).
+- **Inquiry form** — contact is WhatsApp / Instagram / WeChat instead.
+- **Calendar / per-date scheduling** — availability is recurring weekday time ranges (the
+  picker already collects precise start/end ranges).
+
+**Content pass (i18n)**
+
+- Translate the deferred content lists — subjects / categories, HK districts + regions, language
+  names, qualification / exam option values. UI chrome is already in English / Traditional /
+  Simplified Chinese.

@@ -9,8 +9,9 @@
  * swept; the `satisfies` check below forces every entry to provide all three
  * languages, so nothing can be half-translated by accident.
  *
- * Out of scope for now: content lists (subject names, district names, etc.).
- * Those will be added later using this exact same mechanism — just more keys.
+ * Deferred (a later content pass — see the Todo in CLAUDE.md): content lists
+ * (subject names, district names, etc.). Those use this exact same mechanism —
+ * just more keys.
  */
 
 export type Lang = "en" | "zh-Hant" | "zh-Hans";

@@ -3,7 +3,7 @@
  *
  * Ported from `TutorProfile` in `tutor/tutor-profile.jsx`. Opened from the feed,
  * search results, and the suggestions strip; replaces the tab content while the
- * bottom tab bar stays visible. The Message button is inert (no in-app chat in v1).
+ * bottom tab bar stays visible. The Message button is inert (no in-app chat yet).
  */
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";

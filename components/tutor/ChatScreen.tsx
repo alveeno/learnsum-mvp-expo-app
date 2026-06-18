@@ -2,8 +2,8 @@
  * Tutor app — CHAT (parents/students who reached out).
  *
  * Ported from `tutor/tutor-chat.jsx`. Front-end only: sending a message appends
- * locally, there is no messaging backend (in-app messaging is not in v1 per
- * CLAUDE.md — this is UI for a later release).
+ * locally, there is no messaging backend yet (in-app messaging is on the
+ * CLAUDE.md Todo list — this is UI for a later release).
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";

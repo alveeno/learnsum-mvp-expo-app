@@ -2,8 +2,8 @@
  * Tutor app — ANALYTICS (premium).
  *
  * Ported from `tutor/tutor-analytics.jsx`. Front-end only: "Upgrade" flips local
- * state to reveal the dashboard — there is no real payment (in-app payments are
- * not in v1 per CLAUDE.md). The source blurs the locked dashboard; RN can't blur
+ * state to reveal the dashboard — there is no real payment yet (payments are on
+ * the CLAUDE.md Todo list). The source blurs the locked dashboard; RN can't blur
  * without a native module (EAS rebuild), so it's dimmed (low opacity) instead.
  */
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
