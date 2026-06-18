@@ -24,12 +24,12 @@ import { Avatar, EngagementRow, FollowBtn, Logo, MediaSlot, Qualified } from "./
 import { C, ME, STORIES, SUGGEST, TH, TUTORS, tutorById, type Comment, type Tutor } from "./tutorData";
 
 /* top app bar */
-function FeedBar() {
+function FeedBar({ onCreate }: { onCreate: () => void }) {
   return (
     <View style={styles.feedBar}>
       <Logo size={23} />
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-        <Pressable style={styles.iconBtn}>
+        <Pressable style={styles.iconBtn} onPress={onCreate}>
           <Ionicons name="add-circle-outline" size={27} color={C.ink} />
         </Pressable>
         <Pressable style={styles.iconBtn}>
@@ -66,10 +66,10 @@ function SetupBanner({ onPress }: { onPress: () => void }) {
 }
 
 /* stories-style row */
-function StoryRow({ onOpen }: { onOpen: (id: string) => void }) {
+function StoryRow({ onOpen, onAddStory }: { onOpen: (id: string) => void; onAddStory: () => void }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storyRow}>
-      <View style={styles.storyItem}>
+      <Pressable style={styles.storyItem} onPress={onAddStory}>
         <View style={{ width: 66, height: 66 }}>
           <Avatar name={ME.name} size={66} />
           <View style={styles.storyAdd}>
@@ -79,7 +79,7 @@ function StoryRow({ onOpen }: { onOpen: (id: string) => void }) {
         <Text style={[styles.storyLabel, { color: C.muted }]} numberOfLines={1}>
           Your story
         </Text>
-      </View>
+      </Pressable>
 
       {STORIES.map((id) => {
         const t = tutorById(id);
@@ -277,6 +277,8 @@ export function FeedScreen({
   onOpenProfile,
   showSetup,
   onSetup,
+  registered,
+  onRequireAuth,
 }: {
   likes: Set<string>;
   connected: Set<string>;
@@ -285,14 +287,22 @@ export function FeedScreen({
   onOpenProfile: (id: string) => void;
   showSetup: boolean;
   onSetup: () => void;
+  registered: boolean;
+  onRequireAuth: () => void;
 }) {
   const [sheet, setSheet] = useState<Tutor | null>(null);
+  // Like / connect are gated by the shell; opening the comment sheet, creating a
+  // post and adding a story are gated here (their state lives in this screen).
+  const onComment = (t: Tutor) => (registered ? setSheet(t) : onRequireAuth());
+  const gatedAction = () => {
+    if (!registered) onRequireAuth();
+  };
   return (
     <>
-      <FeedBar />
+      <FeedBar onCreate={gatedAction} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: TH.cardGap, paddingBottom: 24 }}>
         {showSetup && <SetupBanner onPress={onSetup} />}
-        <StoryRow onOpen={onOpenProfile} />
+        <StoryRow onOpen={onOpenProfile} onAddStory={gatedAction} />
         {TUTORS.map((t, i) => (
           <View key={t.id} style={{ gap: TH.cardGap }}>
             <PostCard
@@ -301,7 +311,7 @@ export function FeedScreen({
               connected={connected.has(t.id)}
               onLike={() => onLike(t.id)}
               onConnect={() => onConnect(t.id)}
-              onComment={() => setSheet(t)}
+              onComment={() => onComment(t)}
               onOpenProfile={() => onOpenProfile(t.id)}
             />
             {i === 1 && <SuggestStrip connected={connected} onConnect={onConnect} onOpenProfile={onOpenProfile} />}

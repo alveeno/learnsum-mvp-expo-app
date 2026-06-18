@@ -2,14 +2,17 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { markRegistered } from "../auth/authState";
 import { BottomSheet } from "../ui/BottomSheet";
 
 /**
- * Log-in bottom sheet — PLACEHOLDER (no backend wired yet).
+ * Log-in bottom sheet — DEMO mock (no backend wired yet).
  *
  * The email/password fields are typeable and the eye toggles password
- * visibility (pure UI), but "Forgot password?", the social buttons and "Log in"
- * do nothing for now. When auth is built this is where it hooks in. Copy is
+ * visibility. "Forgot password?" and the social buttons are still inert, but
+ * "Log in" now mocks a successful login: it marks the user registered (the
+ * session-only flag in authState) and hands off via `onLoggedIn` so the caller
+ * can navigate. When real auth is built this is where it hooks in. Copy is
  * intentionally English-only until then (it'll be translated with the real auth
  * build — see the i18n notes in CLAUDE.md).
  */
@@ -17,11 +20,14 @@ export function LoginSheet({
   visible,
   onClose,
   initialEmail,
+  onLoggedIn,
 }: {
   visible: boolean;
   onClose: () => void;
   /** Pre-fill the email field (e.g. when redirected here from sign-up). */
   initialEmail?: string;
+  /** Called after a (mock) successful login — navigate here. Falls back to onClose. */
+  onLoggedIn?: () => void;
 }) {
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
@@ -31,6 +37,15 @@ export function LoginSheet({
   useEffect(() => {
     if (visible && initialEmail) setEmail(initialEmail);
   }, [visible, initialEmail]);
+
+  // Demo login: needs both fields, then marks registered and hands off.
+  const canSubmit = email.trim() !== "" && password !== "";
+  const submit = () => {
+    if (!canSubmit) return;
+    markRegistered();
+    if (onLoggedIn) onLoggedIn();
+    else onClose();
+  };
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
@@ -113,8 +128,14 @@ export function LoginSheet({
         </Pressable>
       </View>
 
-      <Pressable style={styles.loginBtn} disabled accessibilityRole="button">
-        <Text style={styles.loginBtnText}>Log in</Text>
+      <Pressable
+        style={[styles.loginBtn, canSubmit && styles.loginBtnActive]}
+        disabled={!canSubmit}
+        onPress={submit}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !canSubmit }}
+      >
+        <Text style={[styles.loginBtnText, canSubmit && styles.loginBtnTextActive]}>Log in</Text>
       </Pressable>
     </BottomSheet>
   );
@@ -179,5 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginTop: 4,
   },
+  loginBtnActive: { backgroundColor: "#2D6A4F" },
   loginBtnText: { fontSize: 16, fontWeight: "700", color: "#9CA3AF" },
+  loginBtnTextActive: { color: "#FFFFFF" },
 });

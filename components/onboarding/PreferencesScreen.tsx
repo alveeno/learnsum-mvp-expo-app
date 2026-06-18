@@ -17,6 +17,7 @@ import {
 
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
+import { KeyboardAvoider } from "../ui/KeyboardAvoider";
 import { SelectableCircle } from "../ui/SelectableCircle";
 import { useT } from "../i18n/LanguageProvider";
 import { type TranslationKey } from "../i18n/translations";
@@ -638,6 +639,7 @@ export function PreferencesScreen({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoider>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${Math.round(progress * 100)}%` }]} />
       </View>
@@ -1057,6 +1059,7 @@ export function PreferencesScreen({
           onPress={submit}
         />
       </View>
+      </KeyboardAvoider>
 
       {/* Language pop-up */}
       <BottomSheet

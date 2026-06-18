@@ -20,6 +20,7 @@ import {
 
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
+import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { getStored, usePersistentState } from "../../components/onboarding/onboardingStore";
 import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
@@ -940,6 +941,7 @@ export default function TutorSD() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoider>
       <Stack.Screen options={{ gestureEnabled: false }} />
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${PROGRESS * 100}%` }]} />
@@ -1020,6 +1022,7 @@ export default function TutorSD() {
       <View style={styles.footer}>
         <Button label={t("common.continue")} variant="primary" onPress={onContinue} />
       </View>
+      </KeyboardAvoider>
 
       {/* Finish later? modal */}
       <Modal

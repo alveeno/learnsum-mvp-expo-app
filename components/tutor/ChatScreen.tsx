@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
+import { KeyboardAvoider } from "../ui/KeyboardAvoider";
 import { Avatar } from "./feedUi";
 import { C, CHATS, type Chat, type ChatMsg } from "./tutorData";
 
@@ -61,7 +62,7 @@ function ChatThread({ c, onBack }: { c: Chat; onBack: () => void }) {
     setVal("");
   };
   return (
-    <>
+    <KeyboardAvoider>
       <View style={styles.threadHead}>
         <Pressable onPress={onBack} hitSlop={8} style={styles.iconBtn}>
           <Ionicons name="chevron-back" size={24} color={C.ink} />
@@ -117,7 +118,7 @@ function ChatThread({ c, onBack }: { c: Chat; onBack: () => void }) {
           <Ionicons name="arrow-up" size={22} color="#fff" />
         </Pressable>
       </View>
-    </>
+    </KeyboardAvoider>
   );
 }
 

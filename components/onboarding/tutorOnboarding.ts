@@ -1,5 +1,6 @@
 import { router, type Href } from "expo-router";
 
+import { isRegistered, markRegistered } from "../auth/authState";
 import { getStored, setStored } from "./onboardingStore";
 
 /**
@@ -109,8 +110,7 @@ export function finishToHome(): void {
  * first not-completed profile step in resume mode.
  */
 export function startTutorSetup(): void {
-  const signedUp = getStored<string>("tutor:signup:email", "") !== "";
-  if (!signedUp) {
+  if (!isRegistered()) {
     setResuming(false);
     router.push("/onboarding/SignUp" as Href);
     return;
@@ -121,8 +121,11 @@ export function startTutorSetup(): void {
   router.push(next as Href);
 }
 
-/** SignUp hands off here once the account step is passed (first-time entry). */
+/** SignUp hands off here once the account step is passed (first-time entry).
+ *  Runs for BOTH the email "Continue" and the social buttons, so this is where
+ *  the user becomes "registered" (ungating like / comment / connect / filters). */
 export function goAfterSignUp(): void {
+  markRegistered();
   setResuming(false);
   const next = firstIncomplete() ?? "/onboarding/TutorTeachLevels";
   router.push(next as Href);

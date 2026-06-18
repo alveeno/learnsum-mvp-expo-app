@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { finishToHome, onStepContinue } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
@@ -85,6 +86,7 @@ export default function TutorAbout() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoider>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${PROGRESS * 100}%` }]} />
       </View>
@@ -252,6 +254,7 @@ export default function TutorAbout() {
       <View style={styles.footer}>
         <Button label={t("common.continue")} variant="primary" onPress={proceed} />
       </View>
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

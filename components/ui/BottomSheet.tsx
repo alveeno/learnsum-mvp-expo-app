@@ -3,7 +3,9 @@ import {
   Animated,
   Dimensions,
   Easing,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -56,11 +58,16 @@ export function BottomSheet({
           onPress={onClose}
           accessibilityLabel="Close"
         />
-        <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-          <View style={styles.grabber} />
-          {title ? <Text style={styles.title}>{title}</Text> : null}
-          {children}
-        </Animated.View>
+        {/* Lift the panel above the keyboard when it holds a text field (e.g.
+            the language search, LoginSheet). Not flex:1, so it stays anchored to
+            the bottom; padding raises it by the keyboard height. */}
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
+          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
+            <View style={styles.grabber} />
+            {title ? <Text style={styles.title}>{title}</Text> : null}
+            {children}
+          </Animated.View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );

@@ -64,10 +64,14 @@ export function SearchScreen({
   connected,
   onConnect,
   onOpenProfile,
+  registered,
+  onRequireAuth,
 }: {
   connected: Set<string>;
   onConnect: (id: string) => void;
   onOpenProfile: (id: string) => void;
+  registered: boolean;
+  onRequireAuth: () => void;
 }) {
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState<Filters>(DEF_FILTERS());
@@ -112,7 +116,7 @@ export function SearchScreen({
         </View>
 
         <Pressable
-          onPress={() => setSheet(true)}
+          onPress={() => (registered ? setSheet(true) : onRequireAuth())}
           style={[styles.filterBtn, { borderColor: fcount ? C.green : C.hairline, backgroundColor: fcount ? C.greenTint : "#fff" }]}
         >
           <Ionicons name="options-outline" size={21} color={fcount ? C.greenD : C.ink} />

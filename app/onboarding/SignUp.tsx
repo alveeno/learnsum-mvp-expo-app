@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useState } from "react";
 import {
   Pressable,
@@ -13,6 +13,7 @@ import {
 
 import { LoginSheet } from "../../components/auth/LoginSheet";
 import { Button } from "../../components/ui/Button";
+import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { goAfterSignUp } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
@@ -62,6 +63,7 @@ export default function SignUp() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoider>
       <View style={styles.headerRow}>
         <Pressable hitSlop={8} onPress={() => router.back()} accessibilityRole="button" accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={28} color="#111827" />
@@ -162,7 +164,13 @@ export default function SignUp() {
         <Button label={t("common.continue")} variant="primary" disabled={!valid} onPress={onContinue} />
       </View>
 
-      <LoginSheet visible={loginVisible} onClose={() => setLoginVisible(false)} initialEmail={email} />
+      <LoginSheet
+        visible={loginVisible}
+        onClose={() => setLoginVisible(false)}
+        initialEmail={email}
+        onLoggedIn={() => router.dismissTo("/tutor-home" as Href)}
+      />
+      </KeyboardAvoider>
     </SafeAreaView>
   );
 }

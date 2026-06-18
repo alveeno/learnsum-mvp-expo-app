@@ -10,11 +10,13 @@
  * "Tutor" on the welcome screen; the "set up your profile" banner (home) and gate
  * (profile) start — or resume — onboarding, and hide once every step is done.
  */
-import { useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { isRegistered, setRegistered as persistRegistered } from "../components/auth/authState";
 import { isOnboardingComplete, startTutorSetup } from "../components/onboarding/tutorOnboarding";
 import { AnalyticsScreen } from "../components/tutor/AnalyticsScreen";
 import { ChatScreen } from "../components/tutor/ChatScreen";
@@ -32,6 +34,18 @@ function toggle(set: Set<string>, id: string): Set<string> {
   return n;
 }
 
+/* __DEV__-only pill to flip the mock "registered" state without walking the
+   whole sign-up flow — for demoing the gated vs ungated experience. Never
+   rendered in production builds. */
+function DevAuthToggle({ registered, onToggle }: { registered: boolean; onToggle: () => void }) {
+  return (
+    <Pressable onPress={onToggle} style={devStyles.pill} accessibilityRole="button">
+      <Ionicons name={registered ? "lock-open" : "lock-closed"} size={13} color="#fff" />
+      <Text style={devStyles.text}>DEV · {registered ? "Logged in" : "Logged out"}</Text>
+    </Pressable>
+  );
+}
+
 function TutorShell() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<TabId>("home");
@@ -42,18 +56,38 @@ function TutorShell() {
   );
   const [premium, setPremium] = useState(false);
 
-  // Whether the "set up your profile" banner + gate should show. Re-checked when
-  // /tutor-home regains focus (e.g. returning from onboarding), since the
-  // in-memory store doesn't notify subscribers.
+  // Whether the "set up your profile" banner + gate should show, and whether the
+  // user is registered. Both re-checked when /tutor-home regains focus (e.g.
+  // returning from onboarding / the auth gate), since the in-memory store
+  // doesn't notify subscribers.
   const [setupDone, setSetupDone] = useState(isOnboardingComplete);
+  const [registered, setRegistered] = useState(isRegistered);
   useFocusEffect(
     useCallback(() => {
       setSetupDone(isOnboardingComplete());
+      setRegistered(isRegistered());
     }, []),
   );
 
-  const onLike = (id: string) => setLikes((s) => toggle(s, id));
-  const onConnect = (id: string) => setConnected((s) => toggle(s, id));
+  // Unregistered taps on engagement actions route to the log-in / sign-up gate
+  // instead of mutating state.
+  const requireAuth = () => router.push("/auth/gate" as Href);
+
+  // __DEV__ demo toggle: flip the mock registered flag (store + local state).
+  const toggleDevAuth = () => {
+    const next = !registered;
+    persistRegistered(next);
+    setRegistered(next);
+  };
+
+  const onLike = (id: string) => {
+    if (!registered) return requireAuth();
+    setLikes((s) => toggle(s, id));
+  };
+  const onConnect = (id: string) => {
+    if (!registered) return requireAuth();
+    setConnected((s) => toggle(s, id));
+  };
   const openProfile = (id: string) => {
     if (id && id !== "me") setOverlay(id);
   };
@@ -75,10 +109,20 @@ function TutorShell() {
         onOpenProfile={openProfile}
         showSetup={!setupDone}
         onSetup={startTutorSetup}
+        registered={registered}
+        onRequireAuth={requireAuth}
       />
     );
   } else if (tab === "search") {
-    screen = <SearchScreen connected={connected} onConnect={onConnect} onOpenProfile={openProfile} />;
+    screen = (
+      <SearchScreen
+        connected={connected}
+        onConnect={onConnect}
+        onOpenProfile={openProfile}
+        registered={registered}
+        onRequireAuth={requireAuth}
+      />
+    );
   } else if (tab === "chat") {
     screen = <ChatScreen />;
   } else if (tab === "analytics") {
@@ -103,11 +147,28 @@ function TutorShell() {
             />
           </View>
         )}
+        {__DEV__ && <DevAuthToggle registered={registered} onToggle={toggleDevAuth} />}
       </View>
       <TabBar tab={tab} onSelect={goTab} unread={unread} premium={premium} bottomInset={insets.bottom} />
     </View>
   );
 }
+
+const devStyles = StyleSheet.create({
+  pill: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    backgroundColor: "rgba(17,24,39,0.82)",
+  },
+  text: { color: "#fff", fontSize: 11.5, fontWeight: "700" },
+});
 
 export default function TutorHome() {
   return (

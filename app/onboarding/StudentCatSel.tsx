@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
@@ -445,6 +446,7 @@ export function CategorySelect({
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoider>
       {/* Progress bar — stays across both modes. */}
       <View style={styles.progressTrack}>
         <View
@@ -692,6 +694,7 @@ export function CategorySelect({
           />
         )}
       </ScrollView>
+      </KeyboardAvoider>
 
       {skipModal}
     </SafeAreaView>

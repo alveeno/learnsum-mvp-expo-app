@@ -11,6 +11,7 @@ import {
 } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
@@ -90,6 +91,7 @@ export default function ParentNumChild() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoider>
       <View style={styles.progressTrack}>
         <View style={[styles.progressFill, { width: `${PROGRESS * 100}%` }]} />
       </View>
@@ -258,6 +260,7 @@ export default function ParentNumChild() {
         />
       </ScrollView>
 
+      </KeyboardAvoider>
       {skipModal}
     </SafeAreaView>
   );
