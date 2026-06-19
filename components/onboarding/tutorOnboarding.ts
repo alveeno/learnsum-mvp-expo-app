@@ -118,7 +118,7 @@ export function startTutorSetup(): void {
 
 /** SignUp hands off here once the account step is passed (first-time entry).
  *  Runs for BOTH the email "Continue" and the social buttons, so this is where
- *  the user becomes "registered" (ungating like / comment / connect / filters). */
+ *  the user becomes "registered" (ungating like / connect / filters). */
 export function goAfterSignUp(): void {
   markRegistered();
   setResuming(false);

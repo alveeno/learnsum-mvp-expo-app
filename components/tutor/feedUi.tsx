@@ -142,21 +142,17 @@ export function FollowBtn({
   );
 }
 
-/* ===== engagement row: likes / comments (editorial "chip" treatment) =====
+/* ===== engagement row: likes (editorial "chip" treatment) =====
    `likes` is the post's base count; the signed-in user's own like adds +1 on
    top. Liking pops the heart and turns it red. */
 export function EngagementRow({
   likes,
-  comments,
   liked,
   onLike,
-  onComment,
 }: {
   likes: number;
-  comments: number;
   liked: boolean;
   onLike: () => void;
-  onComment: () => void;
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const wasLiked = useRef(liked);
@@ -178,10 +174,6 @@ export function EngagementRow({
           <Ionicons name={liked ? "heart" : "heart-outline"} size={19} color={liked ? C.destructive : C.ink} />
         </Animated.View>
         <Text style={[styles.engChipText, liked && { color: C.destructive }]}>{count}</Text>
-      </Pressable>
-      <Pressable onPress={onComment} style={styles.engChip}>
-        <Ionicons name="chatbubble-outline" size={19} color={C.ink} />
-        <Text style={styles.engChipText}>{comments}</Text>
       </Pressable>
     </View>
   );

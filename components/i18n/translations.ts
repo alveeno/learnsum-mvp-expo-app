@@ -545,9 +545,9 @@ export const translations = {
   // ---- auth gate (shown when an unregistered tutor likes / comments / filters) ----
   "authGate.title": { en: "Join LearnSum", "zh-Hant": "加入 LearnSum", "zh-Hans": "加入 LearnSum" },
   "authGate.subtitle": {
-    en: "Log in or sign up to like, comment, connect with tutors and use advanced filters.",
-    "zh-Hant": "登入或註冊即可讚好、留言、聯繫導師及使用進階篩選。",
-    "zh-Hans": "登录或注册即可点赞、留言、联系导师及使用高级筛选。",
+    en: "Log in or sign up to like, connect with tutors and use advanced filters.",
+    "zh-Hant": "登入或註冊即可讚好、聯繫導師及使用進階篩選。",
+    "zh-Hans": "登录或注册即可点赞、联系导师及使用高级筛选。",
   },
   "authGate.signUp": { en: "Sign up", "zh-Hant": "註冊", "zh-Hans": "注册" },
   "authGate.logIn": { en: "Log in", "zh-Hant": "登入", "zh-Hans": "登录" },

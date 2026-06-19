@@ -11,9 +11,9 @@ import { getStored, setStored } from "../onboarding/onboardingStore";
  * (Google / Apple / Microsoft) would otherwise leave the user "unregistered"
  * forever. Session-only, like the rest of the store — a full reload resets it.
  *
- * Used to gate engagement actions (like / comment / connect / advanced filters /
- * add story / create post): an unregistered tap routes to `/auth/gate` instead,
- * which offers Log in or Sign up.
+ * Used to gate engagement actions (like / connect / advanced filters / add story
+ * / create post): an unregistered tap routes to `/auth/gate` instead, which
+ * offers Log in or Sign up.
  */
 const REGISTERED_KEY = "tutor:registered";
 

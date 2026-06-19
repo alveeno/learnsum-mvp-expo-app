@@ -70,7 +70,7 @@ File-based routes (Expo Router). Route map:
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — **→ Todo** |
 | `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
 | `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
-| `/auth/*`        | Email+password **and** social login — **→ Todo** (login is a placeholder bottom sheet, not a route) |
+| `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
 
 > **No `/notifications` route — notifications aren't built (see the Todo list).**
 
@@ -125,8 +125,10 @@ the backend in one shot** (email verification is OFF, so the new session is live
 `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
 + remaining details) and explicit publish / self-unpublish are **not built yet** — for now the
-tutor onboarding flow stands in for it. **Log in** is a placeholder bottom sheet opened from
-the welcome screen — not a route.
+tutor onboarding flow stands in for it. **Log in** uses the `LoginSheet` bottom sheet (opened
+from the welcome screen and from the `/auth/gate` route); its "Log in" button is a **front-end
+mock** that marks the user registered (session-only) and hands off — the social buttons and
+"Forgot password?" stay inert, and there's no standalone `/auth` login route yet.
 
 **No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp,
 Instagram, and WeChat** buttons on the tutor profile (all optional, any combination) — there is
@@ -140,8 +142,10 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
 (`TutorProfileView`):
 
 - **Home** (`FeedScreen`) — editorial Instagram-style feed: gold **"Complete profile"** banner
-  (→ onboarding), stories row, post cards with like (red pop + count) and a comment sheet with
-  a composer, and a "Tutors you may know" strip.
+  (→ onboarding), stories row, post cards with like (red pop + count), and a "Tutors you may
+  know" strip. The strip is **logged-in only** and lists other tutors who share the signed-in
+  tutor's **university** (matched against `ME.school`). **No comments** — the comment sheet,
+  count and "view all comments" were removed; likes stay.
 - **Search** (`SearchScreen` + `FilterSheet`) — text search over a sample directory, trending
   tags, recent searches, and an advanced filter sheet (gesture-driven dual sliders, HK
   district discs, gender, rating/years/sessions/followers).
@@ -150,6 +154,13 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   reveals it locally.
 - **Profile** (`ProfileScreen`) — own profile, **dimmed behind a "Set up your profile" gate**
   (→ onboarding) until setup is done.
+
+**Auth gate (front-end mock):** the shell treats the user as **registered** only after they pass
+`SignUp` or the mock Log in (`components/auth/authState.ts` — session-only flag). While
+unregistered, engagement actions — **like, connect, advanced search filters, create post, add
+story** — route to the **`/auth/gate`** screen (Log in / Sign up) instead of acting, and the
+"Tutors you may know" strip is hidden. A `__DEV__`-only toggle in the shell flips this registered
+state for demoing. Real auth / session persistence is still **→ Todo**.
 
 **Caveats (prototype):** front-end only — no backend, no real messaging, no real payment.
 **English-only** (not yet wired into i18n — unlike the rest of the app). Gradients and the
@@ -173,8 +184,10 @@ design and are **not wired to a backend yet** (see the Todo list).
   (`created_at` DESC, unfiltered).
 - **Tutor profile pages are public** and viewable **without auth**; a tutor is **not
   published** until they complete their profile and publish.
-- **Auth is required only for:** posting content, profile editing / account deletion, and
-  saving filter preferences. **Notifications and chat aren't built** (see the Todo list).
+- **Auth is required for:** posting content, profile editing / account deletion, and saving
+  filter preferences. In the `/tutor-home` shell (front-end mock) unregistered users are **also**
+  gated on engagement — like, connect, advanced filters, create post, add story — via the
+  `/auth/gate` screen. **Notifications and chat aren't built** (see the Todo list).
 
 ## Onboarding state & persistence
 
@@ -285,8 +298,9 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   exists inside `/tutor-home`).
 - Standalone **Profile** route — editing, account deletion, publish / self-unpublish (a tutor
   Profile tab already exists inside `/tutor-home`).
-- Auth routes `/auth/*` (email + password and social); today log in is a placeholder bottom
-  sheet, not a route.
+- Full auth routes `/auth/*` (email + password and social) and a **real session** — today only
+  the `/auth/gate` log-in/sign-up gate exists (front-end mock) and `LoginSheet`'s login is mocked
+  (session-only registered flag, no backend).
 - Real personalized **home feed** for seekers — `/feed` is currently just a "you're all set"
   placeholder.
 - Tutor **profile-completion** screen — bio, photo, WhatsApp / Instagram / WeChat + remaining
@@ -310,7 +324,9 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 **Deferred by design (may stay out)**
 
 - Push notifications **and** in-app notifications (no `/notifications`).
-- Post **likes & comments** UI (schema only on the backend).
+- Post **likes** UI is front-end only (schema on the backend). **Comments were removed** from
+  the tutor feed — the `Comment` type and sample `comments` data remain in `tutorData.ts` but
+  nothing renders them.
 - **Inquiry form** — contact is WhatsApp / Instagram / WeChat instead.
 - **Calendar / per-date scheduling** — availability is recurring weekday time ranges (the
   picker already collects precise start/end ranges).

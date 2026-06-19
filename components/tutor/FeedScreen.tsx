@@ -2,26 +2,24 @@
  * Tutor app — HOME feed (Editorial look, first-time state).
  *
  * Ported from `tutor/tutor-feed.jsx`. Like/Connect state and "open a tutor's
- * profile" are lifted to the shell so they're shared across tabs; the comment
- * sheet stays local. Gradients/stripes from the web source are flattened to
- * solid colours (RN has no CSS gradients without a native module → EAS rebuild).
+ * profile" are lifted to the shell so they're shared across tabs. Gradients/
+ * stripes from the web source are flattened to solid colours (RN has no CSS
+ * gradients without a native module → EAS rebuild).
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
-import {
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Avatar, EngagementRow, FollowBtn, Logo, MediaSlot, Qualified } from "./feedUi";
-import { C, ME, STORIES, SUGGEST, TH, TUTORS, tutorById, type Comment, type Tutor } from "./tutorData";
+import { C, DIRECTORY, ME, STORIES, TH, TUTORS, tutorById, type FullTutor, type Tutor } from "./tutorData";
+
+/* Other tutors from the signed-in tutor's university — the basis for the
+   "Tutors you may know" strip (shown to logged-in tutors only). Matches the part
+   of the school before any " · " specialisation, so "HKU" matches the feed
+   tutors listed as "HKU · Education", "HKU · Pharmacy", etc. */
+const university = (school: string) => school.split("·")[0].trim().toLowerCase();
+const SAME_SCHOOL: FullTutor[] = DIRECTORY.filter(
+  (s) => s.id !== ME.id && university(s.school) === university(ME.school),
+);
 
 /* top app bar */
 function FeedBar({ onCreate }: { onCreate: () => void }) {
@@ -108,7 +106,6 @@ function PostCard({
   connected,
   onLike,
   onConnect,
-  onComment,
   onOpenProfile,
 }: {
   t: Tutor;
@@ -116,7 +113,6 @@ function PostCard({
   connected: boolean;
   onLike: () => void;
   onConnect: () => void;
-  onComment: () => void;
   onOpenProfile: () => void;
 }) {
   return (
@@ -146,19 +142,10 @@ function PostCard({
           <Ionicons name="bookmark" size={13} color={C.greenD} />
           <Text style={styles.typeChipText}>{t.post.type}</Text>
         </View>
-        <EngagementRow
-          likes={t.counts.likes}
-          comments={t.counts.comments}
-          liked={liked}
-          onLike={onLike}
-          onComment={onComment}
-        />
+        <EngagementRow likes={t.counts.likes} liked={liked} onLike={onLike} />
         <Text style={styles.caption}>
           <Text style={{ fontWeight: "700" }}>{t.username}</Text> {t.post.caption}
         </Text>
-        <Pressable onPress={onComment}>
-          <Text style={styles.viewComments}>View all {t.counts.comments} comments</Text>
-        </Pressable>
         <Text style={styles.ago}>{t.post.ago} ago</Text>
       </View>
     </View>
@@ -182,7 +169,7 @@ function SuggestStrip({
         <Text style={{ fontSize: 13, fontWeight: "600", color: C.green }}>See all</Text>
       </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 16, gap: 12 }}>
-        {SUGGEST.map((s) => (
+        {SAME_SCHOOL.map((s) => (
           <View key={s.id} style={styles.suggestCard}>
             <Pressable onPress={() => onOpenProfile(s.id)}>
               <Avatar name={s.name} size={62} />
@@ -197,75 +184,12 @@ function SuggestStrip({
               {s.qualified && <Qualified mini />}
             </Pressable>
             <Text style={{ fontSize: 11.5, color: C.muted, marginTop: 2 }}>{s.subject}</Text>
-            <Text style={{ fontSize: 11, color: C.unselIc, marginTop: 6, marginBottom: 11 }}>{s.mutual} mutual</Text>
+            <Text style={{ fontSize: 11, color: C.unselIc, marginTop: 6, marginBottom: 11 }}>{s.school}</Text>
             <FollowBtn following={connected.has(s.id)} onToggle={() => onConnect(s.id)} size="sm" />
           </View>
         ))}
       </ScrollView>
     </View>
-  );
-}
-
-/* comment sheet — with a composer to post your own comment */
-function CommentSheet({ tutor, onClose }: { tutor: Tutor | null; onClose: () => void }) {
-  const [extra, setExtra] = useState<Comment[]>([]);
-  const [val, setVal] = useState("");
-  // Reset the draft + locally-posted comments whenever a different post opens.
-  useEffect(() => {
-    setExtra([]);
-    setVal("");
-  }, [tutor?.id]);
-
-  const list: Comment[] = [...(tutor?.comments ?? []), ...extra];
-  const send = () => {
-    const text = val.trim();
-    if (!text) return;
-    setExtra((e) => [...e, { who: ME.username, text, ago: "now", mine: true }]);
-    setVal("");
-  };
-
-  return (
-    <Modal visible={!!tutor} transparent animationType="slide" onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.sheetRoot}>
-        <Pressable style={{ flex: 1 }} onPress={onClose} />
-        <View style={styles.commentSheet}>
-          <View style={styles.grabber} />
-          <Text style={styles.sheetTitle}>Comments</Text>
-          <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
-            {list.map((c, i) => (
-              <View key={i} style={{ flexDirection: "row", gap: 11, paddingVertical: 11, alignItems: "flex-start" }}>
-                <Avatar name={c.who} size={34} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={{ fontSize: 13.5, lineHeight: 19, color: C.ink }}>
-                    <Text style={{ fontWeight: "700" }}>{c.who}</Text> {c.text}
-                  </Text>
-                  <Text style={{ fontSize: 11.5, color: C.unselIc, marginTop: 3, fontWeight: "600" }}>
-                    {c.ago}
-                    {c.mine ? "" : " · Reply"}
-                  </Text>
-                </View>
-                <Ionicons name="heart-outline" size={16} color={C.unselIc} style={{ marginTop: 4 }} />
-              </View>
-            ))}
-          </ScrollView>
-          <View style={styles.composer}>
-            <Avatar name={ME.name} size={34} />
-            <TextInput
-              value={val}
-              onChangeText={setVal}
-              placeholder="Add a comment…"
-              placeholderTextColor={C.unselIc}
-              style={styles.composerInput}
-              onSubmitEditing={send}
-              returnKeyType="send"
-            />
-            <Pressable onPress={send} disabled={!val.trim()} hitSlop={8}>
-              <Text style={{ fontSize: 14.5, fontWeight: "700", color: val.trim() ? C.green : C.unselIc }}>Post</Text>
-            </Pressable>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
   );
 }
 
@@ -290,10 +214,9 @@ export function FeedScreen({
   registered: boolean;
   onRequireAuth: () => void;
 }) {
-  const [sheet, setSheet] = useState<Tutor | null>(null);
-  // Like / connect are gated by the shell; opening the comment sheet, creating a
-  // post and adding a story are gated here (their state lives in this screen).
-  const onComment = (t: Tutor) => (registered ? setSheet(t) : onRequireAuth());
+  // Like / connect are gated by the shell; creating a post and adding a story are
+  // gated here. Unregistered users also don't get the "Tutors you may know" strip
+  // (it matches against the signed-in tutor's education record).
   const gatedAction = () => {
     if (!registered) onRequireAuth();
   };
@@ -311,14 +234,14 @@ export function FeedScreen({
               connected={connected.has(t.id)}
               onLike={() => onLike(t.id)}
               onConnect={() => onConnect(t.id)}
-              onComment={() => onComment(t)}
               onOpenProfile={() => onOpenProfile(t.id)}
             />
-            {i === 1 && <SuggestStrip connected={connected} onConnect={onConnect} onOpenProfile={onOpenProfile} />}
+            {i === 1 && registered && (
+              <SuggestStrip connected={connected} onConnect={onConnect} onOpenProfile={onOpenProfile} />
+            )}
           </View>
         ))}
       </ScrollView>
-      <CommentSheet tutor={sheet} onClose={() => setSheet(null)} />
     </>
   );
 }
@@ -429,7 +352,6 @@ const styles = StyleSheet.create({
   },
   typeChipText: { color: C.greenD, fontSize: 11, fontWeight: "700", letterSpacing: 0.4, textTransform: "uppercase" },
   caption: { marginTop: 11, fontSize: 14, lineHeight: 20, color: C.ink },
-  viewComments: { paddingTop: 8, color: C.muted, fontSize: 13 },
   ago: {
     fontSize: 11,
     color: C.unselIc,
@@ -457,36 +379,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingBottom: 13,
     alignItems: "center",
-  },
-  sheetRoot: { flex: 1, backgroundColor: "rgba(0,0,0,0.42)", justifyContent: "flex-end" },
-  commentSheet: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 24,
-  },
-  grabber: { width: 38, height: 4, borderRadius: 2, backgroundColor: C.unselBg, alignSelf: "center", marginBottom: 8 },
-  sheetTitle: { fontSize: 16, fontWeight: "700", textAlign: "center", color: C.ink, marginBottom: 6 },
-  composer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingTop: 10,
-    marginTop: 4,
-    borderTopWidth: 1,
-    borderTopColor: C.hairline,
-  },
-  composerInput: {
-    flex: 1,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 1.5,
-    borderColor: C.hairline,
-    backgroundColor: C.surface,
-    paddingHorizontal: 14,
-    fontSize: 15,
-    color: C.ink,
   },
 });
