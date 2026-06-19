@@ -9,12 +9,27 @@
  */
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
+import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { avatarColor, C, initials, type PostKind, type Stats } from "./tutorData";
 
-/* ===== Avatar — initials on a deterministic colour (no fake photos) ===== */
-export function Avatar({ name, size = 72, style }: { name: string; size?: number; style?: StyleProp<ViewStyle> }) {
+/* ===== Avatar — a real photo when `uri` is given, else initials on a
+   deterministic colour. The initials are the fallback both when there's no
+   photo and if the photo fails to load, so nothing ever renders empty. ===== */
+export function Avatar({
+  name,
+  size = 72,
+  uri,
+  style,
+}: {
+  name: string;
+  size?: number;
+  /** Profile-photo URL from real data; omit (sample data) to show initials. */
+  uri?: string;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const [failed, setFailed] = useState(false);
+  const showPhoto = !!uri && !failed;
   return (
     <View
       style={[
@@ -25,13 +40,18 @@ export function Avatar({ name, size = 72, style }: { name: string; size?: number
           backgroundColor: avatarColor(name),
           alignItems: "center",
           justifyContent: "center",
+          overflow: "hidden",
         },
         style,
       ]}
     >
-      <Text style={{ color: "#fff", fontWeight: "600", fontSize: size * 0.36, letterSpacing: -0.3 }}>
-        {initials(name)}
-      </Text>
+      {showPhoto ? (
+        <Image source={{ uri }} style={{ width: size, height: size }} onError={() => setFailed(true)} />
+      ) : (
+        <Text style={{ color: "#fff", fontWeight: "600", fontSize: size * 0.36, letterSpacing: -0.3 }}>
+          {initials(name)}
+        </Text>
+      )}
     </View>
   );
 }
@@ -64,14 +84,20 @@ const SLOT_ICON: Record<PostKind, keyof typeof Ionicons.glyphMap> = {
 export function MediaSlot({
   label,
   kind,
+  uri,
   height = 296,
   radius = 0,
 }: {
   label: string;
   kind: PostKind;
+  /** Post-image URL from real data. Omit to show the striped placeholder.
+      Videos keep the placeholder (no player without a native module). */
+  uri?: string;
   height?: number;
   radius?: number;
 }) {
+  const [failed, setFailed] = useState(false);
+
   // Special green "quote" slot for testimonials.
   if (kind === "quote") {
     return (
@@ -83,6 +109,19 @@ export function MediaSlot({
           style={{ position: "absolute", top: 14, left: 16 }}
         />
         {!!label && <Text style={styles.quoteLabel}>{label}</Text>}
+      </View>
+    );
+  }
+  // Real photo when we have one (image / whiteboard posts).
+  if (uri && !failed) {
+    return (
+      <View style={{ height, borderRadius: radius, overflow: "hidden", backgroundColor: "#EAECEB" }}>
+        <Image
+          source={{ uri }}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="cover"
+          onError={() => setFailed(true)}
+        />
       </View>
     );
   }

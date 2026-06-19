@@ -86,7 +86,7 @@ function StoryRow({ onOpen, onAddStory }: { onOpen: (id: string) => void; onAddS
           <Pressable key={id} style={styles.storyItem} onPress={() => onOpen(id)}>
             <View style={styles.storyRing}>
               <View style={styles.storyRingInner}>
-                <Avatar name={t.name} size={58} />
+                <Avatar name={t.name} uri={t.avatarUrl} size={58} />
               </View>
             </View>
             <Text style={[styles.storyLabel, { color: C.ink }]} numberOfLines={1}>
@@ -119,7 +119,7 @@ function PostCard({
     <View style={styles.card}>
       <View style={styles.cardHead}>
         <Pressable onPress={onOpenProfile}>
-          <Avatar name={t.name} size={40} />
+          <Avatar name={t.name} uri={t.avatarUrl} size={40} />
         </Pressable>
         <Pressable style={{ flex: 1, minWidth: 0 }} onPress={onOpenProfile}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
@@ -136,7 +136,7 @@ function PostCard({
         <Ionicons name="ellipsis-horizontal" size={20} color={C.muted} />
       </View>
 
-      <MediaSlot label={t.post.label} kind={t.post.kind} height={296} radius={TH.mediaRadius} />
+      <MediaSlot label={t.post.label} kind={t.post.kind} uri={t.post.mediaUrl} height={296} radius={TH.mediaRadius} />
       <View style={{ paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 }}>
         <View style={styles.typeChip}>
           <Ionicons name="bookmark" size={13} color={C.greenD} />
@@ -172,7 +172,7 @@ function SuggestStrip({
         {SAME_SCHOOL.map((s) => (
           <View key={s.id} style={styles.suggestCard}>
             <Pressable onPress={() => onOpenProfile(s.id)}>
-              <Avatar name={s.name} size={62} />
+              <Avatar name={s.name} uri={s.avatarUrl} size={62} />
             </Pressable>
             <Pressable
               onPress={() => onOpenProfile(s.id)}

@@ -95,7 +95,10 @@ export type FullTutor = {
   gender: Gender;
   mode: Mode;
   stats: Stats;
-  post?: { type: string; kind: PostKind; label: string; caption: string; ago: string };
+  /** Real-data photo hooks. Omitted in sample data → Avatar shows initials.
+      A real backend row sets these and the photo renders automatically. */
+  avatarUrl?: string;
+  post?: { type: string; kind: PostKind; label: string; caption: string; ago: string; mediaUrl?: string };
   counts?: { likes: number; comments: number };
   following?: boolean;
   comments?: Comment[];
@@ -171,6 +174,7 @@ export const TUTORS: Tutor[] = [
       caption:
         "From a 3 to a 5** in seven months. So proud of Kelly 💚 My method: master the 12 question archetypes, then drill speed. Trial slots open for September.",
       ago: "5h",
+      mediaUrl: "https://picsum.photos/seed/learnsum-chloe/800/600",
     },
     counts: { likes: 262, comments: 24 },
     following: true,
@@ -199,6 +203,7 @@ export const TUTORS: Tutor[] = [
       caption:
         "Everyone overcomplicates moles. Here's how I break it down so it never leaves your head again. Save this for your next mock 🧪",
       ago: "1d",
+      mediaUrl: "https://picsum.photos/seed/learnsum-rachel/800/600",
     },
     counts: { likes: 511, comments: 63 },
     following: false,
@@ -227,6 +232,7 @@ export const TUTORS: Tutor[] = [
       caption:
         "Sunday studio reset. Every student gets their own bench and a full palette — no sharing, no rushing. Two evening slots left this term 🎨",
       ago: "1d",
+      mediaUrl: "https://picsum.photos/seed/learnsum-sophie/800/600",
     },
     counts: { likes: 188, comments: 15 },
     following: false,
