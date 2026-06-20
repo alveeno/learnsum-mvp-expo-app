@@ -1,26 +1,31 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
-  Dimensions,
   Easing,
-  KeyboardAvoidingView,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   View,
+  type KeyboardEvent,
 } from "react-native";
 
 /**
- * Bottom sheet with an INSTANT full-screen dim and a slide-up panel.
+ * Bottom sheet with an INSTANT full-screen dim and a slide-up panel that PINS to
+ * the top of the keyboard — and to the screen bottom when no keyboard is shown —
+ * so there is never an empty gap between the panel and the keyboard (or below it).
  *
- * The previous pattern used <Modal animationType="slide">, which slid the dim
- * layer up together with the sheet — leaving the top of the screen briefly
- * undimmed. Here the dim is the (non-animated) root background so it covers the
- * screen immediately, while only the panel slides up.
+ * The keyboard is tracked with JS `Keyboard` events (no native module / EAS
+ * rebuild, per CLAUDE.md) and the panel is lifted by the keyboard's height with
+ * an Animated transform, so it behaves the same on iOS and Android. This replaces
+ * the earlier `KeyboardAvoidingView`, which mis-measured inside a `Modal` and
+ * left the panel floating above the keyboard.
  */
-const SCREEN_H = Dimensions.get("window").height;
+
+// Any value taller than the panel — the panel starts fully off-screen below.
+const SLIDE_FROM = 1000;
 
 export function BottomSheet({
   visible,
@@ -33,22 +38,47 @@ export function BottomSheet({
   title?: string;
   children: ReactNode;
 }) {
-  // Starts off-screen (so there's no flash at the resting position on open) and
-  // is reset back below the screen whenever the sheet closes.
-  const translateY = useRef(new Animated.Value(SCREEN_H)).current;
+  const slide = useRef(new Animated.Value(SLIDE_FROM)).current;
+  const kb = useRef(new Animated.Value(0)).current;
+  const [kbHeight, setKbHeight] = useState(0);
 
+  // Slide the panel in on open; snap it away (and clear any keyboard lift) on close.
   useEffect(() => {
     if (visible) {
-      Animated.timing(translateY, {
+      Animated.timing(slide, {
         toValue: 0,
         duration: 300,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }).start();
     } else {
-      translateY.setValue(SCREEN_H);
+      slide.setValue(SLIDE_FROM);
+      kb.setValue(0);
+      setKbHeight(0);
     }
-  }, [visible, translateY]);
+  }, [visible, slide, kb]);
+
+  // Pin the panel to the keyboard. iOS gets the "will" events (the panel moves in
+  // lockstep with the keyboard); Android only fires the "did" events.
+  useEffect(() => {
+    const showEvt = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const lift = (h: number, duration: number) => {
+      setKbHeight(h);
+      Animated.timing(kb, { toValue: h, duration, useNativeDriver: true }).start();
+    };
+    const onShow = (e: KeyboardEvent) => lift(e.endCoordinates?.height ?? 0, e.duration || 250);
+    const onHide = (e: KeyboardEvent) => lift(0, e?.duration || 200);
+    const showSub = Keyboard.addListener(showEvt, onShow);
+    const hideSub = Keyboard.addListener(hideEvt, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [kb]);
+
+  // Inner padding clears the home indicator only when the keyboard is hidden.
+  const padBottom = kbHeight > 0 ? 14 : 28;
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose}>
@@ -58,16 +88,19 @@ export function BottomSheet({
           onPress={onClose}
           accessibilityLabel="Close"
         />
-        {/* Lift the panel above the keyboard when it holds a text field (e.g.
-            the language search, LoginSheet). Not flex:1, so it stays anchored to
-            the bottom; padding raises it by the keyboard height. */}
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
-          <Animated.View style={[styles.sheet, { transform: [{ translateY }] }]}>
-            <View style={styles.grabber} />
-            {title ? <Text style={styles.title}>{title}</Text> : null}
-            {children}
-          </Animated.View>
-        </KeyboardAvoidingView>
+        <Animated.View
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: padBottom,
+              transform: [{ translateY: Animated.subtract(slide, kb) }],
+            },
+          ]}
+        >
+          <View style={styles.grabber} />
+          {title ? <Text style={styles.title}>{title}</Text> : null}
+          {children}
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -81,8 +114,8 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 22,
     paddingHorizontal: 20,
     paddingTop: 10,
-    paddingBottom: 28,
-    maxHeight: "82%",
+    // Keep child backgrounds within the rounded top corners.
+    overflow: "hidden",
   },
   grabber: {
     width: 40,

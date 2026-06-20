@@ -253,9 +253,10 @@ screen re-seed itself so **input is never lost while the app is open**.
   (`components/onboarding/useSkipGuard.tsx`), which shows a one-time "Skip this step?"
   warning (`components/ui/ConfirmModal.tsx`) the first time per app session, then skips
   silently after. Wire any new Skip button through it.
-- **Reusable UI:** `components/ui/BottomSheet.tsx` (instant-dim + slide-up sheet — used by
-  the language picker, the login sheet and the dropdowns) and `ConfirmModal.tsx` (centred
-  warning dialog).
+- **Reusable UI:** `components/ui/BottomSheet.tsx` (instant-dim + slide-up sheet that **pins to
+  the top of the keyboard** — tracked via JS `Keyboard` events, no native module — so it never
+  leaves a gap above the keyboard or below the panel; used by the language picker, the login sheet
+  and the dropdowns) and `ConfirmModal.tsx` (centred warning dialog).
 
 ## Internationalization (i18n)
 

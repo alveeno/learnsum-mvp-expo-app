@@ -15,8 +15,8 @@ import {
  * module, so no EAS rebuild (see CLAUDE.md).
  *
  * Drop it directly inside a screen's <SafeAreaView> (it fills with flex: 1) and
- * put the header / ScrollView / footer inside it. For bottom sheets, see the
- * inline KeyboardAvoidingView in components/ui/BottomSheet.tsx instead.
+ * put the header / ScrollView / footer inside it. Bottom sheets handle the
+ * keyboard themselves (they pin to its top — see components/ui/BottomSheet.tsx).
  */
 export function KeyboardAvoider({
   children,
