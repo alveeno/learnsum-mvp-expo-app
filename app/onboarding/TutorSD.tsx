@@ -677,7 +677,7 @@ function DetailCard({
             },
           ]}
         >
-          {/* Years of experience */}
+          {/* Years of teaching experience */}
           <FieldLabel icon="schedule">{t("sd.field.years")}</FieldLabel>
           <View style={styles.wheelCard}>
             <ScrollWheel

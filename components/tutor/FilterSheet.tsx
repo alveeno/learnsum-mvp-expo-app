@@ -334,7 +334,7 @@ export function FilterSheet({
               <Slider min={0} max={5} step={0.5} value={f.rating} onChange={(v) => set("rating", v as number)} />
             </FRow>
 
-            <FRow label="Years of experience" value={f.years ? `${f.years}+ yrs` : "Any"}>
+            <FRow label="Years of teaching experience" value={f.years ? `${f.years}+ yrs` : "Any"}>
               <Slider min={0} max={10} step={1} value={f.years} onChange={(v) => set("years", v as number)} />
             </FRow>
 
