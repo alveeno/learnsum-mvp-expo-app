@@ -42,6 +42,10 @@ export default function TutorPrefs() {
       progress={1}
       languageMode="proficiency"
       languageSectionLabel={t("prefs.section.language.tutor")}
+      // Lesson format AND location are collected per-subject on TutorSD now, not
+      // here. With format hidden the location section never shows either, so this
+      // screen is just availability + languages for tutors.
+      showFormat={false}
       persistKey="tutor:prefs"
       onContinue={(data) => onStepContinue("prefs", () => firstTimeNext(data))}
       onSkip={() =>

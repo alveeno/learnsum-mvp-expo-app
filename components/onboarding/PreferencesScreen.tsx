@@ -21,6 +21,7 @@ import { KeyboardAvoider } from "../ui/KeyboardAvoider";
 import { SelectableCircle } from "../ui/SelectableCircle";
 import { useT } from "../i18n/LanguageProvider";
 import { type TranslationKey } from "../i18n/translations";
+import { DistrictPicker } from "./DistrictPicker";
 import { getStored, setStored } from "./onboardingStore";
 import { useSkipGuard } from "./useSkipGuard";
 
@@ -41,7 +42,6 @@ import { useSkipGuard } from "./useSkipGuard";
  */
 
 export type FormatId = "in_person" | "online" | "both";
-type RegionId = "hk" | "kln" | "nt";
 type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 type Slot = { start: number; end: number };
 type Avail = Record<DayKey, Slot[]>;
@@ -84,60 +84,7 @@ const FORMATS: {
   { id: "both", labelKey: "format.both", color: "#F4A923", icon: "swap-horiz" },
 ];
 
-// ---- Section 2: location -----------------------------------------------------
-const REGIONS: { id: RegionId; label: string; districts: string[] }[] = [
-  {
-    id: "hk",
-    label: "HK Island",
-    districts: ["Central & Western", "Eastern", "Southern", "Wan Chai"],
-  },
-  {
-    id: "kln",
-    label: "Kowloon",
-    districts: [
-      "Yau Tsim Mong",
-      "Sham Shui Po",
-      "Kowloon City",
-      "Wong Tai Sin",
-      "Kwun Tong",
-    ],
-  },
-  {
-    id: "nt",
-    label: "New Terr.",
-    districts: [
-      "Kwai Tsing",
-      "Tsuen Wan",
-      "Tuen Mun",
-      "Yuen Long",
-      "North",
-      "Tai Po",
-      "Sha Tin",
-      "Sai Kung",
-      "Islands",
-    ],
-  },
-];
-const DISTRICT_ZH: Record<string, string> = {
-  "Central & Western": "中",
-  Eastern: "東",
-  Southern: "南",
-  "Wan Chai": "灣",
-  "Yau Tsim Mong": "油",
-  "Sham Shui Po": "深",
-  "Kowloon City": "九",
-  "Wong Tai Sin": "黃",
-  "Kwun Tong": "觀",
-  "Kwai Tsing": "葵",
-  "Tsuen Wan": "荃",
-  "Tuen Mun": "屯",
-  "Yuen Long": "元",
-  North: "北",
-  "Tai Po": "大",
-  "Sha Tin": "沙",
-  "Sai Kung": "西",
-  Islands: "離",
-};
+// ---- Section 2: location — region tabs + district grid live in DistrictPicker.
 
 // ---- Section 3: language -----------------------------------------------------
 const MAIN_LANGS: {
@@ -341,6 +288,13 @@ export type PreferencesScreenProps = {
   progress?: number;
   languageMode?: "select" | "proficiency";
   languageSectionLabel?: string;
+  /**
+   * Whether to show the lesson-format question (In person / Online / Both).
+   * Defaults to true. The tutor flow sets this false because lesson format is
+   * collected per-subject on TutorSD instead; with it off, the location /
+   * districts section is shown to everyone (but stays optional). See CLAUDE.md.
+   */
+  showFormat?: boolean;
   /** Seed the form (used to restore a parent's previously-entered child). */
   initialValue?: Prefs | null;
   /**
@@ -364,6 +318,7 @@ export function PreferencesScreen({
   progress = 1,
   languageMode = "select",
   languageSectionLabel,
+  showFormat = true,
   initialValue = null,
   persistKey,
   continueLabel,
@@ -389,13 +344,9 @@ export function PreferencesScreen({
 
   // Section 1
   const [format, setFormat] = useState<FormatId | null>(seed?.format ?? null);
-  // Section 2 — districts may span regions; activeRegion is only which tab's
-  // districts are currently shown.
+  // Section 2 — districts may span regions (keyed "<regionId>:<District>"); the
+  // region-tab UI lives inside DistrictPicker.
   const [districts, setDistricts] = useState<string[]>(seed?.districts ?? []);
-  const [activeRegion, setActiveRegion] = useState<RegionId | null>(() => {
-    const first = (seed?.districts ?? [])[0];
-    return first ? (first.split(":")[0] as RegionId) : null;
-  });
   // Section 3
   const [langs, setLangs] = useState<string[]>(seed?.langs ?? []);
   const [moreLangs, setMoreLangs] = useState<string[]>(seed?.moreLangs ?? []);
@@ -434,14 +385,16 @@ export function PreferencesScreen({
     });
   }, [persistKey, format, districts, langs, moreLangs, langLevels, avail]);
 
+  // Location follows the chosen format (in-person / both). When the format
+  // question is hidden — the tutor flow, where format AND location are collected
+  // per-subject on TutorSD — `format` stays null, so location never shows here.
   const needLoc = format === "in_person" || format === "both";
-  const ready = !!format && (!needLoc || districts.length > 0);
+  const ready = (!showFormat || !!format) && (!needLoc || districts.length > 0);
   // A time slot is mid-edit when a start/end is pending but not yet saved with
   // "Done". Block Continue until it's committed or cancelled so a half-made slot
   // can't be silently lost. (A freshly opened picker with nothing chosen yet is
   // not "dirty", so Continue stays available.)
   const slotDirty = pendingStart != null || pendingEnd != null;
-  const activeRegionObj = REGIONS.find((r) => r.id === activeRegion) ?? null;
 
   const locAnim = useRef(new Animated.Value(needLoc ? 1 : 0)).current;
   const animateLoc = () => {
@@ -457,16 +410,6 @@ export function PreferencesScreen({
     setFormat(id);
     if ((id === "in_person" || id === "both") && !wasLoc) animateLoc();
   };
-
-  // ---- location handlers (districts can span multiple regions) ----
-  const districtKey = (regionId: RegionId, d: string) => `${regionId}:${d}`;
-  const countForRegion = (regionId: RegionId) =>
-    districts.filter((k) => k.startsWith(`${regionId}:`)).length;
-  const toggleDistrict = (regionId: RegionId, d: string) =>
-    setDistricts((prev) => {
-      const k = districtKey(regionId, d);
-      return prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k];
-    });
 
   // ---- language handlers ----
   const toggleLang = (id: string) =>
@@ -911,26 +854,31 @@ export function PreferencesScreen({
           </View>
         ) : null}
 
-        {/* ---- Section 1: lesson format ---- */}
-        <Text style={styles.sectionLabel}>{t("prefs.section.format")}</Text>
-        <View style={styles.formatRow}>
-          {FORMATS.map((f) => (
-            <SelectableCircle
-              key={f.id}
-              style={styles.formatItem}
-              size={64}
-              label={t(f.labelKey)}
-              selected={format === f.id}
-              color={f.color}
-              onPress={() => chooseFormat(f.id)}
-              renderIcon={({ size, color }) => (
-                <MaterialIcons name={f.icon} size={size} color={color} />
-              )}
-            />
-          ))}
-        </View>
+        {/* ---- Section 1: lesson format (hidden in the tutor flow, where it's
+             collected per-subject on TutorSD) ---- */}
+        {showFormat ? (
+          <>
+            <Text style={styles.sectionLabel}>{t("prefs.section.format")}</Text>
+            <View style={styles.formatRow}>
+              {FORMATS.map((f) => (
+                <SelectableCircle
+                  key={f.id}
+                  style={styles.formatItem}
+                  size={64}
+                  label={t(f.labelKey)}
+                  selected={format === f.id}
+                  color={f.color}
+                  onPress={() => chooseFormat(f.id)}
+                  renderIcon={({ size, color }) => (
+                    <MaterialIcons name={f.icon} size={size} color={color} />
+                  )}
+                />
+              ))}
+            </View>
+          </>
+        ) : null}
 
-        {/* ---- Section 2: location (in-person / both) ---- */}
+        {/* ---- Section 2: location (shown when format is in-person / both) ---- */}
         {needLoc ? (
           <Animated.View
             style={{
@@ -946,73 +894,7 @@ export function PreferencesScreen({
             }}
           >
             <Text style={styles.sectionLabel}>{t("prefs.section.location")}</Text>
-            <View style={styles.segment}>
-              {REGIONS.map((r) => {
-                const on = activeRegion === r.id;
-                const count = countForRegion(r.id);
-                return (
-                  <TouchableOpacity
-                    key={r.id}
-                    style={[styles.segmentTab, on && styles.segmentTabOn]}
-                    onPress={() => setActiveRegion(r.id)}
-                    activeOpacity={0.85}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
-                    accessibilityLabel={`${r.label}${count > 0 ? `, ${count} selected` : ""}`}
-                  >
-                    <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
-                      {r.label}
-                    </Text>
-                    {count > 0 ? (
-                      <View style={styles.regionBadge}>
-                        <Text style={styles.regionBadgeText}>{count}</Text>
-                      </View>
-                    ) : null}
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-            {/* Pick a region tab to reveal its districts; selections persist
-                across tabs so districts can be chosen in several regions. */}
-            {activeRegionObj ? (
-              <View style={styles.districtGrid}>
-                {activeRegionObj.districts.map((d) => {
-                  const on = districts.includes(districtKey(activeRegionObj.id, d));
-                  return (
-                    <TouchableOpacity
-                      key={d}
-                      style={styles.districtItem}
-                      onPress={() => toggleDistrict(activeRegionObj.id, d)}
-                      activeOpacity={0.85}
-                      accessibilityRole="button"
-                      accessibilityLabel={d}
-                      accessibilityState={{ selected: on }}
-                    >
-                      <View
-                        style={[
-                          styles.districtCircle,
-                          on ? styles.districtCircleOn : styles.districtCircleOff,
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.districtChar,
-                            { color: on ? "#FFFFFF" : "#111827" },
-                          ]}
-                        >
-                          {DISTRICT_ZH[d] ?? d[0]}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[styles.districtLabel, on && styles.districtLabelOn]}
-                      >
-                        {d}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            ) : null}
+            <DistrictPicker value={districts} onChange={setDistricts} />
           </Animated.View>
         ) : null}
 
@@ -1188,79 +1070,6 @@ const styles = StyleSheet.create({
 
   formatRow: { flexDirection: "row" },
   formatItem: { width: "33.333%" },
-
-  segment: {
-    flexDirection: "row",
-    backgroundColor: "#EFEFEF",
-    borderRadius: 12,
-    padding: 4,
-  },
-  segmentTab: {
-    flex: 1,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 9,
-  },
-  segmentTabOn: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  segmentText: { fontSize: 14, fontWeight: "600", color: "#6B7280" },
-  segmentTextOn: { color: "#111827", fontWeight: "700" },
-  regionBadge: {
-    position: "absolute",
-    top: -6,
-    right: -6,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 5,
-    borderRadius: 10,
-    backgroundColor: "#2D6A4F",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-  },
-  regionBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
-  districtGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    rowGap: 18,
-    marginTop: 18,
-  },
-  districtItem: { width: "25%", alignItems: "center" },
-  districtCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  districtCircleOff: { backgroundColor: "#FFFFFF", borderColor: "#E5E7EB" },
-  districtCircleOn: {
-    backgroundColor: "#2D6A4F",
-    borderColor: "#2D6A4F",
-    shadowColor: "#2D6A4F",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  districtChar: { fontSize: 21, fontWeight: "700", lineHeight: 24 },
-  districtLabel: {
-    marginTop: 7,
-    fontSize: 10,
-    fontWeight: "500",
-    color: "#6B7280",
-    textAlign: "center",
-  },
-  districtLabelOn: { color: "#2D6A4F", fontWeight: "700" },
 
   langRowWrap: { flexDirection: "row" },
   langItem: { width: "25%", alignItems: "center" },

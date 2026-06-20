@@ -21,7 +21,10 @@ import {
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
+import { DistrictPicker } from "../../components/onboarding/DistrictPicker";
+import { districtName } from "../../components/onboarding/hkDistricts";
 import { getStored, usePersistentState } from "../../components/onboarding/onboardingStore";
+import { type FormatId } from "../../components/onboarding/PreferencesScreen";
 import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 import { useT } from "../../components/i18n/LanguageProvider";
@@ -42,14 +45,18 @@ import { subIconFor, type Interest } from "./StudentCatSel";
  * Tutor onboarding — "Strengths & Details" (step 4).
  *
  * An accordion of the tutor's chosen subjects; exactly one card is expanded at a
- * time (first open by default). Each card collects years of experience, pay,
- * achievements, relevant experience and qualifications. The qualification
- * type → detail logic lives in components/onboarding/tutorQuals.ts. Everything
- * is local state, handed FORWARD on Continue — no backend (CLAUDE.md).
+ * time (first open by default). Each card collects years of teaching experience,
+ * pay, lesson format, achievements, relevant experience and qualifications. The
+ * qualification type → detail logic lives in components/onboarding/tutorQuals.ts.
+ * Lesson format is collected here (per subject) rather than on TutorPrefs, since
+ * a tutor may teach some subjects in person and others online. Everything is
+ * local state, handed FORWARD on Continue — no backend (CLAUDE.md).
  *
  * Web-spec adaptations (no web `<select>`, no Material Symbols font): dropdowns
  * are custom pop-up sheets; the years wheel and pay slider are rebuilt with
  * React Native's built-in scroll + PanResponder; icons use @expo/vector-icons.
+ * The pay slider is non-linear (small $10 steps near the bottom, bigger $100
+ * steps near the top) so the common $200–$500 range is easy to land on.
  */
 
 type Subject = { id: string; label: string; catId: string; color: string };
@@ -71,10 +78,16 @@ type Experience = {
 type Detail = {
   years: string;
   pay: number;
+  format: FormatId;
+  /** Chosen districts ("<regionId>:<District Name>"); only used for in-person / both. */
+  districts: string[];
   achievements: string[];
   experiences: Experience[];
   quals: Qualification[];
 };
+
+/** Whether a lesson format involves meeting in person (so a location is asked). */
+const needsLocation = (f: FormatId) => f === "in_person" || f === "both";
 
 const PROGRESS = 0.9;
 const YEARS_VALUES = Array.from({ length: 30 }, (_, i) => String(i)).concat("30+");
@@ -82,12 +95,32 @@ const DUR_VALUES = Array.from({ length: 10 }, (_, i) => String(i)).concat("10+")
 const UNIT_VALUES = ["months", "years"];
 const CURRENT_YEAR = new Date().getFullYear();
 const YEAR_VALUES = Array.from({ length: 57 }, (_, i) => String(CURRENT_YEAR - i));
-const PAY_MIN = 100;
 const PAY_MAX = 3000;
-const PAY_STEP = 50;
+
+// Non-linear pay scale: small steps at the bottom, larger steps near the top, so
+// the common $200–$500 range gets ~a third of the slider instead of ~10%. Each
+// entry is one stop on the slider (equal pixel spacing), so the tiers with the
+// smallest steps take up the most width. See ValueSlider.
+const PAY_TIERS: [from: number, to: number, step: number][] = [
+  [100, 600, 10],
+  [600, 1000, 25],
+  [1000, 2000, 50],
+  [2000, PAY_MAX, 100],
+];
+const PAY_VALUES: number[] = (() => {
+  const out: number[] = [];
+  for (const [from, to, step] of PAY_TIERS) {
+    for (let v = from; v < to; v += step) out.push(v);
+  }
+  out.push(PAY_MAX); // final "$3000+" stop
+  return out;
+})();
+
 const DEFAULT_DETAIL: Detail = {
   years: "0",
   pay: 300,
+  format: "both",
+  districts: [],
   achievements: [],
   experiences: [],
   quals: [],
@@ -109,6 +142,12 @@ const LEVEL_KEYS: Record<string, TranslationKey> = {
   high: "level.high",
   university: "level.university",
   adult: "level.adult",
+};
+
+const FORMAT_KEYS: Record<FormatId, TranslationKey> = {
+  in_person: "format.in_person",
+  online: "format.online",
+  both: "format.both",
 };
 
 type TFn = (key: TranslationKey, params?: Record<string, string | number>) => string;
@@ -342,19 +381,20 @@ function ScrollWheel({
 
 const THUMB = 26;
 
-/** Drag slider with a tooltip above the thumb (pay). */
+/**
+ * Drag slider with a tooltip above the thumb (pay). The slider walks a fixed
+ * list of allowed `values` by INDEX (each gets equal pixel width), so the scale
+ * can be non-linear: tiers built with smaller money-steps contribute more
+ * entries and therefore claim more of the track. See PAY_VALUES.
+ */
 function ValueSlider({
-  min,
-  max,
-  step,
+  values,
   value,
   onChange,
   format,
   topStop,
 }: {
-  min: number;
-  max: number;
-  step: number;
+  values: number[];
   value: number;
   onChange: (v: number) => void;
   format: (v: number) => string;
@@ -362,7 +402,24 @@ function ValueSlider({
 }) {
   const [w, setW] = useState(0);
   const usable = Math.max(1, w - THUMB);
-  const ratio = (value - min) / (max - min);
+  const last = values.length - 1;
+  // Map the current value to its slider stop (snap to nearest if it isn't an
+  // exact entry, e.g. a default carried over from an older scale).
+  const idx = (() => {
+    const exact = values.indexOf(value);
+    if (exact !== -1) return exact;
+    let best = 0;
+    let bestDist = Infinity;
+    values.forEach((v, i) => {
+      const d = Math.abs(v - value);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    });
+    return best;
+  })();
+  const ratio = last > 0 ? idx / last : 0;
   const thumbX = ratio * usable;
 
   // The track's left edge in screen coordinates. We map the finger's ABSOLUTE x
@@ -383,8 +440,8 @@ function ValueSlider({
   onXRef.current = (pageX: number) => {
     const rel = pageX - trackLeftRef.current - THUMB / 2;
     const clamped = Math.max(0, Math.min(usable, rel));
-    let v = min + (clamped / usable) * (max - min);
-    v = Math.max(min, Math.min(max, Math.round(v / step) * step));
+    const i = Math.max(0, Math.min(last, Math.round((clamped / usable) * last)));
+    const v = values[i];
     if (v !== value) onChange(v);
   };
 
@@ -407,7 +464,7 @@ function ValueSlider({
   ).current;
 
   const TIP_W = 72;
-  const tipText = value >= max ? topStop : format(value);
+  const tipText = value >= values[last] ? topStop : format(value);
   const tipLeft = Math.max(0, Math.min(Math.max(0, w - TIP_W), thumbX + THUMB / 2 - TIP_W / 2));
 
   return (
@@ -433,7 +490,7 @@ function ValueSlider({
         <View style={[styles.thumb, { left: thumbX }]} />
       </View>
       <View style={styles.sliderLabels}>
-        <Text style={styles.sliderLabel}>{format(min)}</Text>
+        <Text style={styles.sliderLabel}>{format(values[0])}</Text>
         <Text style={styles.sliderLabel}>{topStop}</Text>
       </View>
     </View>
@@ -558,12 +615,15 @@ function QualResult({
 function DetailCard({
   subject,
   detail,
+  prevDistricts,
   open,
   onToggle,
   onPatch,
 }: {
   subject: Subject;
   detail: Detail;
+  /** Districts from the nearest earlier in-person subject, for "Same as previous". */
+  prevDistricts: string[] | null;
   open: boolean;
   onToggle: () => void;
   onPatch: (partial: Partial<Detail>) => void;
@@ -630,14 +690,54 @@ function DetailCard({
           {/* Preferred pay */}
           <FieldLabel icon="payments">{t("sd.field.pay")}</FieldLabel>
           <ValueSlider
-            min={PAY_MIN}
-            max={PAY_MAX}
-            step={PAY_STEP}
+            values={PAY_VALUES}
             value={detail.pay}
             onChange={(v) => onPatch({ pay: v })}
             format={(v) => `$${v}`}
             topStop="$3000+"
           />
+
+          {/* Lesson format (per subject — a tutor may teach some subjects in
+              person and others online) */}
+          <FieldLabel icon="swap-horiz">{t("sd.field.format")}</FieldLabel>
+          <Segmented
+            options={[
+              { key: "in_person", label: t("format.in_person") },
+              { key: "online", label: t("format.online") },
+              { key: "both", label: t("format.both") },
+            ]}
+            value={detail.format}
+            onChange={(k) => onPatch({ format: k as FormatId })}
+          />
+
+          {/* Location — only when the lesson is (partly) in person. The "Same as
+              previous" chip copies the districts from the nearest earlier
+              in-person subject, so a tutor working one area doesn't re-pick it. */}
+          {needsLocation(detail.format) ? (
+            <>
+              <View style={styles.locHeaderRow}>
+                <View style={styles.fieldLabelInline}>
+                  <MaterialIcons name="place" size={17} color="#2D6A4F" />
+                  <Text style={styles.fieldLabelText}>{t("sd.field.location")}</Text>
+                </View>
+                {prevDistricts && prevDistricts.length > 0 ? (
+                  <TouchableOpacity
+                    style={styles.samePrevBtn}
+                    onPress={() => onPatch({ districts: [...prevDistricts] })}
+                    accessibilityRole="button"
+                    accessibilityLabel={t("sd.location.samePrev")}
+                  >
+                    <MaterialIcons name="content-copy" size={14} color="#2D6A4F" />
+                    <Text style={styles.samePrevText}>{t("sd.location.samePrev")}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <DistrictPicker
+                value={detail.districts}
+                onChange={(next) => onPatch({ districts: next })}
+              />
+            </>
+          ) : null}
 
           {/* Achievements */}
           <FieldLabel icon="emoji-events">{t("sd.field.achievements")}</FieldLabel>
@@ -920,6 +1020,13 @@ export default function TutorSD() {
                       ]}
                     />
                     <RevSection label={t("sd.field.pay")} lines={[payText]} />
+                    <RevSection label={t("sd.field.format")} lines={[t(FORMAT_KEYS[d.format])]} />
+                    {needsLocation(d.format) ? (
+                      <RevSection
+                        label={t("sd.field.location")}
+                        lines={d.districts.map(districtName)}
+                      />
+                    ) : null}
                     <RevSection label={t("sd.field.achievements")} lines={achievements} />
                     <RevSection
                       label={t("sd.field.experience")}
@@ -1003,13 +1110,25 @@ export default function TutorSD() {
         ) : null}
 
         <View style={styles.cardsWrap}>
-          {subjects.map((s) => {
+          {subjects.map((s, i) => {
             const key = keyOf(s);
+            // "Same as previous": the districts of the nearest earlier subject
+            // that is in person and actually has districts set (skips online /
+            // empty ones). null for the first such subject (button hidden).
+            let prevDistricts: string[] | null = null;
+            for (let j = i - 1; j >= 0; j--) {
+              const dj = getDetail(keyOf(subjects[j]));
+              if (needsLocation(dj.format) && dj.districts.length > 0) {
+                prevDistricts = dj.districts;
+                break;
+              }
+            }
             return (
               <DetailCard
                 key={key}
                 subject={s}
                 detail={getDetail(key)}
+                prevDistricts={prevDistricts}
                 open={openKey === key}
                 onToggle={() => setOpenKey(openKey === key ? "" : key)}
                 onPatch={(partial) => patch(key, partial)}
@@ -1139,6 +1258,28 @@ const styles = StyleSheet.create({
 
   fieldLabel: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 18, marginBottom: 8 },
   fieldLabelText: { fontSize: 13.5, fontWeight: "700", color: "#16201C" },
+
+  // Location header: the field label on the left, "Same as previous" on the right.
+  locHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 18,
+    marginBottom: 8,
+  },
+  fieldLabelInline: { flexDirection: "row", alignItems: "center", gap: 7 },
+  samePrevBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 11,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#2D6A4F",
+    backgroundColor: "#FFFFFF",
+  },
+  samePrevText: { color: "#2D6A4F", fontSize: 12.5, fontWeight: "700" },
 
   wheelCard: {
     backgroundColor: "#FFFFFF",

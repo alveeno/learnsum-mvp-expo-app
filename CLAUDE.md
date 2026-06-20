@@ -81,7 +81,14 @@ one flow per role:
 - **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
   preferences, one child at a time, then a review)
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
-  `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (a **profile
+  `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting years of
+  **teaching** experience, preferred pay, **lesson format** (In person / Online / Both,
+  default Both), **location** (only for In person / Both — region tabs + district grid via the
+  shared `DistrictPicker`; later subjects get a **"Same as previous"** chip that copies the
+  districts from the nearest earlier in-person subject), achievements, experience and
+  qualifications; the **pay slider is non-linear** — small $10 steps near the bottom growing to
+  $100 near the top, so the common $200–$500 range is easy to land on) → `TutorPrefs` →
+  `TutorAbout` (a **profile
   photo** — optional placeholder uploader, mocked, no native picker; **first name, last name and
   gender are required to Continue**; bio + education stay optional). Education entries use
   **searchable dropdowns** (`SearchSelect` + `components/onboarding/eduOptions.ts`): school name
@@ -128,7 +135,9 @@ subscription) and renders it as the tutor's public profile would look. Sections:
 (initials `Avatar`, single-line name, gender, and a derived **"Qualified"** badge shown **only**
 when ≥1 subject has a real qualification), **About** (the optional bio), an **Education** accordion,
 a **Subjects-taught** single-open accordion (collapsed row keeps an at-a-glance grade chip + price
-per subject; expanded = format pill, **Years exp / Per hour** stat tiles, then **Qualifications**,
+per subject; expanded = the subject's own **lesson-format pill** + its **districts** (in-person
+subjects only), **Years exp / Per hour** stat
+tiles, then **Qualifications**,
 **Achievements** and **Experience** each in their own card with a big icon-led heading —
 Qualifications render as **grade-tiles** (big result on top, short "type + subject" label, e.g.
 `7` / "IB Mathematics: AA HL"; results with no exam-style grade fall back to a line)), **Languages**
@@ -141,9 +150,16 @@ most content shown is the deferred English-only content lists). University/secon
 from a small name→domain map of well-known HK universities pulled via Clearbit
 (`logo.clearbit.com/<domain>`); unrecognised schools (and any failed load) fall back to a generic
 crest tile. Fields the reference design shows but onboarding never collects — **rating**, post
-**"Highlights"**, and **student counts** — are intentionally omitted. It writes nothing; the
-back arrow returns to `TutorAbout` to edit, and **"Looks good — finish"** routes to `Welcome` →
-`/tutor-home`.
+**"Highlights"**, and **student counts** — are intentionally omitted. The back arrow returns to
+`TutorAbout` to edit. **"Looks good — finish"** opens a **publish bottom sheet** ("Make your
+profile public?"): a master **Public profile** toggle and, when it's on, two audience toggles —
+**Parents & students** (search + public profile) and **Tutors** (the tutor feed / suggestions),
+all defaulting on. With Public on you must keep ≥1 audience (the finish button disables
+otherwise); turning Public off finishes the profile **private/unpublished**. The sheet's button
+(**"Publish & finish"** / **"Keep private & finish"**) writes the choice to the store
+(`tutor:visibility` = `{ public, parentsStudents, tutors }`) and routes to `Welcome` →
+`/tutor-home`. This is the **only** thing the screen writes; everything else is read-only.
+(English-only, like the rest of the screen.)
 
 **Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
 that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is
@@ -159,8 +175,10 @@ the backend in one shot** (email verification is OFF, so the new session is live
 **Social login (Google / Apple / Microsoft) is planned** — the buttons on `SignUp` and in
 `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
-+ remaining details) and explicit publish / self-unpublish are **not built yet** — for now the
-tutor onboarding flow stands in for it. **Log in** uses the `LoginSheet` bottom sheet (opened
++ remaining details) and **standalone** publish / self-unpublish (from a Profile/Settings route)
+are **not built yet** — for now the tutor onboarding flow stands in for it, and the **initial**
+publish choice (public + per-audience visibility) is collected on the `TutorProfileConfirm`
+publish sheet (see "Tutor profile review" above; saved to `tutor:visibility`). **Log in** uses the `LoginSheet` bottom sheet (opened
 from the welcome screen and from the `/auth/gate` route); its "Log in" button is a **front-end
 mock** that marks the user registered (session-only) and hands off — the social buttons and
 "Forgot password?" stay inert, and there's no standalone `/auth` login route yet.
@@ -255,6 +273,19 @@ screen re-seed itself so **input is never lost while the app is open**.
   — so it leads the screen and **auto-scrolls into view** when a day is selected
   (`scrollToTimelineRef` + the `timelineWrap` `onLayout`). Don't reorder it back down. (The
   in-code `// Section 1..4` comments still number by data block, not on-screen position.)
+- **Tutors hide both the lesson-format and location questions** (`showFormat={false}` on
+  `PreferencesScreen`): both are collected **per subject** on `TutorSD` instead (format under
+  Preferred pay; location under format — see the tutor flow above), since a tutor may teach some
+  subjects in person and others online, each in different districts. With format off, `format`
+  stays null so the location section never renders on `TutorPrefs` either — for tutors that
+  screen is just availability + languages. Student/parent flows are unchanged (format shown;
+  location follows the chosen format and is required when in-person/both).
+- **Location picker is shared** (`components/onboarding/DistrictPicker.tsx` + the HK
+  regions/districts data in `components/onboarding/hkDistricts.ts`): a controlled region-tabs +
+  district-grid component used by both `PreferencesScreen` (student/parent) and the per-subject
+  cards on `TutorSD`. Districts are stored as `"<regionId>:<District Name>"` keys and can span
+  regions; `districtName()` turns a key back into its display name. (Extracting this made the
+  district grid show its first region immediately, rather than only after a region tab is tapped.)
 - **Skip confirmation:** every onboarding "Skip" routes through `useSkipGuard()`
   (`components/onboarding/useSkipGuard.tsx`), which shows a one-time "Skip this step?"
   warning (`components/ui/ConfirmModal.tsx`) the first time per app session, then skips

@@ -7,15 +7,18 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   View,
 } from "react-native";
 
 import { Avatar, Qualified } from "../../components/tutor/feedUi";
 import { C } from "../../components/tutor/tutorData";
-import { getStored } from "../../components/onboarding/onboardingStore";
-import { type Prefs } from "../../components/onboarding/PreferencesScreen";
+import { districtName } from "../../components/onboarding/hkDistricts";
+import { getStored, setStored } from "../../components/onboarding/onboardingStore";
+import { type FormatId, type Prefs } from "../../components/onboarding/PreferencesScreen";
 import { qualDetailKind } from "../../components/onboarding/tutorQuals";
+import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { subIconFor, type Interest } from "./StudentCatSel";
 
@@ -64,6 +67,8 @@ type Experience = {
 type Detail = {
   years: string;
   pay: number;
+  format: FormatId;
+  districts: string[];
   achievements: string[];
   experiences: Experience[];
   quals: Qualification[];
@@ -78,6 +83,8 @@ const EMPTY_EDU: EduByLevel = {
 const DEFAULT_DETAIL: Detail = {
   years: "0",
   pay: 300,
+  format: "both",
+  districts: [],
   achievements: [],
   experiences: [],
   quals: [],
@@ -245,6 +252,36 @@ function SectionLabel({ children }: { children: string }) {
   return <Text style={styles.sectionLabel}>{children}</Text>;
 }
 
+/** A labelled on/off row used by the publish sheet. */
+function ToggleRow({
+  title,
+  hint,
+  value,
+  onValueChange,
+}: {
+  title: string;
+  hint: string;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.toggleTitle}>{title}</Text>
+        <Text style={styles.toggleHint}>{hint}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onValueChange}
+        trackColor={{ true: C.green, false: "#D1D5DB" }}
+        thumbColor="#FFFFFF"
+        ios_backgroundColor="#D1D5DB"
+        accessibilityLabel={title}
+      />
+    </View>
+  );
+}
+
 function SchoolLogo({
   name,
   icon,
@@ -348,12 +385,15 @@ function SubjectCard({
   interest,
   detail,
   formatText,
+  areas,
   open,
   onToggle,
 }: {
   interest: Interest;
   detail: Detail;
   formatText: string | null;
+  /** District names for in-person / both subjects (empty otherwise). */
+  areas: string[];
   open: boolean;
   onToggle: () => void;
 }) {
@@ -412,6 +452,13 @@ function SubjectCard({
             <View style={styles.pill}>
               <Ionicons name="book-outline" size={14} color={C.greenD} />
               <Text style={styles.pillText}>{formatText}</Text>
+            </View>
+          ) : null}
+
+          {areas.length > 0 ? (
+            <View style={styles.areaRow}>
+              <Ionicons name="location-outline" size={14} color={C.muted} />
+              <Text style={styles.areaText}>{areas.join(" · ")}</Text>
             </View>
           ) : null}
 
@@ -538,8 +585,6 @@ export default function TutorProfileConfirm() {
       : 0;
   const visibleGroups = eduOpen ? eduGroups : collapsedGroups;
 
-  const formatText = data.prefs?.format ? FORMAT_LABEL[data.prefs.format] ?? null : null;
-
   // Languages with a proficiency level, main languages first.
   const langs = useMemo(() => {
     const levels = data.prefs?.langLevels ?? {};
@@ -555,8 +600,25 @@ export default function TutorProfileConfirm() {
   const levelsSet = useMemo(() => new Set(data.levels), [data.levels]);
   const hasLevels = LEVEL_TRACK.some((l) => levelsSet.has(l.key));
 
-  const confirm = () =>
+  // Publish sheet: on "Looks good — finish" the tutor chooses whether the profile
+  // goes public and which audiences can find them. Front-end only — the choice is
+  // saved to the in-memory onboarding store (flushed to the backend later with the
+  // rest of the data). Groups only matter while Public is on.
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [isPublic, setIsPublic] = useState(true);
+  const [seekersOn, setSeekersOn] = useState(true); // parents & students
+  const [tutorsOn, setTutorsOn] = useState(true);
+  const noAudience = isPublic && !seekersOn && !tutorsOn;
+
+  const finish = () => {
+    setStored("tutor:visibility", {
+      public: isPublic,
+      parentsStudents: isPublic && seekersOn,
+      tutors: isPublic && tutorsOn,
+    });
+    setSheetOpen(false);
     router.push({ pathname: "/onboarding/Welcome", params: { next: "/tutor-home" } });
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -648,12 +710,16 @@ export default function TutorProfileConfirm() {
             <View style={{ gap: 10 }}>
               {data.interests.map((it) => {
                 const key = `${it.catId}:${it.subId}`;
+                const d = getDetail(it);
+                const inPerson = d.format === "in_person" || d.format === "both";
+                const areas = inPerson ? d.districts.map(districtName) : [];
                 return (
                   <SubjectCard
                     key={key}
                     interest={it}
-                    detail={getDetail(it)}
-                    formatText={formatText}
+                    detail={d}
+                    formatText={FORMAT_LABEL[d.format] ?? null}
+                    areas={areas}
                     open={openKey === key}
                     onToggle={() => setOpenKey(openKey === key ? "" : key)}
                   />
@@ -709,8 +775,65 @@ export default function TutorProfileConfirm() {
 
       <View style={styles.footer}>
         <Text style={styles.footerHint}>Tap back to edit any section.</Text>
-        <Button label="Looks good — finish" variant="primary" onPress={confirm} />
+        <Button
+          label="Looks good — finish"
+          variant="primary"
+          onPress={() => setSheetOpen(true)}
+        />
       </View>
+
+      <BottomSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        title="Make your profile public?"
+      >
+        <Text style={styles.sheetSub}>
+          Choose who can find your profile. You can change this anytime later.
+        </Text>
+
+        <ToggleRow
+          title="Public profile"
+          hint={
+            isPublic
+              ? "People you choose below can find you."
+              : "Hidden — only you can see it for now."
+          }
+          value={isPublic}
+          onValueChange={setIsPublic}
+        />
+
+        {isPublic ? (
+          <>
+            <Text style={styles.sheetGroupLabel}>WHO CAN FIND YOU</Text>
+            <ToggleRow
+              title="Parents & students"
+              hint="Discover you in search and on your public profile."
+              value={seekersOn}
+              onValueChange={setSeekersOn}
+            />
+            <ToggleRow
+              title="Tutors"
+              hint="See you in the tutor feed and suggestions."
+              value={tutorsOn}
+              onValueChange={setTutorsOn}
+            />
+          </>
+        ) : null}
+
+        {noAudience ? (
+          <Text style={styles.sheetWarn}>
+            Pick at least one audience, or turn off Public profile.
+          </Text>
+        ) : null}
+
+        <Button
+          label={isPublic ? "Publish & finish" : "Keep private & finish"}
+          variant="primary"
+          onPress={finish}
+          disabled={noAudience}
+          style={styles.sheetBtn}
+        />
+      </BottomSheet>
     </SafeAreaView>
   );
 }
@@ -855,6 +978,9 @@ const styles = StyleSheet.create({
   },
   pillText: { fontSize: 13, fontWeight: "700", color: C.greenD },
 
+  areaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  areaText: { flex: 1, fontSize: 13, color: C.muted, fontWeight: "600" },
+
   statRow: { flexDirection: "row", gap: 10 },
   statTile: {
     flex: 1,
@@ -935,4 +1061,33 @@ const styles = StyleSheet.create({
     borderTopColor: "#ECECEC",
   },
   footerHint: { fontSize: 12.5, color: C.muted, textAlign: "center", marginBottom: 10 },
+
+  // Publish sheet
+  sheetSub: {
+    fontSize: 13.5,
+    lineHeight: 19,
+    color: C.muted,
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.hairline,
+  },
+  toggleTitle: { fontSize: 15.5, fontWeight: "700", color: C.ink },
+  toggleHint: { fontSize: 12.5, color: C.muted, marginTop: 2, lineHeight: 17 },
+  sheetGroupLabel: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    letterSpacing: 0.5,
+    color: C.muted,
+    marginTop: 14,
+    marginBottom: 2,
+  },
+  sheetWarn: { fontSize: 12.5, color: C.goldD, textAlign: "center", marginTop: 12 },
+  sheetBtn: { marginTop: 18 },
 });
