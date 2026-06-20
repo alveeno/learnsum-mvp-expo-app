@@ -1,6 +1,8 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
+import { useState } from "react";
 import {
+  FlatList,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -11,29 +13,45 @@ import {
   View,
 } from "react-native";
 
+import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { onStepContinue } from "../../components/onboarding/tutorOnboarding";
+import {
+  HK_SECONDARY_SCHOOLS,
+  SECONDARY_QUALIFICATIONS,
+  SECONDARY_SCORE_OPTIONS,
+  UNI_DEGREES,
+  UNI_HONOURS,
+  UNIVERSITIES,
+} from "../../components/onboarding/eduOptions";
 import { useT } from "../../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../../components/i18n/translations";
 
 /**
  * Tutor onboarding — "About you" (the final step, after everything else).
  *
- * Collects the tutor's name (optional), a free-text bio, gender, a per-level
+ * Collects the tutor's name (optional), a free-text bio, gender and a per-level
  * education history (Kindergarten / Primary / Secondary / University — multiple
- * schools each, for people who switched) and what they're currently studying.
- * Everything is OPTIONAL and kept in the shared in-memory onboarding store
+ * schools each, for people who switched). School names, qualifications and
+ * scores are chosen from searchable dropdowns (with a free-typed fallback), and
+ * each entry carries a "Currently studying / Finished" status. Everything is
+ * OPTIONAL and kept in the shared in-memory onboarding store
  * (`usePersistentState`). On Continue it marks onboarding's final step done and
- * returns to the tutor home — no backend.
+ * leads into the review screen — no backend.
  */
 
 const PROGRESS = 1; // final info step, just before the placeholder landing
 
 type LevelId = "kindergarten" | "primary" | "secondary" | "university";
-type SchoolEntry = { institution: string; qualification: string; score: string };
-type CurrentEntry = { institution: string; programme: string };
+type SchoolEntry = {
+  institution: string;
+  qualification: string;
+  score: string;
+  /** true = currently studying here; false = finished (default). */
+  ongoing: boolean;
+};
 type EduByLevel = Record<LevelId, SchoolEntry[]>;
 
 // Kindergarten/primary only need a school name; secondary/university also take a
@@ -54,6 +72,153 @@ const GENDERS: { key: string; labelKey: TranslationKey }[] = [
   { key: "na", labelKey: "about.gender.na" },
 ];
 
+/**
+ * A searchable dropdown: tap an option from the list, or type a value the list
+ * doesn't have and confirm it ("Use …" / Return). Used for school names,
+ * qualifications and scores. When `options` is empty (e.g. a score with no fixed
+ * scale) it behaves as a plain type-your-own field.
+ */
+function SearchSelect({
+  value,
+  options,
+  placeholder,
+  sheetTitle,
+  emptyHint,
+  onChange,
+}: {
+  value: string;
+  options: string[];
+  placeholder: string;
+  sheetTitle: string;
+  emptyHint?: string;
+  onChange: (v: string) => void;
+}) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const query = q.trim();
+  const filtered =
+    query.length === 0
+      ? options
+      : options.filter((o) => o.toLowerCase().includes(query.toLowerCase()));
+  const exact = options.some((o) => o.toLowerCase() === query.toLowerCase());
+
+  const close = () => {
+    setOpen(false);
+    setQ("");
+  };
+  const choose = (v: string) => {
+    onChange(v);
+    close();
+  };
+  const useTyped = () => {
+    if (query.length > 0) choose(query);
+  };
+
+  return (
+    <>
+      <Pressable
+        style={styles.select}
+        onPress={() => setOpen(true)}
+        accessibilityRole="button"
+        accessibilityLabel={value || placeholder}
+      >
+        <Text style={[styles.selectText, !value && styles.selectPlaceholder]} numberOfLines={1}>
+          {value || placeholder}
+        </Text>
+        <MaterialIcons name="expand-more" size={20} color="#9CA3AF" />
+      </Pressable>
+
+      <BottomSheet visible={open} onClose={close} title={sheetTitle}>
+        <View style={styles.sheetSearch}>
+          <MaterialIcons name="search" size={20} color="#9CA3AF" />
+          <TextInput
+            style={styles.sheetInput}
+            value={q}
+            onChangeText={setQ}
+            placeholder={t("about.pick.search")}
+            placeholderTextColor="#9CA3AF"
+            autoFocus
+            autoCorrect={false}
+            returnKeyType="done"
+            onSubmitEditing={useTyped}
+          />
+          {q.length > 0 ? (
+            <Pressable hitSlop={8} onPress={() => setQ("")} accessibilityRole="button" accessibilityLabel="Clear">
+              <MaterialIcons name="close" size={18} color="#9CA3AF" />
+            </Pressable>
+          ) : null}
+        </View>
+
+        {query.length > 0 && !exact ? (
+          <TouchableOpacity style={styles.useTypedRow} onPress={useTyped} accessibilityRole="button">
+            <MaterialIcons name="add-circle" size={20} color="#2D6A4F" />
+            <Text style={styles.useTypedText} numberOfLines={1}>
+              {t("about.pick.use", { q: query })}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+
+        {filtered.length === 0 && query.length === 0 ? (
+          <Text style={styles.pickEmpty}>{emptyHint ?? t("about.pick.search")}</Text>
+        ) : (
+          <FlatList
+            style={styles.pickList}
+            data={filtered}
+            keyExtractor={(item) => item}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            renderItem={({ item }) => {
+              const on = item === value;
+              return (
+                <TouchableOpacity
+                  style={[styles.optRow, on && styles.optRowOn]}
+                  onPress={() => choose(item)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[styles.optText, on && styles.optTextOn]} numberOfLines={2}>
+                    {item}
+                  </Text>
+                  {on ? <Ionicons name="checkmark" size={20} color="#2D6A4F" /> : null}
+                </TouchableOpacity>
+              );
+            }}
+          />
+        )}
+      </BottomSheet>
+    </>
+  );
+}
+
+/** Two-button "Currently studying / Finished" toggle below each school entry. */
+function StatusToggle({ ongoing, onChange }: { ongoing: boolean; onChange: (v: boolean) => void }) {
+  const t = useT();
+  const opts: { key: "ongoing" | "finished"; label: string }[] = [
+    { key: "ongoing", label: t("about.status.ongoing") },
+    { key: "finished", label: t("about.status.finished") },
+  ];
+  const value = ongoing ? "ongoing" : "finished";
+  return (
+    <View style={styles.seg}>
+      {opts.map((o) => {
+        const on = o.key === value;
+        return (
+          <TouchableOpacity
+            key={o.key}
+            style={[styles.segBtn, on && styles.segBtnOn]}
+            onPress={() => onChange(o.key === "ongoing")}
+            accessibilityRole="button"
+            accessibilityState={{ selected: on }}
+          >
+            <Text style={[styles.segText, on && styles.segTextOn]}>{o.label}</Text>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 export default function TutorAbout() {
   const t = useT();
 
@@ -63,12 +228,11 @@ export default function TutorAbout() {
   const [bio, setBio] = usePersistentState("tutor:about:bio", "");
   const [gender, setGender] = usePersistentState<string | null>("tutor:about:gender", null);
   const [education, setEducation] = usePersistentState<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU);
-  const [current, setCurrent] = usePersistentState<CurrentEntry[]>("tutor:about:currentStudies", []);
 
   const addSchool = (level: LevelId) =>
     setEducation((prev) => ({
       ...prev,
-      [level]: [...(prev[level] ?? []), { institution: "", qualification: "", score: "" }],
+      [level]: [...(prev[level] ?? []), { institution: "", qualification: "", score: "", ongoing: false }],
     }));
   const updSchool = (level: LevelId, i: number, patch: Partial<SchoolEntry>) =>
     setEducation((prev) => ({
@@ -78,15 +242,12 @@ export default function TutorAbout() {
   const removeSchool = (level: LevelId, i: number) =>
     setEducation((prev) => ({ ...prev, [level]: (prev[level] ?? []).filter((_, j) => j !== i) }));
 
-  const addCurrent = () => setCurrent((prev) => [...prev, { institution: "", programme: "" }]);
-  const updCurrent = (i: number, patch: Partial<CurrentEntry>) =>
-    setCurrent((prev) => prev.map((e, j) => (j === i ? { ...e, ...patch } : e)));
-  const removeCurrent = (i: number) => setCurrent((prev) => prev.filter((_, j) => j !== i));
-
+  // The "about" step is the last data step; on Continue it leads into the
+  // read-only review screen (TutorProfileConfirm), which then hands off to the
+  // shared Welcome screen → /tutor-home. (Resuming a skipped step bypasses the
+  // review and returns home, per onStepContinue's resume mode.)
   const proceed = () =>
-    onStepContinue("about", () =>
-      router.push({ pathname: "/onboarding/Welcome", params: { next: "/tutor-home" } }),
-    );
+    onStepContinue("about", () => router.push("/onboarding/TutorProfileConfirm"));
 
   // First name, last name and gender are now required to continue (photo is optional).
   const ready = firstName.trim().length > 0 && lastName.trim().length > 0 && !!gender;
@@ -223,31 +384,77 @@ export default function TutorAbout() {
                       <MaterialIcons name="delete" size={18} color="#E63946" />
                     </TouchableOpacity>
                   </View>
-                  <TextInput
-                    style={lvl.detailed ? [styles.input, styles.stackInput] : styles.input}
-                    value={e.institution}
-                    onChangeText={(text) => updSchool(lvl.id, i, { institution: text })}
-                    placeholder={t("about.edu.institution")}
-                    placeholderTextColor="#9CA3AF"
-                  />
-                  {lvl.detailed ? (
-                    <>
-                      <TextInput
-                        style={[styles.input, styles.stackInput]}
-                        value={e.qualification}
-                        onChangeText={(text) => updSchool(lvl.id, i, { qualification: text })}
-                        placeholder={t("about.edu.qualification")}
-                        placeholderTextColor="#9CA3AF"
+                  <View style={styles.eduFields}>
+                    {lvl.id === "university" ? (
+                      <SearchSelect
+                        value={e.institution}
+                        options={UNIVERSITIES}
+                        placeholder={t("about.edu.institution")}
+                        sheetTitle={t("about.pick.schoolTitle")}
+                        onChange={(v) => updSchool(lvl.id, i, { institution: v })}
                       />
+                    ) : lvl.id === "secondary" ? (
+                      <SearchSelect
+                        value={e.institution}
+                        options={HK_SECONDARY_SCHOOLS}
+                        placeholder={t("about.edu.institution")}
+                        sheetTitle={t("about.pick.schoolTitle")}
+                        onChange={(v) => updSchool(lvl.id, i, { institution: v })}
+                      />
+                    ) : (
                       <TextInput
                         style={styles.input}
-                        value={e.score}
-                        onChangeText={(text) => updSchool(lvl.id, i, { score: text })}
-                        placeholder={t("about.edu.score")}
+                        value={e.institution}
+                        onChangeText={(text) => updSchool(lvl.id, i, { institution: text })}
+                        placeholder={t("about.edu.institution")}
                         placeholderTextColor="#9CA3AF"
                       />
-                    </>
-                  ) : null}
+                    )}
+
+                    {lvl.detailed ? (
+                      lvl.id === "university" ? (
+                        <>
+                          <SearchSelect
+                            value={e.qualification}
+                            options={UNI_DEGREES}
+                            placeholder={t("about.pick.degreeTitle")}
+                            sheetTitle={t("about.pick.degreeTitle")}
+                            onChange={(v) => updSchool(lvl.id, i, { qualification: v })}
+                          />
+                          <SearchSelect
+                            value={e.score}
+                            options={UNI_HONOURS}
+                            placeholder={t("about.pick.honoursTitle")}
+                            sheetTitle={t("about.pick.honoursTitle")}
+                            onChange={(v) => updSchool(lvl.id, i, { score: v })}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <SearchSelect
+                            value={e.qualification}
+                            options={SECONDARY_QUALIFICATIONS}
+                            placeholder={t("about.pick.qualTitle")}
+                            sheetTitle={t("about.pick.qualTitle")}
+                            onChange={(v) => updSchool(lvl.id, i, { qualification: v })}
+                          />
+                          <SearchSelect
+                            value={e.score}
+                            options={SECONDARY_SCORE_OPTIONS[e.qualification] ?? []}
+                            placeholder={t("about.pick.scoreTitle")}
+                            sheetTitle={t("about.pick.scoreTitle")}
+                            emptyHint={t("about.pick.scoreHint")}
+                            onChange={(v) => updSchool(lvl.id, i, { score: v })}
+                          />
+                        </>
+                      )
+                    ) : null}
+
+                    <StatusToggle
+                      ongoing={e.ongoing}
+                      onChange={(v) => updSchool(lvl.id, i, { ongoing: v })}
+                    />
+                  </View>
                 </View>
               ))}
               <TouchableOpacity style={styles.addRow} onPress={() => addSchool(lvl.id)} accessibilityRole="button">
@@ -257,43 +464,6 @@ export default function TutorAbout() {
             </View>
           );
         })}
-
-        {/* Currently studying — multi-add */}
-        <Text style={styles.fieldLabel}>{t("about.current.label")}</Text>
-        <Text style={styles.helper}>{t("about.current.helper")}</Text>
-        {current.map((e, i) => (
-          <View key={i} style={styles.eduCard}>
-            <View style={styles.eduHead}>
-              <Text style={styles.eduTitle}>{t("about.current.n", { n: i + 1 })}</Text>
-              <TouchableOpacity
-                onPress={() => removeCurrent(i)}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel={t("about.current.removeA11y", { n: i + 1 })}
-              >
-                <MaterialIcons name="delete" size={18} color="#E63946" />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={[styles.input, styles.stackInput]}
-              value={e.institution}
-              onChangeText={(text) => updCurrent(i, { institution: text })}
-              placeholder={t("about.current.institution")}
-              placeholderTextColor="#9CA3AF"
-            />
-            <TextInput
-              style={styles.input}
-              value={e.programme}
-              onChangeText={(text) => updCurrent(i, { programme: text })}
-              placeholder={t("about.current.programme")}
-              placeholderTextColor="#9CA3AF"
-            />
-          </View>
-        ))}
-        <TouchableOpacity style={styles.addRow} onPress={addCurrent} accessibilityRole="button">
-          <MaterialIcons name="add-circle" size={20} color="#2D6A4F" />
-          <Text style={styles.addRowText}>{t("about.current.addStudy")}</Text>
-        </TouchableOpacity>
       </ScrollView>
 
       <View style={styles.footer}>
@@ -341,6 +511,82 @@ const styles = StyleSheet.create({
   stackInput: { marginBottom: 8 },
   nameRow: { flexDirection: "row", gap: 10 },
   nameInput: { flex: 1 },
+
+  // Fields inside one school card (school / qualification / score / status).
+  eduFields: { gap: 8 },
+
+  // SearchSelect trigger (mirrors `input`, with a dropdown chevron).
+  select: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    minHeight: 46,
+    borderWidth: 1.5,
+    borderColor: HAIRLINE,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    backgroundColor: "#F9F9F7",
+  },
+  selectText: { flex: 1, fontSize: 16, color: "#16201C" },
+  selectPlaceholder: { color: "#9CA3AF" },
+
+  // SearchSelect sheet contents.
+  sheetSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#F4F4F5",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  sheetInput: { flex: 1, fontSize: 16, color: "#16201C", paddingVertical: 0 },
+  useTypedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    backgroundColor: "#E8F1ED",
+    marginBottom: 8,
+  },
+  useTypedText: { flex: 1, fontSize: 15, fontWeight: "700", color: "#2D6A4F" },
+  pickList: { maxHeight: 360 },
+  pickEmpty: { fontSize: 14.5, color: "#9CA3AF", paddingVertical: 18, textAlign: "center" },
+  optRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    minHeight: 50,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 4,
+    backgroundColor: "#F9F9F7",
+  },
+  optRowOn: { backgroundColor: "#E8F1ED" },
+  optText: { flex: 1, fontSize: 15.5, color: "#16201C" },
+  optTextOn: { fontWeight: "700", color: "#2D6A4F" },
+
+  // Status toggle (Currently studying / Finished).
+  seg: { flexDirection: "row", backgroundColor: "#EFEFEF", borderRadius: 14, padding: 4, gap: 4, marginTop: 2 },
+  segBtn: { flex: 1, height: 38, borderRadius: 11, alignItems: "center", justifyContent: "center" },
+  segBtnOn: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  segText: { fontSize: 13.5, fontWeight: "600", color: "#6B7280" },
+  segTextOn: { color: "#16201C", fontWeight: "700" },
 
   genderGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
   genderBtn: {

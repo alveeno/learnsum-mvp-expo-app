@@ -83,8 +83,17 @@ one flow per role:
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details) → `TutorPrefs` → `TutorAbout` (a **profile
   photo** — optional placeholder uploader, mocked, no native picker; **first name, last name and
-  gender are required to Continue**; bio + education stay optional). Continue goes to the shared
-  **`Welcome`** screen, then **`/tutor-home`**. *(The old `TutorNext` placeholder has been removed.)*
+  gender are required to Continue**; bio + education stay optional). Education entries use
+  **searchable dropdowns** (`SearchSelect` + `components/onboarding/eduOptions.ts`): school name
+  (universities for the University level, HK secondary schools for the Secondary level), plus
+  qualification/degree and score/honours — each with a **free-typed fallback** (type + Return).
+  Every entry carries a per-entry **Currently studying / Finished** status (there is **no separate
+  "currently studying" section**). Continue → `TutorProfileConfirm`.
+  `TutorProfileConfirm` is a **read-only review** that gathers everything entered across the flow
+  and lays it out like the tutor's public profile (profile card, About/bio, Education with real
+  university logos, Subjects-taught accordion, Languages, Levels-taught track). Its **"Looks good —
+  finish"** goes to the shared **`Welcome`** screen, then **`/tutor-home`**. *(The old `TutorNext`
+  placeholder has been removed.)* See "Tutor profile review" below.
 - **Shared completion (`app/onboarding/Welcome.tsx`):** every role's final **Continue** lands on a
   "Welcome to LearnSum" screen whose own Continue clears the onboarding stack and routes to the
   role's home — **tutor → `/tutor-home`, student/parent → `/feed`** (passed in as a `next` route
@@ -96,9 +105,9 @@ screen of their onboarding flow, which finishes on the shared `Welcome` screen a
 to **`/tutor-home`** (the tutor app shell, in its first-time / not-yet-set-up state). The tutor
 onboarding flow above is reached **from there** — via the gold **"Complete profile"** banner on
 the Home feed and the **"Set up your profile"** gate on the Profile tab. On Continue, the final
-step (`TutorAbout`) goes through `Welcome` and back to `/tutor-home` (the old `TutorNext`
-placeholder was removed). **Resuming** skipped steps from the banner goes straight home,
-bypassing `Welcome`.
+data step (`TutorAbout`) opens the `TutorProfileConfirm` review, which then goes through `Welcome`
+and back to `/tutor-home` (the old `TutorNext` placeholder was removed). **Resuming** skipped steps
+from the banner goes straight home, bypassing both `TutorProfileConfirm` and `Welcome`.
 
 **Completion + resume (`components/onboarding/tutorOnboarding.ts`):** a step counts as done
 once the user presses **Continue** on it (Skip / never-reached = incomplete). The Home banner
@@ -109,6 +118,26 @@ completed ones; first-timers pass through `SignUp` first, returning (signed-up) 
 straight in. Because a resumed step can be entered directly, `TutorSD` reads its
 subjects/levels from the store (`tutor:interests` / `tutor:levels`) rather than route params.
 State is **session-only** (a full reload resets it).
+
+**Tutor profile review (`app/onboarding/TutorProfileConfirm.tsx`):** the last screen of the tutor
+flow — a **read-only** preview that reads the whole onboarding store (a one-shot snapshot, no
+subscription) and renders it as the tutor's public profile would look. Sections: a profile card
+(initials `Avatar`, single-line name, gender, and a derived **"Qualified"** badge shown **only**
+when ≥1 subject has a real qualification), **About** (the optional bio), an **Education** accordion,
+a **Subjects-taught** single-open accordion (own-grade badge + price per subject; expanded = format
+pill, years/per-hour/own-grade stat tiles, qualifications, achievements, experience), **Languages**
+(proficiency bars), and a **Levels-taught** track. The **Education accordion** groups schools by
+level with clear labels and shows **University & Secondary collapsed**; a "Show all education"
+toggle reveals the remaining levels (Primary / Kindergarten). Each entry whose TutorAbout status is
+**Currently studying** gets a green "Currently studying" badge (the status is a per-entry flag now,
+not a separate list). **English-only** (it mirrors the English-only `/tutor-home` profile, and
+most content shown is the deferred English-only content lists). University/secondary **logos** come
+from a small name→domain map of well-known HK universities pulled via Clearbit
+(`logo.clearbit.com/<domain>`); unrecognised schools (and any failed load) fall back to a generic
+crest tile. Fields the reference design shows but onboarding never collects — **rating**, post
+**"Highlights"**, and **student counts** — are intentionally omitted. It writes nothing; the
+back arrow returns to `TutorAbout` to edit, and **"Looks good — finish"** routes to `Welcome` →
+`/tutor-home`.
 
 **Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
 that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is

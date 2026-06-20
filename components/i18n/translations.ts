@@ -542,6 +542,22 @@ export const translations = {
     "zh-Hans": "请填写名字、姓氏及性别以继续。",
   },
 
+  // ---- tutor about: searchable school / qualification / score pickers ----
+  "about.pick.search": { en: "Search or type…", "zh-Hant": "搜尋或輸入…", "zh-Hans": "搜索或输入…" },
+  "about.pick.use": { en: "Use “{q}”", "zh-Hant": "使用「{q}」", "zh-Hans": "使用「{q}」" },
+  "about.pick.schoolTitle": {
+    en: "Search your school",
+    "zh-Hant": "搜尋你的學校",
+    "zh-Hans": "搜索你的学校",
+  },
+  "about.pick.qualTitle": { en: "Qualification", "zh-Hant": "學歷", "zh-Hans": "学历" },
+  "about.pick.degreeTitle": { en: "Degree", "zh-Hant": "學位", "zh-Hans": "学位" },
+  "about.pick.scoreTitle": { en: "Score / result", "zh-Hant": "成績／等級", "zh-Hans": "成绩／等级" },
+  "about.pick.honoursTitle": { en: "Result / honours", "zh-Hant": "成績／榮譽", "zh-Hans": "成绩／荣誉" },
+  "about.pick.scoreHint": { en: "Type your score", "zh-Hant": "輸入你的成績", "zh-Hans": "输入你的成绩" },
+  "about.status.ongoing": { en: "Currently studying", "zh-Hant": "現正就讀", "zh-Hans": "现正就读" },
+  "about.status.finished": { en: "Finished", "zh-Hant": "已畢業", "zh-Hans": "已毕业" },
+
   // ---- auth gate (shown when an unregistered tutor likes / comments / filters) ----
   "authGate.title": { en: "Join LearnSum", "zh-Hant": "加入 LearnSum", "zh-Hans": "加入 LearnSum" },
   "authGate.subtitle": {
