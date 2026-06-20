@@ -670,18 +670,8 @@ export const SECONDARY_SCORE_OPTIONS: Record<string, string[]> = {
   "A-Level": A_LEVEL_SCORES,
 };
 
-// ---- University degree + result ---------------------------------------------
-export const UNI_DEGREES: string[] = [
-  "Higher Diploma",
-  "Associate Degree",
-  "Bachelor's Degree",
-  "Postgraduate Diploma",
-  "Master's Degree",
-  "MPhil",
-  "PhD / Doctorate",
-  "Other",
-];
-
+// ---- University result -------------------------------------------------------
+// (Degree name is a free-text field in TutorAbout, so no degree-type list here.)
 export const UNI_HONOURS: string[] = [
   "First Class Honours",
   "Upper Second Class (2:1)",

@@ -85,10 +85,13 @@ one flow per role:
   photo** — optional placeholder uploader, mocked, no native picker; **first name, last name and
   gender are required to Continue**; bio + education stay optional). Education entries use
   **searchable dropdowns** (`SearchSelect` + `components/onboarding/eduOptions.ts`): school name
-  (universities for the University level, HK secondary schools for the Secondary level), plus
-  qualification/degree and score/honours — each with a **free-typed fallback** (type + Return).
-  Every entry carries a per-entry **Currently studying / Finished** status (there is **no separate
-  "currently studying" section**). Continue → `TutorProfileConfirm`.
+  (universities for the University level, HK secondary schools for the Secondary level) and the
+  secondary qualification + score/honours, each with a **free-typed fallback** (type + Return); the
+  **university degree is a free-text field** (tutors type the exact degree). Only **Secondary &
+  University** carry a per-entry **Currently studying / Finished** status (Kindergarten / Primary
+  show just the school name — a tutor must have finished them); choosing **Currently studying**
+  hides the score field (no result yet) and clears any entered score. There is **no separate
+  "currently studying" section**. Continue → `TutorProfileConfirm`.
   `TutorProfileConfirm` is a **read-only review** that gathers everything entered across the flow
   and lays it out like the tutor's public profile (profile card, About/bio, Education with real
   university logos, Subjects-taught accordion, Languages, Levels-taught track). Its **"Looks good —
@@ -124,8 +127,11 @@ flow — a **read-only** preview that reads the whole onboarding store (a one-sh
 subscription) and renders it as the tutor's public profile would look. Sections: a profile card
 (initials `Avatar`, single-line name, gender, and a derived **"Qualified"** badge shown **only**
 when ≥1 subject has a real qualification), **About** (the optional bio), an **Education** accordion,
-a **Subjects-taught** single-open accordion (own-grade badge + price per subject; expanded = format
-pill, years/per-hour/own-grade stat tiles, qualifications, achievements, experience), **Languages**
+a **Subjects-taught** single-open accordion (collapsed row keeps an at-a-glance grade chip + price
+per subject; expanded = format pill, **Years exp / Per hour** stat tiles, then **Qualifications**,
+**Achievements** and **Experience** each in their own card with a big icon-led heading —
+Qualifications render as **grade-tiles** (big result on top, short "type + subject" label, e.g.
+`7` / "IB Mathematics: AA HL"; results with no exam-style grade fall back to a line)), **Languages**
 (proficiency bars), and a **Levels-taught** track. The **Education accordion** groups schools by
 level with clear labels and shows **University & Secondary collapsed**; a "Show all education"
 toggle reveals the remaining levels (Primary / Kindergarten). Each entry whose TutorAbout status is

@@ -464,35 +464,6 @@ export const translations = {
     "zh-Hans": "移除学校 {n}",
   },
   "about.edu.institution": { en: "School name", "zh-Hant": "學校名稱", "zh-Hans": "学校名称" },
-  "about.edu.qualification": {
-    en: "Qualification (e.g. IB, BSc Medicine)",
-    "zh-Hant": "學歷（例如 IB、醫學學士）",
-    "zh-Hans": "学历（例如 IB、医学学士）",
-  },
-  "about.edu.score": {
-    en: "Score / result (e.g. 45, First class)",
-    "zh-Hant": "成績／等級（例如 45、一級榮譽）",
-    "zh-Hans": "成绩／等级（例如 45、一级荣誉）",
-  },
-  "about.current.label": { en: "Currently studying", "zh-Hant": "現正修讀", "zh-Hans": "现正修读" },
-  "about.current.helper": {
-    en: "What you're studying now — add more than one if needed.",
-    "zh-Hant": "你現時正在修讀的課程——如有需要可新增多於一項。",
-    "zh-Hans": "你现时正在修读的课程——如有需要可新增多于一项。",
-  },
-  "about.current.n": { en: "Study {n}", "zh-Hant": "課程 {n}", "zh-Hans": "课程 {n}" },
-  "about.current.institution": { en: "Institution", "zh-Hant": "院校", "zh-Hans": "院校" },
-  "about.current.programme": {
-    en: "What you're studying (e.g. BSc Computing in AI)",
-    "zh-Hant": "修讀課程（例如人工智能計算學士）",
-    "zh-Hans": "修读课程（例如人工智能计算学士）",
-  },
-  "about.current.addStudy": { en: "Add study", "zh-Hant": "新增課程", "zh-Hans": "新增课程" },
-  "about.current.removeA11y": {
-    en: "Remove study {n}",
-    "zh-Hant": "移除課程 {n}",
-    "zh-Hans": "移除课程 {n}",
-  },
 
   // ---- tutor onboarding: sign-up / account gate ----
   "signup.title": { en: "Create your account", "zh-Hant": "建立你的帳戶", "zh-Hans": "创建你的账户" },
@@ -551,7 +522,11 @@ export const translations = {
     "zh-Hans": "搜索你的学校",
   },
   "about.pick.qualTitle": { en: "Qualification", "zh-Hant": "學歷", "zh-Hans": "学历" },
-  "about.pick.degreeTitle": { en: "Degree", "zh-Hant": "學位", "zh-Hans": "学位" },
+  "about.edu.degreePlaceholder": {
+    en: "Degree (e.g. BSc Computer Science)",
+    "zh-Hant": "學位（例如電腦科學理學士）",
+    "zh-Hans": "学位（例如计算机科学理学士）",
+  },
   "about.pick.scoreTitle": { en: "Score / result", "zh-Hant": "成績／等級", "zh-Hans": "成绩／等级" },
   "about.pick.honoursTitle": { en: "Result / honours", "zh-Hant": "成績／榮譽", "zh-Hans": "成绩／荣誉" },
   "about.pick.scoreHint": { en: "Type your score", "zh-Hant": "輸入你的成績", "zh-Hans": "输入你的成绩" },

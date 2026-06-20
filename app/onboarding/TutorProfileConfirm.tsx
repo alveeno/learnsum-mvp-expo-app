@@ -200,17 +200,38 @@ function subjectSubtitle(d: Detail, categoryLabel?: string): string {
   return categoryLabel ?? "";
 }
 
-/** A qualification split into an optional gold badge + a caption line. */
-function qualParts(q: Qualification): { badge?: string; caption: string } {
+/**
+ * Shorten an exam subject for the grade-tile label, preferring a bracketed code.
+ * e.g. "Mathematics: Analysis and Approaches HL (AA HL)" → "Mathematics: AA HL";
+ *      "Mathematics (Compulsory Part)" → "Mathematics"; "Physics" → "Physics".
+ */
+function shortSubject(subject: string): string {
+  const s = subject.trim();
+  const abbr = s.match(/\(([^)]+)\)/)?.[1]?.trim();
+  const noParen = s.replace(/\s*\([^)]*\)\s*/g, " ").trim();
+  const head = noParen.includes(":") ? noParen.slice(0, noParen.indexOf(":")).trim() : noParen;
+  return abbr && noParen.includes(":") ? `${head}: ${abbr}` : head;
+}
+
+/**
+ * One qualification → a grade-tile (big result on top + a short label) when it
+ * has a result, or a plain `line` to fall back to when it doesn't.
+ */
+function qualView(q: Qualification): { big: string | null; label: string; line: string } {
   const kind = qualDetailKind(q.type);
+  const type = q.type ?? "";
+  const withSubject = q.subject ? `${type} ${shortSubject(q.subject)}` : type;
   if (kind === "exam" || kind === "degree") {
-    return { badge: q.grade, caption: [q.type, q.subject].filter(Boolean).join(" · ") };
+    return { big: q.grade || null, label: withSubject, line: [type, q.subject, q.grade].filter(Boolean).join(" · ") };
   }
-  if (kind === "dropdown") return { badge: q.detail, caption: q.type ?? "" };
+  if (kind === "dropdown") {
+    return { big: q.detail || null, label: type, line: [type, q.detail].filter(Boolean).join(" · ") };
+  }
   if (kind === "ielts") {
-    return { badge: q.detail, caption: [q.type, q.test].filter(Boolean).join(" · ") };
+    return { big: q.detail || null, label: q.test || type, line: [type, q.test, q.detail].filter(Boolean).join(" · ") };
   }
-  return { caption: [q.type, q.detail].filter(Boolean).join(" · ") };
+  // free text / none — no result to feature, so it falls back to a line.
+  return { big: null, label: type, line: [type, q.detail].filter(Boolean).join(" · ") };
 }
 
 function formatExp(ex: Experience): string {
@@ -290,6 +311,39 @@ function StatTile({ value, label, gold }: { value: string; label: string; gold?:
   );
 }
 
+/** A qualification's result shown like a stat tile: big grade on top, short
+ *  "type + subject" label below (e.g. "7" / "IB Mathematics: AA HL"). */
+function GradeTile({ big, label }: { big: string; label: string }) {
+  return (
+    <View style={styles.gradeTile}>
+      <Text style={styles.gradeTileValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.55}>
+        {big}
+      </Text>
+      <Text style={styles.gradeTileLabel} numberOfLines={2}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+/** A big, icon-led heading for a section card (Qualifications / Achievements / Experience). */
+function SectionHeading({
+  icon,
+  color,
+  children,
+}: {
+  icon: keyof typeof MaterialIcons.glyphMap;
+  color: string;
+  children: string;
+}) {
+  return (
+    <View style={styles.sectionHead}>
+      <MaterialIcons name={icon} size={18} color={color} />
+      <Text style={styles.sectionHeading}>{children}</Text>
+    </View>
+  );
+}
+
 function SubjectCard({
   interest,
   detail,
@@ -308,6 +362,11 @@ function SubjectCard({
   const quals = detail.quals.filter((q) => !!q.type);
   const achievements = detail.achievements.filter((a) => a.trim().length > 0);
   const experiences = detail.experiences.filter((e) => e.text.trim().length > 0);
+
+  // Qualifications with a result become grade-tiles; the rest fall back to lines.
+  const qualViews = quals.map(qualView);
+  const gradeTiles = qualViews.filter((v): v is { big: string; label: string; line: string } => !!v.big);
+  const qualLines = qualViews.filter((v) => !v.big).map((v) => v.line).filter(Boolean);
 
   return (
     <View style={styles.subCard}>
@@ -356,40 +415,38 @@ function SubjectCard({
             </View>
           ) : null}
 
+          {/* "Own grade" lives only in the Qualifications card below now. */}
           <View style={styles.statRow}>
             <StatTile value={detail.years} label="YEARS EXP" />
             <StatTile value={priceText(detail.pay)} label="PER HOUR" />
-            <StatTile value={grade ?? "—"} label="OWN GRADE" gold={!!grade} />
           </View>
 
           {quals.length > 0 ? (
-            <View style={styles.subBlock}>
-              <View style={styles.blockHead}>
-                <MaterialIcons name="workspace-premium" size={15} color={C.goldD} />
-                <Text style={styles.blockLabel}>QUALIFICATION</Text>
-              </View>
-              {quals.map((q, i) => {
-                const { badge, caption } = qualParts(q);
-                return (
-                  <View key={i} style={styles.qualRow}>
-                    {badge ? (
-                      <View style={styles.qualBadge}>
-                        <Text style={styles.qualBadgeText}>{badge}</Text>
-                      </View>
-                    ) : null}
-                    {caption ? <Text style={styles.qualCaption}>{caption}</Text> : null}
-                  </View>
-                );
-              })}
+            <View style={styles.sectionCard}>
+              <SectionHeading icon="workspace-premium" color={C.goldD}>
+                Qualifications
+              </SectionHeading>
+              {gradeTiles.length > 0 ? (
+                <View style={styles.gradeGrid}>
+                  {gradeTiles.map((g, i) => (
+                    <GradeTile key={i} big={g.big} label={g.label} />
+                  ))}
+                </View>
+              ) : null}
+              {qualLines.map((l, i) => (
+                <View key={i} style={styles.bulletRow}>
+                  <View style={styles.bulletDot} />
+                  <Text style={styles.bulletText}>{l}</Text>
+                </View>
+              ))}
             </View>
           ) : null}
 
           {achievements.length > 0 ? (
-            <View style={styles.subBlock}>
-              <View style={styles.blockHead}>
-                <MaterialIcons name="emoji-events" size={15} color={C.goldD} />
-                <Text style={styles.blockLabel}>ACHIEVEMENTS</Text>
-              </View>
+            <View style={styles.sectionCard}>
+              <SectionHeading icon="emoji-events" color={C.goldD}>
+                Achievements
+              </SectionHeading>
               {achievements.map((a, i) => (
                 <View key={i} style={styles.bulletRow}>
                   <View style={styles.bulletDot} />
@@ -400,11 +457,10 @@ function SubjectCard({
           ) : null}
 
           {experiences.length > 0 ? (
-            <View style={styles.subBlock}>
-              <View style={styles.blockHead}>
-                <MaterialIcons name="work-history" size={15} color={C.green} />
-                <Text style={styles.blockLabel}>EXPERIENCE</Text>
-              </View>
+            <View style={styles.sectionCard}>
+              <SectionHeading icon="work-history" color={C.green}>
+                Experience
+              </SectionHeading>
               {experiences.map((e, i) => (
                 <View key={i} style={styles.bulletRow}>
                   <View style={styles.bulletDot} />
@@ -812,13 +868,40 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: "800", color: C.greenD },
   statLabel: { fontSize: 10.5, fontWeight: "700", letterSpacing: 0.3, color: C.muted, marginTop: 4 },
 
-  subBlock: { gap: 8 },
-  blockHead: { flexDirection: "row", alignItems: "center", gap: 6 },
-  blockLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 0.4, color: C.muted },
-  qualRow: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  qualBadge: { backgroundColor: C.goldTint, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  qualBadgeText: { fontSize: 13, fontWeight: "800", color: C.goldD },
-  qualCaption: { flex: 1, fontSize: 13.5, color: C.ink, minWidth: 120 },
+  // Section cards (Qualifications / Achievements / Experience) — each with a big
+  // icon-led heading, matching the white stat-tile cards above.
+  sectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: C.hairline,
+    borderRadius: 14,
+    padding: 14,
+    gap: 10,
+  },
+  sectionHead: { flexDirection: "row", alignItems: "center", gap: 7 },
+  sectionHeading: { fontSize: 17, fontWeight: "800", letterSpacing: -0.2, color: C.ink },
+
+  // Grade tiles inside the Qualifications card: big result on top, short label below.
+  gradeGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", rowGap: 10 },
+  gradeTile: {
+    width: "48.5%",
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    alignItems: "center",
+  },
+  gradeTileValue: { fontSize: 22, fontWeight: "800", color: C.goldD, textAlign: "center" },
+  gradeTileLabel: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: C.muted,
+    marginTop: 5,
+    textAlign: "center",
+    lineHeight: 15,
+  },
   bulletRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
   bulletDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: C.green, marginTop: 7 },
   bulletText: { flex: 1, fontSize: 13.5, lineHeight: 19, color: C.ink },

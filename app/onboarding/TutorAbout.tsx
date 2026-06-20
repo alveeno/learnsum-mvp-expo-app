@@ -22,7 +22,6 @@ import {
   HK_SECONDARY_SCHOOLS,
   SECONDARY_QUALIFICATIONS,
   SECONDARY_SCORE_OPTIONS,
-  UNI_DEGREES,
   UNI_HONOURS,
   UNIVERSITIES,
 } from "../../components/onboarding/eduOptions";
@@ -411,26 +410,23 @@ export default function TutorAbout() {
                       />
                     )}
 
+                    {/* Detailed levels (secondary / university) collect a
+                        qualification, a study status, and — once finished — a score.
+                        Kindergarten / primary need none of these (a tutor must have
+                        finished them), so they show just the school name. */}
                     {lvl.detailed ? (
-                      lvl.id === "university" ? (
-                        <>
-                          <SearchSelect
+                      <>
+                        {/* Qualification — secondary picks from a list; university is
+                            free text so tutors can type their exact degree. */}
+                        {lvl.id === "university" ? (
+                          <TextInput
+                            style={styles.input}
                             value={e.qualification}
-                            options={UNI_DEGREES}
-                            placeholder={t("about.pick.degreeTitle")}
-                            sheetTitle={t("about.pick.degreeTitle")}
-                            onChange={(v) => updSchool(lvl.id, i, { qualification: v })}
+                            onChangeText={(text) => updSchool(lvl.id, i, { qualification: text })}
+                            placeholder={t("about.edu.degreePlaceholder")}
+                            placeholderTextColor="#9CA3AF"
                           />
-                          <SearchSelect
-                            value={e.score}
-                            options={UNI_HONOURS}
-                            placeholder={t("about.pick.honoursTitle")}
-                            sheetTitle={t("about.pick.honoursTitle")}
-                            onChange={(v) => updSchool(lvl.id, i, { score: v })}
-                          />
-                        </>
-                      ) : (
-                        <>
+                        ) : (
                           <SearchSelect
                             value={e.qualification}
                             options={SECONDARY_QUALIFICATIONS}
@@ -438,22 +434,40 @@ export default function TutorAbout() {
                             sheetTitle={t("about.pick.qualTitle")}
                             onChange={(v) => updSchool(lvl.id, i, { qualification: v })}
                           />
-                          <SearchSelect
-                            value={e.score}
-                            options={SECONDARY_SCORE_OPTIONS[e.qualification] ?? []}
-                            placeholder={t("about.pick.scoreTitle")}
-                            sheetTitle={t("about.pick.scoreTitle")}
-                            emptyHint={t("about.pick.scoreHint")}
-                            onChange={(v) => updSchool(lvl.id, i, { score: v })}
-                          />
-                        </>
-                      )
-                    ) : null}
+                        )}
 
-                    <StatusToggle
-                      ongoing={e.ongoing}
-                      onChange={(v) => updSchool(lvl.id, i, { ongoing: v })}
-                    />
+                        <StatusToggle
+                          ongoing={e.ongoing}
+                          // Switching to "currently studying" clears any score —
+                          // they wouldn't have a result yet.
+                          onChange={(v) =>
+                            updSchool(lvl.id, i, v ? { ongoing: true, score: "" } : { ongoing: false })
+                          }
+                        />
+
+                        {/* Score / result — hidden while still studying. */}
+                        {!e.ongoing ? (
+                          lvl.id === "university" ? (
+                            <SearchSelect
+                              value={e.score}
+                              options={UNI_HONOURS}
+                              placeholder={t("about.pick.honoursTitle")}
+                              sheetTitle={t("about.pick.honoursTitle")}
+                              onChange={(v) => updSchool(lvl.id, i, { score: v })}
+                            />
+                          ) : (
+                            <SearchSelect
+                              value={e.score}
+                              options={SECONDARY_SCORE_OPTIONS[e.qualification] ?? []}
+                              placeholder={t("about.pick.scoreTitle")}
+                              sheetTitle={t("about.pick.scoreTitle")}
+                              emptyHint={t("about.pick.scoreHint")}
+                              onChange={(v) => updSchool(lvl.id, i, { score: v })}
+                            />
+                          )
+                        ) : null}
+                      </>
+                    ) : null}
                   </View>
                 </View>
               ))}
