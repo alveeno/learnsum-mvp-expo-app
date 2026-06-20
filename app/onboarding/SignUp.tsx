@@ -17,23 +17,30 @@ import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { goAfterSignUp } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
+import { ApiError, signup } from "../../lib/api";
 
 /**
  * Tutor onboarding — sign-up / account gate (the entry screen).
  *
  * Collects email + password (and offers social sign-up) BEFORE any onboarding
- * info is filled in, so we can check whether the email already has an account.
- *
- * The existence check is a FRONT-END MOCK for now (REGISTERED_EMAILS) — swap the
- * `emailExists` body for a call to EXPO_PUBLIC_API_URL when the backend endpoint
- * is ready. If the email exists we open the existing LoginSheet (pre-filled);
- * otherwise we continue into the tutor onboarding flow.
+ * info is filled in. Continue now calls the real backend (POST /api/auth/signup):
+ *  - success → the account exists + the token is stored → continue into onboarding.
+ *  - already registered (or no session returned) → open the LoginSheet pre-filled.
+ *  - backend unreachable in __DEV__ → fall back to the old mock so the app still
+ *    demos offline (REGISTERED_EMAILS below decides login-vs-continue).
  */
 
-// MOCK: emails treated as "already registered". Replace with a backend lookup.
+// __DEV__ OFFLINE FALLBACK ONLY: emails treated as "already registered" when the
+// backend can't be reached during a demo. Real existence comes from signup() now.
 const REGISTERED_EMAILS = ["existing@learnsum.com", "demo@learnsum.com"];
 function emailExists(email: string): boolean {
   return REGISTERED_EMAILS.includes(email.trim().toLowerCase());
+}
+
+/** A signup error that means the email already has an account → send to login. */
+function isAlreadyRegistered(err: ApiError): boolean {
+  if (err.isNetworkError) return false;
+  return err.status === 422 || /already|registered|exists/i.test(err.message);
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,19 +52,46 @@ export default function SignUp() {
   const [showPw, setShowPw] = useState(false);
   const [existing, setExisting] = useState(false);
   const [loginVisible, setLoginVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const valid = EMAIL_RE.test(email.trim()) && password.length >= 6;
 
-  // A new account continues into the first not-completed onboarding step.
+  // A new account continues into the first not-completed onboarding step
+  // (marks the user registered; the token is already stored by signup()).
   const proceed = () => goAfterSignUp();
 
-  const onContinue = () => {
-    if (!valid) return;
-    if (emailExists(email)) {
-      setExisting(true);
-      setLoginVisible(true);
-    } else {
-      proceed();
+  const sendToLogin = () => {
+    setExisting(true);
+    setLoginVisible(true);
+  };
+
+  const onContinue = async () => {
+    if (!valid || submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await signup(email, password, "tutor");
+      // With email confirmation OFF a real new account returns a session. No
+      // session usually means the email already exists → send them to log in.
+      if (res.session) proceed();
+      else sendToLogin();
+    } catch (err) {
+      if (err instanceof ApiError && isAlreadyRegistered(err)) {
+        sendToLogin();
+      } else if (err instanceof ApiError && err.isNetworkError && __DEV__) {
+        // Offline demo fallback: mimic the old mock behaviour.
+        if (emailExists(email)) sendToLogin();
+        else proceed();
+      } else {
+        setError(
+          err instanceof ApiError && !err.isNetworkError
+            ? err.message
+            : "Can't reach the server. Check your connection and try again.",
+        );
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -95,6 +129,7 @@ export default function SignUp() {
             onChangeText={(text) => {
               setEmail(text);
               if (existing) setExisting(false);
+              if (error) setError(null);
             }}
             placeholder="you@example.com"
             placeholderTextColor="#9CA3AF"
@@ -161,7 +196,13 @@ export default function SignUp() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button label={t("common.continue")} variant="primary" disabled={!valid} onPress={onContinue} />
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        <Button
+          label={t("common.continue")}
+          variant="primary"
+          disabled={!valid || submitting}
+          onPress={onContinue}
+        />
       </View>
 
       <LoginSheet
@@ -241,5 +282,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: "#ECECEC",
+  },
+  errorText: {
+    color: "#E63946",
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+    marginBottom: 8,
   },
 });

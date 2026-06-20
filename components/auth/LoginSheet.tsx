@@ -4,17 +4,18 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { markRegistered } from "../auth/authState";
 import { BottomSheet } from "../ui/BottomSheet";
+import { ApiError, login } from "../../lib/api";
 
 /**
- * Log-in bottom sheet — DEMO mock (no backend wired yet).
+ * Log-in bottom sheet.
  *
- * The email/password fields are typeable and the eye toggles password
- * visibility. "Forgot password?" and the social buttons are still inert, but
- * "Log in" now mocks a successful login: it marks the user registered (the
- * session-only flag in authState) and hands off via `onLoggedIn` so the caller
- * can navigate. When real auth is built this is where it hooks in. Copy is
- * intentionally English-only until then (it'll be translated with the real auth
- * build — see the i18n notes in CLAUDE.md).
+ * "Log in" calls the real backend (POST /api/auth/login): on success it stores
+ * the session token, marks the user registered (the session-only flag in
+ * authState) and hands off via `onLoggedIn`. Wrong credentials show an inline
+ * error; if the backend is unreachable in __DEV__ it falls back to accepting the
+ * login so the app still demos offline. "Forgot password?" and the social
+ * buttons are still inert. Copy is intentionally English-only for now (it'll be
+ * translated with the rest of the auth build — see the i18n notes in CLAUDE.md).
  */
 export function LoginSheet({
   visible,
@@ -32,19 +33,47 @@ export function LoginSheet({
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   const [showPw, setShowPw] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Seed the email when the sheet is opened with a pre-filled value.
+  // Seed the email when the sheet is opened with a pre-filled value, and clear
+  // any stale error/submitting state each time it opens.
   useEffect(() => {
-    if (visible && initialEmail) setEmail(initialEmail);
+    if (!visible) return;
+    if (initialEmail) setEmail(initialEmail);
+    setError(null);
+    setSubmitting(false);
   }, [visible, initialEmail]);
 
-  // Demo login: needs both fields, then marks registered and hands off.
-  const canSubmit = email.trim() !== "" && password !== "";
-  const submit = () => {
-    if (!canSubmit) return;
+  const canSubmit = email.trim() !== "" && password !== "" && !submitting;
+
+  const handleSuccess = () => {
     markRegistered();
     if (onLoggedIn) onLoggedIn();
     else onClose();
+  };
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      await login(email, password);
+      handleSuccess();
+    } catch (err) {
+      // Offline demo fallback: accept the login so the app still works without
+      // the backend running.
+      if (err instanceof ApiError && err.isNetworkError && __DEV__) {
+        handleSuccess();
+        return;
+      }
+      setError(
+        err instanceof ApiError && !err.isNetworkError
+          ? "Incorrect email or password."
+          : "Can't reach the server. Please try again.",
+      );
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -128,6 +157,8 @@ export function LoginSheet({
         </Pressable>
       </View>
 
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
       <Pressable
         style={[styles.loginBtn, canSubmit && styles.loginBtnActive]}
         disabled={!canSubmit}
@@ -191,6 +222,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   socialApple: { backgroundColor: "#000000", borderColor: "#000000" },
+
+  errorText: {
+    color: "#E63946",
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: "center",
+    marginBottom: 10,
+  },
 
   loginBtn: {
     height: 54,

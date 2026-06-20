@@ -38,7 +38,22 @@ There are three user types:
 - The backend is **currently at `http://localhost:3000`** — **update this to the Vercel
   URL after deployment.**
 - For the full database schema and API endpoint reference, see **`PLAN.md` in the backend
-  repo (`learnsum-mvp-back`)**.
+  repo (`learnsum-mvp-back`)**. A plain-English screen→endpoint map lives in that repo's
+  **`FRONTEND_WIRING.md`**.
+- **The API layer lives in `lib/api/`** — import from `lib/api`. `config.ts` resolves the
+  **single** base URL from `EXPO_PUBLIC_API_URL` (and auto-swaps `localhost` → the Mac's LAN IP
+  when running on a physical device, so device builds reach the backend; that path also needs the
+  `NSAllowsLocalNetworking` ATS entry now in `app.json`). `client.ts` is the shared `apiFetch`
+  helper: it attaches `Authorization: Bearer <token>`, encodes JSON + query strings, times out,
+  and throws a typed `ApiError` whose **`isNetworkError`** flag drives the `__DEV__` offline-mock
+  fallback. `token.ts` holds the session token **in memory only** (session-only like the rest of
+  the app — no SecureStore yet, to avoid a native rebuild; the SecureStore swap is a one-file change).
+- **Wired so far:** auth (`signup` / `login` / `logout` / `getMe`, in `lib/api/auth.ts`) and
+  `getCategories()` (`lib/api/categories.ts`). The backend taxonomy was **re-seeded to mirror this
+  app's subject list** (backend migration `0015_seed_taxonomy.sql`, generated from
+  `StudentCatSel.tsx`) so subjects map by slug — the **frontend is the source of truth** for
+  categories. Onboarding one-shot save, publish, home feed, public profile + contact, and posts
+  are **→ Todo** (see the wiring Todo).
 
 ## Design system
 
@@ -163,25 +178,30 @@ otherwise); turning Public off finishes the profile **private/unpublished**. The
 
 **Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
 that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is
-collected, to catch returning users. The existence check is a **front-end mock**
-(`REGISTERED_EMAILS` in `app/onboarding/SignUp.tsx` — swap for a backend lookup later); a known
-email opens the existing `LoginSheet` (pre-filled), otherwise it continues into onboarding.
+collected, to catch returning users. **Continue now calls the real backend** (`POST
+/api/auth/signup` via `lib/api`): a new email creates the account and stores the session token,
+then continues into onboarding; an email that already exists (or a "session-less" signup) opens
+the existing `LoginSheet` (pre-filled). If the backend is unreachable **in `__DEV__`** it falls
+back to the old `REGISTERED_EMAILS` mock so the app still demos offline.
 **This intentionally diverges from Option A below** (which collected credentials on the *final*
 step) — for the tutor flow, credentials now come first.
 
-**The real next work:** wire `SignUp` (and, for student/parent, a **final credential step,
-Option A**) to actually create the Supabase account and **persist the whole onboarding store to
-the backend in one shot** (email verification is OFF, so the new session is live immediately).
-**Social login (Google / Apple / Microsoft) is planned** — the buttons on `SignUp` and in
-`components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
+**The real next work:** `SignUp` / `LoginSheet` now create/restore the Supabase **session**
+(`lib/api/auth`; email verification is OFF, so the new session is live immediately) — but the
+**onboarding store is not yet persisted**. The next step is to **flush the whole store to the
+backend in one shot** (`POST /api/onboarding`), plus add the **final credential step for
+student/parent** (Option A). **Social login (Google / Apple / Microsoft) is planned** — the
+buttons on `SignUp` and in `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
 + remaining details) and **standalone** publish / self-unpublish (from a Profile/Settings route)
 are **not built yet** — for now the tutor onboarding flow stands in for it, and the **initial**
 publish choice (public + per-audience visibility) is collected on the `TutorProfileConfirm`
 publish sheet (see "Tutor profile review" above; saved to `tutor:visibility`). **Log in** uses the `LoginSheet` bottom sheet (opened
-from the welcome screen and from the `/auth/gate` route); its "Log in" button is a **front-end
-mock** that marks the user registered (session-only) and hands off — the social buttons and
-"Forgot password?" stay inert, and there's no standalone `/auth` login route yet.
+from the welcome screen and from the `/auth/gate` route); its "Log in" button now calls **`POST
+/api/auth/login`** (`lib/api/auth`) — storing the session token, marking the user registered, and
+handing off — with a one-line inline error on bad credentials and a `__DEV__` offline fallback
+that accepts the login so the app still demos. The social buttons and "Forgot password?" stay
+inert, and there's no standalone `/auth` login route yet.
 
 **No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp,
 Instagram, and WeChat** buttons on the tutor profile (all optional, any combination) — there is
@@ -375,9 +395,12 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 **Auth & data**
 
-- Wire `SignUp` (and a final credential step for student / parent) to actually create the
-  Supabase account and **persist the onboarding store to the backend in one shot**.
-- Real **email-existence check** on `SignUp` (currently a front-end mock — `REGISTERED_EMAILS`).
+- **DONE:** `SignUp` / `LoginSheet` create/restore the Supabase **session** via `lib/api/auth`
+  (`POST /api/auth/signup` · `/login`), with the in-memory token store carrying the Bearer token.
+  **Still Todo:** the final credential step for student / parent, and **persisting the onboarding
+  store to the backend in one shot** (`POST /api/onboarding`).
+- **DONE:** email existence is handled by `signup` (an existing email routes to the login sheet);
+  `REGISTERED_EMAILS` survives only as the `__DEV__` offline fallback.
 - **Social login** (Google / Apple / Microsoft) — the buttons are placeholder UI.
 - **Saved filter preferences** — persist a seeker's filters across sessions.
 

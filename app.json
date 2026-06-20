@@ -11,7 +11,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.learnsum-mvp-expo",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsLocalNetworking": true
+        }
       }
     },
     "android": {
