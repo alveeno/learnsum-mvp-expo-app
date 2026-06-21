@@ -48,12 +48,14 @@ There are three user types:
   and throws a typed `ApiError` whose **`isNetworkError`** flag drives the `__DEV__` offline-mock
   fallback. `token.ts` holds the session token **in memory only** (session-only like the rest of
   the app — no SecureStore yet, to avoid a native rebuild; the SecureStore swap is a one-file change).
-- **Wired so far:** auth (`signup` / `login` / `logout` / `getMe`, in `lib/api/auth.ts`) and
-  `getCategories()` (`lib/api/categories.ts`). The backend taxonomy was **re-seeded to mirror this
-  app's subject list** (backend migration `0015_seed_taxonomy.sql`, generated from
-  `StudentCatSel.tsx`) so subjects map by slug — the **frontend is the source of truth** for
-  categories. Onboarding one-shot save, publish, home feed, public profile + contact, and posts
-  are **→ Todo** (see the wiring Todo).
+- **Wired so far:** auth (`signup` / `login` / `logout` / `getMe`, in `lib/api/auth.ts`),
+  `getCategories()` (`lib/api/categories.ts`), and the **tutor onboarding one-shot save**
+  (`postOnboarding` + `components/onboarding/tutorOnboardingPayload.ts`, fired from the
+  `TutorProfileConfirm` publish sheet). The backend taxonomy was **re-seeded to mirror this app's
+  subject list** (backend migration `0015_seed_taxonomy.sql`, generated from `StudentCatSel.tsx`)
+  so subjects map by slug — the **frontend is the source of truth** for categories; per-subject
+  lesson **format + districts** were added to the backend to match the app (migration `0016`).
+  Publish, home feed, public profile + contact, and posts are **→ Todo** (see the wiring Todo).
 
 ## Design system
 
@@ -171,10 +173,14 @@ profile public?"): a master **Public profile** toggle and, when it's on, two aud
 **Parents & students** (search + public profile) and **Tutors** (the tutor feed / suggestions),
 all defaulting on. With Public on you must keep ≥1 audience (the finish button disables
 otherwise); turning Public off finishes the profile **private/unpublished**. The sheet's button
-(**"Publish & finish"** / **"Keep private & finish"**) writes the choice to the store
-(`tutor:visibility` = `{ public, parentsStudents, tutors }`) and routes to `Welcome` →
-`/tutor-home`. This is the **only** thing the screen writes; everything else is read-only.
-(English-only, like the rest of the screen.)
+(**"Publish & finish"** / **"Keep private & finish"**) writes the visibility choice to the store
+(`tutor:visibility` = `{ public, parentsStudents, tutors }`) **and now performs the one-shot
+`POST /api/onboarding`** — building the whole tutor parcel from the store
+(`components/onboarding/tutorOnboardingPayload.ts`) and saving it (disabled-while-saving + an
+inline error; `__DEV__`/offline falls through). On success it routes to `Welcome` → `/tutor-home`.
+The tutor lands **unpublished** — the saved `tutor:visibility` choice is applied separately by the
+publish step (`PATCH /api/tutors/[slug]`, the next wiring task). Everything *displayed* on the
+screen is still read-only. (English-only, like the rest of the screen.)
 
 **Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
 that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is
@@ -186,12 +192,13 @@ back to the old `REGISTERED_EMAILS` mock so the app still demos offline.
 **This intentionally diverges from Option A below** (which collected credentials on the *final*
 step) — for the tutor flow, credentials now come first.
 
-**The real next work:** `SignUp` / `LoginSheet` now create/restore the Supabase **session**
-(`lib/api/auth`; email verification is OFF, so the new session is live immediately) — but the
-**onboarding store is not yet persisted**. The next step is to **flush the whole store to the
-backend in one shot** (`POST /api/onboarding`), plus add the **final credential step for
-student/parent** (Option A). **Social login (Google / Apple / Microsoft) is planned** — the
-buttons on `SignUp` and in `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
+**The real next work:** `SignUp` / `LoginSheet` create/restore the Supabase **session**
+(`lib/api/auth`; email verification is OFF, so the new session is live immediately), and the
+**tutor onboarding store is now flushed to the backend in one shot** at the `TutorProfileConfirm`
+publish sheet (`POST /api/onboarding` via `tutorOnboardingPayload.ts`). Still Todo: the same
+one-shot save for **student/parent**, and the **final credential step for student/parent**
+(Option A). **Social login is planned** — only **Google** is configured on Supabase; the Apple /
+Microsoft buttons on `SignUp` and in `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
 + remaining details) and **standalone** publish / self-unpublish (from a Profile/Settings route)
 are **not built yet** — for now the tutor onboarding flow stands in for it, and the **initial**
@@ -397,11 +404,13 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 - **DONE:** `SignUp` / `LoginSheet` create/restore the Supabase **session** via `lib/api/auth`
   (`POST /api/auth/signup` · `/login`), with the in-memory token store carrying the Bearer token.
-  **Still Todo:** the final credential step for student / parent, and **persisting the onboarding
-  store to the backend in one shot** (`POST /api/onboarding`).
+  **DONE (tutor):** the tutor onboarding store is **persisted in one shot** at the publish sheet
+  (`POST /api/onboarding`). **Still Todo:** the same one-shot save for **student / parent** and the
+  **final credential step for student / parent**.
 - **DONE:** email existence is handled by `signup` (an existing email routes to the login sheet);
   `REGISTERED_EMAILS` survives only as the `__DEV__` offline fallback.
-- **Social login** (Google / Apple / Microsoft) — the buttons are placeholder UI.
+- **Social login** — only **Google** is configured on Supabase; Apple / Microsoft buttons are
+  placeholder UI.
 - **Saved filter preferences** — persist a seeker's filters across sessions.
 
 **`/tutor-home` shell — front-end only today, needs backend**

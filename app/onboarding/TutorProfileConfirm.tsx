@@ -16,7 +16,9 @@ import { Avatar, Qualified } from "../../components/tutor/feedUi";
 import { C } from "../../components/tutor/tutorData";
 import { districtName } from "../../components/onboarding/hkDistricts";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
+import { submitTutorOnboarding } from "../../components/onboarding/tutorOnboardingPayload";
 import { type FormatId, type Prefs } from "../../components/onboarding/PreferencesScreen";
+import { ApiError } from "../../lib/api";
 import { qualDetailKind } from "../../components/onboarding/tutorQuals";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
@@ -608,16 +610,47 @@ export default function TutorProfileConfirm() {
   const [isPublic, setIsPublic] = useState(true);
   const [seekersOn, setSeekersOn] = useState(true); // parents & students
   const [tutorsOn, setTutorsOn] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const noAudience = isPublic && !seekersOn && !tutorsOn;
 
-  const finish = () => {
+  const goToWelcome = () => {
+    setSheetOpen(false);
+    router.push({ pathname: "/onboarding/Welcome", params: { next: "/tutor-home" } });
+  };
+
+  // Save everything to the backend in one shot (POST /api/onboarding), then move
+  // on. The publish/visibility choice is only stashed in the store here — it's
+  // applied separately (PATCH /api/tutors/[slug]). If the backend is unreachable
+  // (or there's no real session) in __DEV__, proceed anyway so the demo flows.
+  const finish = async () => {
+    if (saving) return;
     setStored("tutor:visibility", {
       public: isPublic,
       parentsStudents: isPublic && seekersOn,
       tutors: isPublic && tutorsOn,
     });
-    setSheetOpen(false);
-    router.push({ pathname: "/onboarding/Welcome", params: { next: "/tutor-home" } });
+    setSaveError(null);
+    setSaving(true);
+    try {
+      await submitTutorOnboarding();
+      goToWelcome();
+    } catch (err) {
+      const alreadyDone =
+        err instanceof ApiError && err.status === 409 && /already completed/i.test(err.message);
+      const devSkippable =
+        err instanceof ApiError && (err.isNetworkError || err.status === 401) && __DEV__;
+      if (alreadyDone || devSkippable) {
+        goToWelcome();
+        return;
+      }
+      setSaveError(
+        err instanceof ApiError && !err.isNetworkError
+          ? err.message
+          : "Couldn't save your profile. Check your connection and try again.",
+      );
+      setSaving(false);
+    }
   };
 
   return (
@@ -826,11 +859,13 @@ export default function TutorProfileConfirm() {
           </Text>
         ) : null}
 
+        {saveError ? <Text style={styles.sheetError}>{saveError}</Text> : null}
+
         <Button
           label={isPublic ? "Publish & finish" : "Keep private & finish"}
           variant="primary"
           onPress={finish}
-          disabled={noAudience}
+          disabled={noAudience || saving}
           style={styles.sheetBtn}
         />
       </BottomSheet>
@@ -1089,5 +1124,6 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   sheetWarn: { fontSize: 12.5, color: C.goldD, textAlign: "center", marginTop: 12 },
+  sheetError: { fontSize: 12.5, color: "#E63946", textAlign: "center", marginTop: 12, lineHeight: 17 },
   sheetBtn: { marginTop: 18 },
 });

@@ -13,3 +13,5 @@ export { signup, login, logout, getMe } from "./auth";
 export type { Role, AuthUser, Session, Profile, MeResponse } from "./auth";
 export { getCategories, getSubcategoryIndex, subcategoryIdForSlug } from "./categories";
 export type { Category, Subcategory, IndexedSubcategory } from "./categories";
+export { postOnboarding } from "./onboarding";
+export type { OnboardingResult, OnboardingSkipped } from "./onboarding";
