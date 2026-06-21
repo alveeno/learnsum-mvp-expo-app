@@ -25,7 +25,7 @@ import { C, ME } from "./tutorData";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { startEditing } from "../onboarding/tutorOnboarding";
-import { getMe } from "../../lib/api";
+import { ApiError, getMe } from "../../lib/api";
 
 // The "Change preferences" sheet — one option per onboarding screen.
 const EDIT_SECTIONS: { key: string; label: string; hint?: string; route: string }[] = [
@@ -66,6 +66,7 @@ export function ProfileScreen({
   const [data, setData] = useState<ProfileBodyData | null>(null);
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -73,6 +74,7 @@ export function ProfileScreen({
     if (showSetup) return;
     let cancelled = false;
     setLoading(true);
+    setError(false);
     getMe()
       .then((me) => {
         if (cancelled) return;
@@ -80,10 +82,16 @@ export function ProfileScreen({
         setData(d);
         setUsername(slug);
       })
-      .catch(() => {
-        if (!cancelled && __DEV__) {
+      .catch((err) => {
+        if (cancelled) return;
+        // Only fall back to sample data when the backend is genuinely
+        // unreachable (offline demo). A 401 / other error means there's no real
+        // session — show a clear state instead of misleading fake data.
+        if (err instanceof ApiError && err.isNetworkError && __DEV__) {
           setData(MOCK_BODY);
           setUsername(ME.username);
+        } else {
+          setError(true);
         }
       })
       .finally(() => {
@@ -112,7 +120,7 @@ export function ProfileScreen({
   return (
     <>
       <View style={styles.topRow}>
-        <Text style={styles.headerName}>{username || ME.username}</Text>
+        <Text style={styles.headerName}>{username}</Text>
         <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Settings">
           <Ionicons name="settings-outline" size={24} color={C.ink} />
         </Pressable>
@@ -125,6 +133,11 @@ export function ProfileScreen({
             {!showSetup && loading && !data ? (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator color={C.green} />
+              </View>
+            ) : !showSetup && error ? (
+              <View style={styles.errorWrap}>
+                <Ionicons name="cloud-offline-outline" size={34} color={C.unselIc} />
+                <Text style={styles.errorText}>Couldn't load your profile. Make sure you're signed in.</Text>
               </View>
             ) : data ? (
               <>
@@ -187,6 +200,8 @@ const styles = StyleSheet.create({
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 28 },
   loadingWrap: { paddingVertical: 64, alignItems: "center", justifyContent: "center" },
+  errorWrap: { paddingVertical: 64, paddingHorizontal: 24, alignItems: "center", justifyContent: "center", gap: 12 },
+  errorText: { fontSize: 14.5, color: C.muted, textAlign: "center", lineHeight: 21 },
   changeBtn: { marginTop: 28 },
   gateOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   gateCard: {

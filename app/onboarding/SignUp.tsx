@@ -17,7 +17,7 @@ import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { goAfterSignUp } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
-import { ApiError, signup } from "../../lib/api";
+import { ApiError, clearToken, signup } from "../../lib/api";
 
 /**
  * Tutor onboarding — sign-up / account gate (the entry screen).
@@ -60,6 +60,15 @@ export default function SignUp() {
   // A new account continues into the first not-completed onboarding step
   // (marks the user registered; the token is already stored by signup()).
   const proceed = () => goAfterSignUp();
+
+  // The social buttons are placeholders — real OAuth isn't wired yet. Clear any
+  // leftover session so the app doesn't show a previous account's data, then
+  // continue into onboarding as an unregistered tutor. (Until real social login
+  // is wired, nothing entered via this path is saved — use email sign-up.)
+  const proceedSocial = () => {
+    clearToken();
+    proceed();
+  };
 
   const sendToLogin = () => {
     setExisting(true);
@@ -170,7 +179,7 @@ export default function SignUp() {
         <View style={styles.socialRow}>
           <Pressable
             style={styles.socialCircle}
-            onPress={proceed}
+            onPress={proceedSocial}
             accessibilityRole="button"
             accessibilityLabel={t("signup.social.google")}
           >
@@ -178,7 +187,7 @@ export default function SignUp() {
           </Pressable>
           <Pressable
             style={[styles.socialCircle, styles.socialApple]}
-            onPress={proceed}
+            onPress={proceedSocial}
             accessibilityRole="button"
             accessibilityLabel={t("signup.social.apple")}
           >
@@ -186,7 +195,7 @@ export default function SignUp() {
           </Pressable>
           <Pressable
             style={styles.socialCircle}
-            onPress={proceed}
+            onPress={proceedSocial}
             accessibilityRole="button"
             accessibilityLabel={t("signup.social.microsoft")}
           >

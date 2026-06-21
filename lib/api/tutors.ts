@@ -21,6 +21,32 @@ export interface TutorProfile {
   [key: string]: unknown;
 }
 
+/** Full public profile from GET /api/tutors/[slug] (profile + subjects + posts). */
+export interface TutorDetail {
+  slug: string;
+  bio: string | null;
+  university: string | null;
+  teaching_levels?: string[] | null;
+  education?: unknown;
+  current_studies?: unknown;
+  is_published?: boolean;
+  whatsapp_number?: string | null;
+  instagram_handle?: string | null;
+  wechat_id?: string | null;
+  profiles?: { display_name: string | null; avatar_url: string | null; district: string | null } | null;
+  tutor_subcategories?: unknown[];
+  tutor_languages?: { language: string; proficiency: number }[];
+  posts?: unknown[];
+  [key: string]: unknown;
+}
+
+/** Fetch a tutor's public profile by slug (sends the token so the joined
+ *  `profiles` name/avatar resolve — those aren't readable anonymously). */
+export async function getTutor(slug: string): Promise<TutorDetail> {
+  const res = await apiFetch<{ tutor: TutorDetail }>(`/api/tutors/${encodeURIComponent(slug)}`);
+  return res.tutor;
+}
+
 /** Update own tutor profile with any subset of editable fields. */
 export async function patchTutor(
   slug: string,

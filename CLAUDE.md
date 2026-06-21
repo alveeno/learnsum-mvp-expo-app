@@ -61,9 +61,15 @@ There are three user types:
   `components/tutor/ProfileBody.tsx`) from real data (`GET /api/auth/me` → `profileMapping.ts`), with
   a settings button + a **"Change preferences"** sheet that routes into the onboarding screens via an
   **edit mode** in `tutorOnboarding.ts` (display + edit *entry point* only — actually **saving** the
-  edits to the backend is the next step). The `me`/`tutors/[slug]` reads were extended to return
-  per-subject `format`/`districts` (+ `me` returns the subject's parent category). Home feed, the
-  public/other-tutor profile + contact, and posts are **→ Todo** (see the wiring Todo).
+  edits to the backend is the next step). `ProfileBody` is **shared by all three profile surfaces** —
+  the onboarding review (`TutorProfileConfirm`, now deduped onto it), the own Profile tab, and the
+  **"view another tutor"** overlay (`TutorProfileView` → `getTutor` / `GET /api/tutors/[slug]`, with a
+  sample-data fallback for the still-sample tutor lists). The `me`/`tutors/[slug]` reads were extended
+  to return per-subject `format`/`districts` (+ `me` returns the subject's parent category). When
+  there's no real session the Profile tab shows a "couldn't load" state (no fake data); the
+  **social-login buttons are placeholders** that clear the session and continue (use email sign-up to
+  actually save). Home feed, the **contact buttons** (WhatsApp/IG/WeChat — not collected yet), edit
+  **saving**, and posts are **→ Todo** (see the wiring Todo).
 
 ## Design system
 

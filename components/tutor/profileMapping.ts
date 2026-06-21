@@ -141,3 +141,33 @@ export function mapMeToProfileBody(me: MeResponse): { data: ProfileBodyData; slu
   const data = buildProfileBody(fullName, gender, detail);
   return { data, slug: detail.tutor_profile?.slug ?? "" };
 }
+
+// GET /api/tutors/[slug] shape — profile + subjects/languages are top-level on
+// the tutor object (not nested under `tutor_profile`), and there's no gender.
+interface RawTutorSlug {
+  slug?: string | null;
+  bio?: string | null;
+  university?: string | null;
+  teaching_levels?: string[] | null;
+  education?: unknown;
+  profiles?: { display_name?: string | null } | null;
+  tutor_subcategories?: unknown[];
+  tutor_languages?: { language?: string | null; proficiency?: number | null }[];
+}
+
+/** Another tutor's public profile (GET /api/tutors/[slug]). */
+export function mapTutorToProfileBody(tutor: RawTutorSlug): ProfileBodyData {
+  const detail: RawTutorDetail = {
+    tutor_profile: {
+      slug: tutor.slug,
+      bio: tutor.bio,
+      university: tutor.university,
+      teaching_levels: tutor.teaching_levels,
+      education: tutor.education,
+    },
+    subjects: (tutor.tutor_subcategories ?? []) as RawSubject[],
+    languages: tutor.tutor_languages ?? [],
+  };
+  const fullName = tutor.profiles?.display_name || tutor.slug || "";
+  return buildProfileBody(fullName, null, detail); // [slug] doesn't return gender
+}
