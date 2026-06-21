@@ -55,7 +55,9 @@ There are three user types:
   subject list** (backend migration `0015_seed_taxonomy.sql`, generated from `StudentCatSel.tsx`)
   so subjects map by slug — the **frontend is the source of truth** for categories; per-subject
   lesson **format + districts** were added to the backend to match the app (migration `0016`).
-  Publish, home feed, public profile + contact, and posts are **→ Todo** (see the wiring Todo).
+  **Publish** (`setTutorPublished` → `PATCH /api/tutors/[slug]` `is_published`, `lib/api/tutors.ts`,
+  fired from the publish sheet) is also wired. Home feed, public profile + contact, and posts are
+  **→ Todo** (see the wiring Todo).
 
 ## Design system
 
@@ -177,10 +179,13 @@ otherwise); turning Public off finishes the profile **private/unpublished**. The
 (`tutor:visibility` = `{ public, parentsStudents, tutors }`) **and now performs the one-shot
 `POST /api/onboarding`** — building the whole tutor parcel from the store
 (`components/onboarding/tutorOnboardingPayload.ts`) and saving it (disabled-while-saving + an
-inline error; `__DEV__`/offline falls through). On success it routes to `Welcome` → `/tutor-home`.
-The tutor lands **unpublished** — the saved `tutor:visibility` choice is applied separately by the
-publish step (`PATCH /api/tutors/[slug]`, the next wiring task). Everything *displayed* on the
-screen is still read-only. (English-only, like the rest of the screen.)
+inline error; `__DEV__`/offline falls through). On success, if **Public** is on it then fires a
+best-effort **`PATCH /api/tutors/[slug]` `{ is_published: true }`** (`setTutorPublished`) to publish,
+and routes to `Welcome` → `/tutor-home`. Only `tutor:visibility.public` maps to the backend's single
+`is_published` — the two **audience toggles** (parents&students / tutors) stay in the store, unsent,
+pending a real audience-visibility feature (they'd need feed/search/suggestion filtering to mean
+anything). Everything *displayed* on the screen is still read-only. (English-only, like the rest of
+the screen.)
 
 **Account gate (`SignUp`, tutor flow only):** the tutor flow now opens with a sign-up screen
 that takes email + password (and Google/Apple/Microsoft buttons) **before** any info is

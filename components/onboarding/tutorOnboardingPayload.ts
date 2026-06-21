@@ -173,15 +173,17 @@ export function buildTutorPayload(slug: string): TutorOnboardingBody {
  * Build + POST the tutor onboarding. If the derived slug is already taken
  * (409), retry with a numeric suffix (the save is transactional, so a failed
  * attempt leaves onboarding incomplete and safe to retry). Returns the backend
- * result, including `skipped`.
+ * result (including `skipped`) AND the slug that actually saved — the caller
+ * needs it to publish (PATCH /api/tutors/[slug]).
  */
-export async function submitTutorOnboarding(): Promise<OnboardingResult> {
+export async function submitTutorOnboarding(): Promise<{ result: OnboardingResult; slug: string }> {
   const base = deriveTutorSlug();
   let lastErr: unknown = null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const slug = attempt === 0 ? base : `${base}-${attempt + 1}`;
     try {
-      return await postOnboarding(buildTutorPayload(slug));
+      const result = await postOnboarding(buildTutorPayload(slug));
+      return { result, slug };
     } catch (err) {
       lastErr = err;
       const slugTaken =

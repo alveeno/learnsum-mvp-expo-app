@@ -18,7 +18,7 @@ import { districtName } from "../../components/onboarding/hkDistricts";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 import { submitTutorOnboarding } from "../../components/onboarding/tutorOnboardingPayload";
 import { type FormatId, type Prefs } from "../../components/onboarding/PreferencesScreen";
-import { ApiError } from "../../lib/api";
+import { ApiError, setTutorPublished } from "../../lib/api";
 import { qualDetailKind } from "../../components/onboarding/tutorQuals";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
@@ -633,7 +633,17 @@ export default function TutorProfileConfirm() {
     setSaveError(null);
     setSaving(true);
     try {
-      await submitTutorOnboarding();
+      const { slug } = await submitTutorOnboarding();
+      // Apply the publish choice. Best-effort: the profile is already saved, so a
+      // publish hiccup shouldn't trap the user here — they can publish later. The
+      // per-audience toggles aren't sent (backend has only is_published).
+      if (isPublic) {
+        try {
+          await setTutorPublished(slug, true);
+        } catch (pubErr) {
+          if (__DEV__) console.warn("[publish] failed (profile saved, still private):", pubErr);
+        }
+      }
       goToWelcome();
     } catch (err) {
       const alreadyDone =
