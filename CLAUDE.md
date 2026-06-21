@@ -60,16 +60,27 @@ There are three user types:
   shared **`ProfileBody`** (the rich `TutorProfileConfirm`-style layout, extracted into
   `components/tutor/ProfileBody.tsx`) from real data (`GET /api/auth/me` → `profileMapping.ts`), with
   a settings button + a **"Change preferences"** sheet that routes into the onboarding screens via an
-  **edit mode** in `tutorOnboarding.ts` (display + edit *entry point* only — actually **saving** the
-  edits to the backend is the next step). `ProfileBody` is **shared by all three profile surfaces** —
+  **edit mode** in `tutorOnboarding.ts`. **Editing now saves** (`components/tutor/tutorEditStore.ts`):
+  tapping a section's Continue first **pre-fills** the in-memory onboarding store from the tutor's real
+  data (`hydrateTutorStoreFromMe`, fed by `GET /api/auth/me` + `GET /api/availability`) so the screens
+  show current values and a full-replace save can't wipe an untouched section; the chosen screens are
+  walked; then a final **`TutorEditSave`** step flushes everything **at once** via the five edit
+  endpoints (`saveTutorEdits` → `PATCH /api/profiles/me` · `PATCH /api/tutors/[slug]` ·
+  `PUT /api/tutor/subjects` · `PUT /api/tutor/languages` · `PUT /api/availability`), with a saving
+  spinner + retry on error and a `__DEV__` offline no-op. On return the tab refetches
+  (`consumeProfileDirty` via `useFocusEffect`). Two **small backend changes** were needed (route-only,
+  no migration): `PUT /api/tutor/subjects` now persists per-subject **`format` + `districts`** and
+  accepts the app's **array** qualifications/exam_results (it previously only took `{en,zh}` objects and
+  had no format/districts), and `PATCH /api/profiles/me` now accepts the **`lgbt`** gender. `ProfileBody`
+  is **shared by all three profile surfaces** —
   the onboarding review (`TutorProfileConfirm`, now deduped onto it), the own Profile tab, and the
   **"view another tutor"** overlay (`TutorProfileView` → `getTutor` / `GET /api/tutors/[slug]`, with a
   sample-data fallback for the still-sample tutor lists). The `me`/`tutors/[slug]` reads were extended
   to return per-subject `format`/`districts` (+ `me` returns the subject's parent category). When
   there's no real session the Profile tab shows a "couldn't load" state (no fake data); the
   **social-login buttons are placeholders** that clear the session and continue (use email sign-up to
-  actually save). Home feed, the **contact buttons** (WhatsApp/IG/WeChat — not collected yet), edit
-  **saving**, and posts are **→ Todo** (see the wiring Todo).
+  actually save). Home feed, the **contact buttons** (WhatsApp/IG/WeChat — not collected yet),
+  and posts are **→ Todo** (see the wiring Todo).
 
 ## Design system
 
@@ -253,7 +264,8 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   (→ onboarding) until setup is done. Once set up it shows the tutor's **real** profile via the
   shared **`ProfileBody`** layout (`GET /api/auth/me`), with a settings button (inert) and a
   **"Change preferences"** sheet (the 5 onboarding sections) that re-opens the onboarding screens to
-  edit (saving of those edits is still **→ Todo**).
+  edit. Those edits now **save** back to the backend (pre-fill from `me` + availability → walk the
+  chosen screens → `TutorEditSave` flushes via the five edit endpoints; see "Wired so far").
 
 **Auth gate (front-end mock):** the shell treats the user as **registered** only after they pass
 `SignUp` or the mock Log in (`components/auth/authState.ts` — session-only flag). While

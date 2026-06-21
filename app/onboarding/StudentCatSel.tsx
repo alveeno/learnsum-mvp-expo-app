@@ -215,6 +215,15 @@ export function subIconFor(
   return pool.find((s) => s.id === subId)?.icon ?? "tag";
 }
 
+/** The brand colour for a subject (same lookup as subIconFor). Used to re-seed
+ *  the edit screens when a tutor's saved subjects are loaded from the backend
+ *  (which doesn't store the colour). Falls back to the primary green. */
+export function subColorFor(catId: string, subId: string): string {
+  const cat = CATEGORIES.find((c) => c.id === catId);
+  const pool = [...(cat?.subs ?? []), ...(EXTRA[catId] ?? [])];
+  return pool.find((s) => s.id === subId)?.color ?? "#2D6A4F";
+}
+
 /** One chosen subject, as handed back through `onContinue`. */
 export type Interest = {
   catId: string;

@@ -63,3 +63,39 @@ export async function patchTutor(
 export async function setTutorPublished(slug: string, isPublished: boolean): Promise<TutorProfile> {
   return patchTutor(slug, { is_published: isPublished });
 }
+
+/**
+ * One subject the tutor teaches, for PUT /api/tutor/subjects (full replace).
+ * `subcategory_id` is the backend UUID (resolve from the slug via the categories
+ * index). `format`/`districts` are persisted by the endpoint (extended to match
+ * what onboarding stores — see backend migration 0016); districts are hk_district
+ * enum codes and only apply to in-person/both.
+ */
+export interface TutorSubjectInput {
+  subcategory_id: string;
+  years_experience?: number | null;
+  hourly_rate_min?: number | null;
+  hourly_rate_max?: number | null;
+  achievements?: { en: string; zh: string } | null;
+  qualifications?: unknown[] | null;
+  exam_results?: unknown[] | null;
+  experience?: unknown[] | null;
+  format?: "in_person" | "online" | "both" | null;
+  districts?: string[];
+}
+
+/** Full-replace the tutor's subjects (send [] to clear). */
+export async function putTutorSubjects(subjects: TutorSubjectInput[]): Promise<void> {
+  await apiFetch("/api/tutor/subjects", { method: "PUT", body: { subjects } });
+}
+
+/**
+ * Full-replace the tutor's teaching languages. Accepts the proficiency map the
+ * app already holds ({ english: 4, cantonese: 3, ... }, level 1..4); the backend
+ * also accepts an array form. Send {} (or []) to clear.
+ */
+export async function putTutorLanguages(
+  languages: Record<string, number> | { language: string; proficiency?: number | null }[],
+): Promise<void> {
+  await apiFetch("/api/tutor/languages", { method: "PUT", body: { languages } });
+}

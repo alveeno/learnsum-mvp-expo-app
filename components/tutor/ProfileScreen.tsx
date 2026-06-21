@@ -7,25 +7,29 @@
  * now) and a "Change preferences" button that opens a sheet to pick which
  * onboarding section(s) to edit, then routes into those screens.
  *
- * (Step 1 of the redesign: the display + the edit ENTRY point. Actually saving
- * the edits back to the backend — and pre-filling the screens from the backend
- * for a returning tutor — is the next step; today the edit screens drive off the
- * in-memory store, so editing works within a session.)
+ * Editing is fully wired: tapping Continue pre-fills the onboarding store from
+ * the tutor's real saved data (hydrateTutorStoreFromMe — so the screens show
+ * current values and a full-replace save can't wipe an untouched section), then
+ * walks the chosen screens; the final TutorEditSave step flushes everything back
+ * to the backend (saveTutorEdits → the five edit endpoints). On return the tab
+ * refetches (consumeProfileDirty) so the changes show.
  *
  * Falls back to sample data if there's no session / the backend is unreachable
  * in __DEV__ so the tab still demos.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { EMPTY_EDU, ProfileBody, type ProfileBodyData } from "./ProfileBody";
 import { mapMeToProfileBody } from "./profileMapping";
+import { consumeProfileDirty, hydrateTutorStoreFromMe } from "./tutorEditStore";
 import { C, ME } from "./tutorData";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { startEditing } from "../onboarding/tutorOnboarding";
-import { ApiError, getMe } from "../../lib/api";
+import { ApiError, getAvailability, getMe } from "../../lib/api";
 
 // The "Change preferences" sheet — one option per onboarding screen.
 const EDIT_SECTIONS: { key: string; label: string; hint?: string; route: string }[] = [
@@ -69,21 +73,19 @@ export function ProfileScreen({
   const [error, setError] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (showSetup) return;
-    let cancelled = false;
+  const load = useCallback(() => {
     setLoading(true);
     setError(false);
     getMe()
       .then((me) => {
-        if (cancelled) return;
         const { data: d, slug } = mapMeToProfileBody(me);
         setData(d);
         setUsername(slug);
       })
       .catch((err) => {
-        if (cancelled) return;
         // Only fall back to sample data when the backend is genuinely
         // unreachable (offline demo). A 401 / other error means there's no real
         // session — show a clear state instead of misleading fake data.
@@ -94,13 +96,20 @@ export function ProfileScreen({
           setError(true);
         }
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [showSetup]);
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    if (!showSetup) load();
+  }, [showSetup, load]);
+
+  // Returning from a "Change preferences" edit marks the profile dirty
+  // (saveTutorEdits) — refetch so the saved changes show.
+  useFocusEffect(
+    useCallback(() => {
+      if (!showSetup && consumeProfileDirty()) load();
+    }, [showSetup, load]),
+  );
 
   const toggle = (key: string) =>
     setSelected((prev) => {
@@ -110,8 +119,27 @@ export function ProfileScreen({
       return next;
     });
 
-  const applyEdit = () => {
+  // Open the chosen onboarding screens to edit — but first pre-fill the store
+  // from the tutor's real saved data, so the screens show current values and the
+  // full-replace save can't wipe an untouched section.
+  const applyEdit = async () => {
     const routes = EDIT_SECTIONS.filter((s) => selected.has(s.key)).map((s) => s.route);
+    if (routes.length === 0 || applying) return;
+    setApplyError(null);
+    setApplying(true);
+    try {
+      const [me, availability] = await Promise.all([getMe(), getAvailability()]);
+      hydrateTutorStoreFromMe(me, availability);
+    } catch (err) {
+      // Offline demo: edit whatever's already in the store. Any real error
+      // (e.g. no session) aborts — entering edit blank could wipe the profile.
+      if (!(err instanceof ApiError && err.isNetworkError && __DEV__)) {
+        setApplying(false);
+        setApplyError("Couldn't load your current profile. Check your connection and try again.");
+        return;
+      }
+    }
+    setApplying(false);
     setSheetOpen(false);
     setSelected(new Set());
     startEditing(routes);
@@ -188,7 +216,14 @@ export function ProfileScreen({
             </Pressable>
           );
         })}
-        <Button label="Continue" variant="primary" disabled={selected.size === 0} onPress={applyEdit} style={styles.sheetBtn} />
+        {applyError ? <Text style={styles.sheetError}>{applyError}</Text> : null}
+        <Button
+          label={applying ? "Loading…" : "Continue"}
+          variant="primary"
+          disabled={selected.size === 0 || applying}
+          onPress={applyEdit}
+          style={styles.sheetBtn}
+        />
       </BottomSheet>
     </>
   );
@@ -229,5 +264,6 @@ const styles = StyleSheet.create({
   checkboxOn: { backgroundColor: C.green, borderColor: C.green },
   optLabel: { fontSize: 15.5, fontWeight: "700", color: C.ink },
   optHint: { fontSize: 12.5, color: C.muted, marginTop: 2 },
+  sheetError: { fontSize: 13, color: C.destructive, lineHeight: 18, marginTop: 12, textAlign: "center" },
   sheetBtn: { marginTop: 18 },
 });

@@ -89,10 +89,10 @@ function resumeNext(id: TutorStep): void {
 
 // ---------------------------------------------------------------------------
 // Edit mode — re-entering onboarding screens from the Profile tab's "Change
-// preferences" sheet. We walk only the chosen screens, then return to home.
-// (Persisting the edits to the backend is the NEXT step; for now this just
-// drives the navigation.) Normal onboarding never sets EDITING_KEY, so the
-// checks below are inert during a first-time / resumed flow.
+// preferences" sheet. We walk only the chosen screens, then route to the
+// TutorEditSave step, which flushes the edits to the backend (saveTutorEdits)
+// and returns home. Normal onboarding never sets EDITING_KEY, so the checks
+// below are inert during a first-time / resumed flow.
 // ---------------------------------------------------------------------------
 export function isEditing(): boolean {
   return getStored<string[] | null>(EDITING_KEY, null) != null;
@@ -105,15 +105,17 @@ export function startEditing(routes: string[]): void {
   router.push(routes[0] as Href);
 }
 
-/** Drop the current screen from the queue → next screen, or home when done. */
+/** Drop the current screen from the queue → next screen, or the save step when
+ *  all chosen screens are done. Edit mode stays on (the empty queue is still
+ *  non-null) through the save screen, which clears it once the save resolves. */
 function editAdvance(): void {
   const rest = getStored<string[]>(EDITING_KEY, []).slice(1);
   if (rest.length > 0) {
     setStored<string[] | null>(EDITING_KEY, rest);
     router.push(rest[0] as Href);
   } else {
-    setStored<string[] | null>(EDITING_KEY, null);
-    router.dismissTo(HOME as Href);
+    setStored<string[] | null>(EDITING_KEY, []);
+    router.push("/onboarding/TutorEditSave" as Href);
   }
 }
 

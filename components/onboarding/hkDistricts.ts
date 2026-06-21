@@ -71,3 +71,36 @@ export const districtKey = (regionId: RegionId, d: string) => `${regionId}:${d}`
 
 /** The human district name from a stored key ("hk:Eastern" → "Eastern"). */
 export const districtName = (key: string) => key.slice(key.indexOf(":") + 1);
+
+// ---------------------------------------------------------------------------
+// hk_district enum code ↔ display name. The backend stores districts as the 18
+// hk_district enum codes; the app stores them as "<regionId>:<Name>" keys. These
+// bridge the two when reading a tutor's saved profile back into the edit screens
+// and when saving edits. (Must stay in sync with the backend hk_district enum.)
+// ---------------------------------------------------------------------------
+const DISTRICT_ENUM_BY_NAME: Record<string, string> = {
+  "Central & Western": "CentralWestern", "Wan Chai": "WanChai", Eastern: "Eastern", Southern: "Southern",
+  "Yau Tsim Mong": "YauTsimMong", "Sham Shui Po": "ShamshuiPo", "Kowloon City": "KowloonCity",
+  "Wong Tai Sin": "WongTaiSin", "Kwun Tong": "KwunTong", "Kwai Tsing": "KwaiTsing", "Tsuen Wan": "TsuenWan",
+  "Tuen Mun": "TuenMun", "Yuen Long": "YuenLong", North: "North", "Tai Po": "TaiPo", "Sai Kung": "SaiKung",
+  "Sha Tin": "ShaTin", Islands: "Islands",
+};
+const DISTRICT_NAME_BY_ENUM: Record<string, string> = Object.fromEntries(
+  Object.entries(DISTRICT_ENUM_BY_NAME).map(([name, code]) => [code, name]),
+);
+// name → its region, so an enum code can be rebuilt into a "<regionId>:<Name>" key.
+const REGION_BY_NAME: Record<string, RegionId> = Object.fromEntries(
+  REGIONS.flatMap((r) => r.districts.map((d) => [d, r.id] as const)),
+);
+
+/** Store key ("nt:Sha Tin") → hk_district enum code ("ShaTin"), or null. */
+export const districtEnumFromKey = (key: string): string | null =>
+  DISTRICT_ENUM_BY_NAME[districtName(key)] ?? null;
+
+/** hk_district enum code ("ShaTin") → store key ("nt:Sha Tin"), or null. */
+export const districtKeyFromEnum = (code: string): string | null => {
+  const name = DISTRICT_NAME_BY_ENUM[code];
+  if (!name) return null;
+  const region = REGION_BY_NAME[name];
+  return region ? districtKey(region, name) : null;
+};

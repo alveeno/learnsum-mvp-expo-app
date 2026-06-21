@@ -15,7 +15,11 @@ export { getCategories, getSubcategoryIndex, subcategoryIdForSlug } from "./cate
 export type { Category, Subcategory, IndexedSubcategory } from "./categories";
 export { postOnboarding } from "./onboarding";
 export type { OnboardingResult, OnboardingSkipped } from "./onboarding";
-export { patchTutor, setTutorPublished, getTutor } from "./tutors";
-export type { TutorProfile, TutorDetail } from "./tutors";
+export { patchTutor, setTutorPublished, getTutor, putTutorSubjects, putTutorLanguages } from "./tutors";
+export type { TutorProfile, TutorDetail, TutorSubjectInput } from "./tutors";
+export { patchProfileMe } from "./profiles";
+export type { ProfileMeUpdate } from "./profiles";
+export { getAvailability, putAvailability } from "./availability";
+export type { AvailabilityMap, TimeRange } from "./availability";
 export { getFeed } from "./feed";
 export type { FeedResponse, FeedTutor, FeedCategory } from "./feed";
