@@ -56,8 +56,14 @@ There are three user types:
   so subjects map by slug — the **frontend is the source of truth** for categories; per-subject
   lesson **format + districts** were added to the backend to match the app (migration `0016`).
   **Publish** (`setTutorPublished` → `PATCH /api/tutors/[slug]` `is_published`, `lib/api/tutors.ts`,
-  fired from the publish sheet) is also wired. Home feed, public profile + contact, and posts are
-  **→ Todo** (see the wiring Todo).
+  fired from the publish sheet) is also wired. The **own Profile tab** is wired too: it renders the
+  shared **`ProfileBody`** (the rich `TutorProfileConfirm`-style layout, extracted into
+  `components/tutor/ProfileBody.tsx`) from real data (`GET /api/auth/me` → `profileMapping.ts`), with
+  a settings button + a **"Change preferences"** sheet that routes into the onboarding screens via an
+  **edit mode** in `tutorOnboarding.ts` (display + edit *entry point* only — actually **saving** the
+  edits to the backend is the next step). The `me`/`tutors/[slug]` reads were extended to return
+  per-subject `format`/`districts` (+ `me` returns the subject's parent category). Home feed, the
+  public/other-tutor profile + contact, and posts are **→ Todo** (see the wiring Todo).
 
 ## Design system
 
@@ -238,7 +244,10 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
 - **Analytics** (`AnalyticsScreen`) — Premium paywall over a dimmed dashboard; "Upgrade"
   reveals it locally.
 - **Profile** (`ProfileScreen`) — own profile, **dimmed behind a "Set up your profile" gate**
-  (→ onboarding) until setup is done.
+  (→ onboarding) until setup is done. Once set up it shows the tutor's **real** profile via the
+  shared **`ProfileBody`** layout (`GET /api/auth/me`), with a settings button (inert) and a
+  **"Change preferences"** sheet (the 5 onboarding sections) that re-opens the onboarding screens to
+  edit (saving of those edits is still **→ Todo**).
 
 **Auth gate (front-end mock):** the shell treats the user as **registered** only after they pass
 `SignUp` or the mock Log in (`components/auth/authState.ts` — session-only flag). While

@@ -17,3 +17,5 @@ export { postOnboarding } from "./onboarding";
 export type { OnboardingResult, OnboardingSkipped } from "./onboarding";
 export { patchTutor, setTutorPublished } from "./tutors";
 export type { TutorProfile } from "./tutors";
+export { getFeed } from "./feed";
+export type { FeedResponse, FeedTutor, FeedCategory } from "./feed";

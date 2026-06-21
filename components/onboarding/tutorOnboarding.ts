@@ -30,6 +30,7 @@ const FLOW: { id: TutorStep; route: string }[] = [
 
 const DONE_KEY = "tutor:onboarding:done";
 const RESUMING_KEY = "tutor:onboarding:resuming";
+const EDITING_KEY = "tutor:onboarding:editing"; // string[] route queue while editing from the profile, else null
 const HOME = "/tutor-home";
 
 type DoneMap = Partial<Record<TutorStep, boolean>>;
@@ -86,8 +87,47 @@ function resumeNext(id: TutorStep): void {
   else goHome();
 }
 
+// ---------------------------------------------------------------------------
+// Edit mode — re-entering onboarding screens from the Profile tab's "Change
+// preferences" sheet. We walk only the chosen screens, then return to home.
+// (Persisting the edits to the backend is the NEXT step; for now this just
+// drives the navigation.) Normal onboarding never sets EDITING_KEY, so the
+// checks below are inert during a first-time / resumed flow.
+// ---------------------------------------------------------------------------
+export function isEditing(): boolean {
+  return getStored<string[] | null>(EDITING_KEY, null) != null;
+}
+
+/** Enter edit mode for the given onboarding routes (in order), then home. */
+export function startEditing(routes: string[]): void {
+  if (routes.length === 0) return;
+  setStored<string[] | null>(EDITING_KEY, routes);
+  router.push(routes[0] as Href);
+}
+
+/** Drop the current screen from the queue → next screen, or home when done. */
+function editAdvance(): void {
+  const rest = getStored<string[]>(EDITING_KEY, []).slice(1);
+  if (rest.length > 0) {
+    setStored<string[] | null>(EDITING_KEY, rest);
+    router.push(rest[0] as Href);
+  } else {
+    setStored<string[] | null>(EDITING_KEY, null);
+    router.dismissTo(HOME as Href);
+  }
+}
+
+/** Abandon edit mode (e.g. the Profile tab regained focus). */
+export function clearEditing(): void {
+  setStored<string[] | null>(EDITING_KEY, null);
+}
+
 /** Continue pressed on a tracked step — marks it done, then advances. */
 export function onStepContinue(id: TutorStep, firstTimeNext: () => void): void {
+  if (isEditing()) {
+    editAdvance(); // editing: walk only the chosen screens, don't touch completion
+    return;
+  }
   markStepDone(id);
   if (isResuming()) resumeNext(id);
   else firstTimeNext();
@@ -95,6 +135,10 @@ export function onStepContinue(id: TutorStep, firstTimeNext: () => void): void {
 
 /** Skip pressed on a tracked step — advances WITHOUT marking it done. */
 export function onStepSkip(id: TutorStep, firstTimeNext: () => void): void {
+  if (isEditing()) {
+    editAdvance();
+    return;
+  }
   if (isResuming()) resumeNext(id);
   else firstTimeNext();
 }

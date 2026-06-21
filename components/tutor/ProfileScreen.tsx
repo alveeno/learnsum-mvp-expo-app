@@ -1,27 +1,61 @@
 /**
- * Tutor app — own PROFILE tab (Columns stat treatment).
+ * Tutor app — own PROFILE tab.
  *
- * Ported from `ProfileTab` in `tutor/tutor-profile.jsx`. The Edit/Share/settings
- * controls are present but inert (the profile-setup form is not in this build).
+ * Shows the tutor's own real profile (GET /api/auth/me) using the shared
+ * ProfileBody layout — the same rich layout as the onboarding review and the
+ * "view another tutor" overlay. Adds a settings button (top-right, inert for
+ * now) and a "Change preferences" button that opens a sheet to pick which
+ * onboarding section(s) to edit, then routes into those screens.
+ *
+ * (Step 1 of the redesign: the display + the edit ENTRY point. Actually saving
+ * the edits back to the backend — and pre-filling the screens from the backend
+ * for a returning tutor — is the next step; today the edit screens drive off the
+ * in-memory store, so editing works within a session.)
+ *
+ * Falls back to sample data if there's no session / the backend is unreachable
+ * in __DEV__ so the tab still demos.
  */
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Avatar, PostsGrid, Qualified, StatBlock } from "./feedUi";
-import { C, LIKED, lookupTutor, ME, type PostKind } from "./tutorData";
+import { EMPTY_EDU, ProfileBody, type ProfileBodyData } from "./ProfileBody";
+import { mapMeToProfileBody } from "./profileMapping";
+import { C, ME } from "./tutorData";
+import { BottomSheet } from "../ui/BottomSheet";
+import { Button } from "../ui/Button";
+import { startEditing } from "../onboarding/tutorOnboarding";
+import { getMe } from "../../lib/api";
 
-const MY_POSTS: { kind: PostKind }[] = [
-  { kind: "image" },
-  { kind: "whiteboard" },
-  { kind: "video" },
-  { kind: "image" },
-  { kind: "quote" },
-  { kind: "whiteboard" },
+// The "Change preferences" sheet — one option per onboarding screen.
+const EDIT_SECTIONS: { key: string; label: string; hint?: string; route: string }[] = [
+  { key: "subjects", label: "Subjects", route: "/onboarding/TutorCatSel" },
+  { key: "details", label: "Strengths & details", hint: "Pay, format, location, qualifications", route: "/onboarding/TutorSD" },
+  { key: "levels", label: "Teaching levels", route: "/onboarding/TutorTeachLevels" },
+  { key: "prefs", label: "Availability & languages", route: "/onboarding/TutorPrefs" },
+  { key: "about", label: "About you", hint: "Name, photo, bio, education", route: "/onboarding/TutorAbout" },
 ];
 
+// __DEV__ offline / no-session fallback so the tab still demos.
+const MOCK_BODY: ProfileBodyData = {
+  fullName: ME.name,
+  gender: "male",
+  bio: "DSE & IB maths and physics. I teach the why, not just the how. 📈",
+  levels: ["high", "university"],
+  interests: [
+    { catId: "academics", subId: "mathematics", label: "Mathematics", category: "Academics" },
+    { catId: "academics", subId: "physics", label: "Physics", category: "Academics" },
+  ],
+  details: {
+    "academics:mathematics": { years: "4", pay: 350, format: "both", districts: ["Causeway Bay"], achievements: [], experiences: [], quals: [] },
+    "academics:physics": { years: "3", pay: 350, format: "online", districts: [], achievements: [], experiences: [], quals: [] },
+  },
+  langLevels: { english: 4, cantonese: 3 },
+  eduByLevel: EMPTY_EDU,
+};
+
 export function ProfileScreen({
-  premium,
+  premium: _premium,
   showSetup,
   onSetup,
 }: {
@@ -29,94 +63,84 @@ export function ProfileScreen({
   showSetup: boolean;
   onSetup: () => void;
 }) {
-  // Profile is gated until onboarding, so the tabs are display-only (Posts active).
-  const [tab] = useState<"posts" | "liked">("posts");
-  const liked = LIKED.map((id) => ({ kind: lookupTutor(id).post?.kind ?? ("image" as PostKind) }));
+  const [data, setData] = useState<ProfileBodyData | null>(null);
+  const [username, setUsername] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (showSetup) return;
+    let cancelled = false;
+    setLoading(true);
+    getMe()
+      .then((me) => {
+        if (cancelled) return;
+        const { data: d, slug } = mapMeToProfileBody(me);
+        setData(d);
+        setUsername(slug);
+      })
+      .catch(() => {
+        if (!cancelled && __DEV__) {
+          setData(MOCK_BODY);
+          setUsername(ME.username);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showSetup]);
+
+  const toggle = (key: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  const applyEdit = () => {
+    const routes = EDIT_SECTIONS.filter((s) => selected.has(s.key)).map((s) => s.route);
+    setSheetOpen(false);
+    setSelected(new Set());
+    startEditing(routes);
+  };
 
   return (
     <>
       <View style={styles.topRow}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
-          <Text style={{ fontSize: 19, fontWeight: "800", letterSpacing: -0.3, color: C.ink }}>{ME.username}</Text>
-          {ME.qualified && <Qualified />}
-        </View>
-        <Pressable style={styles.iconBtn}>
+        <Text style={styles.headerName}>{username || ME.username}</Text>
+        <Pressable style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Settings">
           <Ionicons name="settings-outline" size={24} color={C.ink} />
         </Pressable>
       </View>
 
       <View style={{ flex: 1 }}>
-        {/* The placeholder profile is dimmed until the tutor completes onboarding. */}
-        <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Dimmed behind the setup gate until onboarding is complete. */}
           <View style={{ opacity: showSetup ? 0.3 : 1 }} pointerEvents={showSetup ? "none" : "auto"}>
-            <View style={{ paddingHorizontal: 16, paddingTop: 4 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 15 }}>
-                <Avatar name={ME.name} size={72} />
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
-                    <Text style={{ fontSize: 17, fontWeight: "700", color: C.ink }}>{ME.name}</Text>
-                    {premium && (
-                      <View style={styles.premiumBadge}>
-                        <MaterialIcons name="workspace-premium" size={12} color="#3a2c06" />
-                        <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#3a2c06" }}>Premium</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={{ fontSize: 13, color: C.greenD, fontWeight: "600", marginTop: 2 }}>
-                    {ME.subject} tutor · {ME.school}
-                  </Text>
-                </View>
+            {!showSetup && loading && !data ? (
+              <View style={styles.loadingWrap}>
+                <ActivityIndicator color={C.green} />
               </View>
-
-              <StatBlock stats={ME.stats} />
-
-              <Text style={{ marginTop: 12, fontSize: 13.5, lineHeight: 20, color: C.ink }}>
-                DSE & IB maths and physics. I teach the <Text style={{ fontStyle: "italic" }}>why</Text>, not just the
-                how. Causeway Bay studio + online. 📈
-              </Text>
-
-              <View style={{ flexDirection: "row", gap: 9, marginTop: 14, marginBottom: 4 }}>
-                <Pressable style={styles.actionBtn}>
-                  <Text style={styles.actionText}>Edit profile</Text>
-                </Pressable>
-                <Pressable style={styles.actionBtn}>
-                  <Text style={styles.actionText}>Share profile</Text>
-                </Pressable>
-                <Pressable style={styles.actionSquare}>
-                  <Ionicons name="share-outline" size={20} color={C.ink} />
-                </Pressable>
-              </View>
-            </View>
-
-            <View style={styles.tabsRow}>
-              {([
-                ["posts", "grid-outline"],
-                ["liked", "heart-outline"],
-              ] as const).map(([id, ic]) => {
-                const on = tab === id;
-                return (
-                  <View key={id} style={[styles.tabBtn, { borderBottomColor: on ? C.ink : "transparent" }]}>
-                    <Ionicons name={on ? (ic.replace("-outline", "") as keyof typeof Ionicons.glyphMap) : ic} size={22} color={on ? C.ink : C.unselIc} />
-                    <Text style={{ fontSize: 13, fontWeight: "700", color: on ? C.ink : C.unselIc, textTransform: "capitalize" }}>{id}</Text>
-                  </View>
-                );
-              })}
-            </View>
-
-            {tab === "posts" ? (
-              <PostsGrid items={MY_POSTS} />
-            ) : liked.length ? (
-              <PostsGrid items={liked} />
-            ) : (
-              <View style={{ alignItems: "center", paddingVertical: 48 }}>
-                <Ionicons name="heart-outline" size={38} color={C.unselIc} />
-                <Text style={{ fontSize: 14, marginTop: 8, color: C.muted }}>Posts you like will show here.</Text>
-              </View>
-            )}
+            ) : data ? (
+              <>
+                <ProfileBody data={data} />
+                <Button
+                  label="Change preferences"
+                  variant="primary"
+                  onPress={() => setSheetOpen(true)}
+                  style={styles.changeBtn}
+                />
+              </>
+            ) : null}
           </View>
         </ScrollView>
 
-        {/* Centered setup gate (gold, matches the home banner) → tutor onboarding. */}
+        {/* Centered setup gate (gold) → tutor onboarding. */}
         {showSetup && (
           <View style={styles.gateOverlay} pointerEvents="box-none">
             <Pressable style={styles.gateCard} onPress={onSetup}>
@@ -134,19 +158,36 @@ export function ProfileScreen({
           </View>
         )}
       </View>
+
+      <BottomSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} title="Change preferences">
+        <Text style={styles.sheetSub}>
+          Pick what you'd like to update — we'll take you to the same screens you filled in during setup.
+        </Text>
+        {EDIT_SECTIONS.map((s) => {
+          const on = selected.has(s.key);
+          return (
+            <Pressable key={s.key} style={styles.optRow} onPress={() => toggle(s.key)} accessibilityRole="checkbox" accessibilityState={{ checked: on }}>
+              <View style={[styles.checkbox, on && styles.checkboxOn]}>{on ? <Ionicons name="checkmark" size={15} color="#fff" /> : null}</View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.optLabel}>{s.label}</Text>
+                {s.hint ? <Text style={styles.optHint}>{s.hint}</Text> : null}
+              </View>
+            </Pressable>
+          );
+        })}
+        <Button label="Continue" variant="primary" disabled={selected.size === 0} onPress={applyEdit} style={styles.sheetBtn} />
+      </BottomSheet>
     </>
   );
 }
 
 const styles = StyleSheet.create({
   topRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingLeft: 14, paddingRight: 10, paddingTop: 2, paddingBottom: 8 },
+  headerName: { fontSize: 19, fontWeight: "800", letterSpacing: -0.3, color: C.ink },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  premiumBadge: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: C.gold, paddingVertical: 2, paddingHorizontal: 7, borderRadius: 7 },
-  actionBtn: { flex: 1, height: 38, borderRadius: 11, borderWidth: 1.5, borderColor: C.hairline, alignItems: "center", justifyContent: "center" },
-  actionText: { fontSize: 14, fontWeight: "700", color: C.ink },
-  actionSquare: { width: 38, height: 38, borderRadius: 11, borderWidth: 1.5, borderColor: C.hairline, alignItems: "center", justifyContent: "center" },
-  tabsRow: { flexDirection: "row", marginTop: 14, borderBottomWidth: 1, borderBottomColor: C.hairline },
-  tabBtn: { flex: 1, height: 44, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderBottomWidth: 2 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 28 },
+  loadingWrap: { paddingVertical: 64, alignItems: "center", justifyContent: "center" },
+  changeBtn: { marginTop: 28 },
   gateOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   gateCard: {
     width: "100%",
@@ -161,28 +202,17 @@ const styles = StyleSheet.create({
     shadowRadius: 22,
     elevation: 8,
   },
-  gateKicker: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(58,44,6,0.16)",
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 8,
-    marginBottom: 11,
-  },
+  gateKicker: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(58,44,6,0.16)", paddingVertical: 4, paddingHorizontal: 10, borderRadius: 8, marginBottom: 11 },
   gateKickerText: { color: "#3a2c06", fontSize: 11, fontWeight: "800", letterSpacing: 0.6, textTransform: "uppercase" },
   gateTitle: { fontSize: 22, fontWeight: "800", color: "#3a2c06", letterSpacing: -0.5, textAlign: "center" },
   gateBody: { marginTop: 6, marginBottom: 16, fontSize: 13.5, color: "#5a4a18", lineHeight: 19, textAlign: "center" },
-  gateCta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    height: 44,
-    paddingHorizontal: 20,
-    borderRadius: 22,
-    backgroundColor: C.ink,
-  },
+  gateCta: { flexDirection: "row", alignItems: "center", gap: 7, height: 44, paddingHorizontal: 20, borderRadius: 22, backgroundColor: C.ink },
   gateCtaText: { color: "#fff", fontSize: 15, fontWeight: "700" },
+  sheetSub: { fontSize: 13.5, lineHeight: 19, color: C.muted, marginBottom: 8 },
+  optRow: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: C.hairline },
+  checkbox: { width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: "#D1D5DB", alignItems: "center", justifyContent: "center" },
+  checkboxOn: { backgroundColor: C.green, borderColor: C.green },
+  optLabel: { fontSize: 15.5, fontWeight: "700", color: C.ink },
+  optHint: { fontSize: 12.5, color: C.muted, marginTop: 2 },
+  sheetBtn: { marginTop: 18 },
 });
-

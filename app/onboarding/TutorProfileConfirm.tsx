@@ -18,7 +18,7 @@ import { districtName } from "../../components/onboarding/hkDistricts";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 import { submitTutorOnboarding } from "../../components/onboarding/tutorOnboardingPayload";
 import { type FormatId, type Prefs } from "../../components/onboarding/PreferencesScreen";
-import { ApiError, setTutorPublished } from "../../lib/api";
+import { ApiError, patchTutor } from "../../lib/api";
 import { qualDetailKind } from "../../components/onboarding/tutorQuals";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
@@ -634,14 +634,20 @@ export default function TutorProfileConfirm() {
     setSaving(true);
     try {
       const { slug } = await submitTutorOnboarding();
-      // Apply the publish choice. Best-effort: the profile is already saved, so a
-      // publish hiccup shouldn't trap the user here — they can publish later. The
-      // per-audience toggles aren't sent (backend has only is_published).
-      if (isPublic) {
+      // Apply the bio + publish choice in one best-effort PATCH. (The onboarding
+      // save doesn't persist the bio, and is_published defaults false, so both
+      // are set here.) The profile is already saved, so a hiccup shouldn't trap
+      // the user. The per-audience toggles aren't sent (backend has only
+      // is_published).
+      const bio = getStored<string>("tutor:about:bio", "").trim();
+      const patch: Record<string, unknown> = {};
+      if (bio) patch.bio = bio;
+      if (isPublic) patch.is_published = true;
+      if (Object.keys(patch).length > 0) {
         try {
-          await setTutorPublished(slug, true);
-        } catch (pubErr) {
-          if (__DEV__) console.warn("[publish] failed (profile saved, still private):", pubErr);
+          await patchTutor(slug, patch);
+        } catch (patchErr) {
+          if (__DEV__) console.warn("[finish] post-save patch (bio/publish) failed:", patchErr);
         }
       }
       goToWelcome();
