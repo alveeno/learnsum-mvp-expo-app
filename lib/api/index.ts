@@ -8,7 +8,7 @@
 export { API_BASE_URL } from "./config";
 export { apiFetch, ApiError } from "./client";
 export type { ApiOptions, QueryValue } from "./client";
-export { getToken, setToken, clearToken, hasToken } from "./token";
+export { getToken, setToken, clearToken, hasToken, restoreToken } from "./token";
 export { signup, login, logout, getMe } from "./auth";
 export type { Role, AuthUser, Session, Profile, MeResponse } from "./auth";
 export { getCategories, getSubcategoryIndex, subcategoryIdForSlug } from "./categories";

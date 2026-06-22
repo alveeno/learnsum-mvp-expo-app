@@ -18,6 +18,7 @@
  * in __DEV__ so the tab still demos.
  */
 import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -58,6 +59,24 @@ const MOCK_BODY: ProfileBodyData = {
   langLevels: { english: 4, cantonese: 3 },
   eduByLevel: EMPTY_EDU,
 };
+
+// A neutral profile silhouette shown (frosted) behind the setup gate.
+function GateSkeleton() {
+  return (
+    <View style={styles.skWrap} pointerEvents="none">
+      <View style={styles.skAvatar} />
+      <View style={[styles.skBlock, { width: 160, height: 18, marginTop: 14 }]} />
+      <View style={[styles.skBlock, { width: 110, height: 13, marginTop: 8 }]} />
+      <View style={styles.skStatRow}>
+        {[0, 1, 2].map((i) => (
+          <View key={i} style={styles.skStat} />
+        ))}
+      </View>
+      <View style={[styles.skCard, { marginTop: 18 }]} />
+      <View style={[styles.skCard, { marginTop: 12 }]} />
+    </View>
+  );
+}
 
 export function ProfileScreen({
   premium: _premium,
@@ -162,13 +181,16 @@ export function ProfileScreen({
 
       <View style={{ flex: 1 }}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-          {/* Dimmed behind the setup gate until onboarding is complete. */}
-          <View style={{ opacity: showSetup ? 0.3 : 1 }} pointerEvents={showSetup ? "none" : "auto"}>
-            {!showSetup && loading && !data ? (
+          {/* A placeholder silhouette sits behind the frosted setup gate so the
+              tab looks like a real (locked) profile rather than empty space. */}
+          <View pointerEvents={showSetup ? "none" : "auto"}>
+            {showSetup ? (
+              <GateSkeleton />
+            ) : loading && !data ? (
               <View style={styles.loadingWrap}>
                 <ActivityIndicator color={C.green} />
               </View>
-            ) : !showSetup && error ? (
+            ) : error ? (
               <View style={styles.errorWrap}>
                 <Ionicons name="cloud-offline-outline" size={34} color={C.unselIc} />
                 <Text style={styles.errorText}>Couldn't load your profile. Make sure you're signed in.</Text>
@@ -187,6 +209,14 @@ export function ProfileScreen({
             ) : null}
           </View>
         </ScrollView>
+
+        {/* Real frosted glass over the placeholder, then the gold gate card. */}
+        {showSetup && (
+          <>
+            <BlurView intensity={22} tint="light" style={StyleSheet.absoluteFill} pointerEvents="none" />
+            <View style={styles.gateTint} pointerEvents="none" />
+          </>
+        )}
 
         {/* Centered setup gate (gold) → tutor onboarding. */}
         {showSetup && (
@@ -245,6 +275,13 @@ const styles = StyleSheet.create({
   errorWrap: { paddingVertical: 64, paddingHorizontal: 24, alignItems: "center", justifyContent: "center", gap: 12 },
   errorText: { fontSize: 14.5, color: C.muted, textAlign: "center", lineHeight: 21 },
   changeBtn: { marginTop: 28 },
+  gateTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(249,249,247,0.4)" },
+  skWrap: { alignItems: "center", paddingTop: 8 },
+  skAvatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: "#E9EBEE" },
+  skBlock: { backgroundColor: "#E9EBEE", borderRadius: 8 },
+  skStatRow: { flexDirection: "row", gap: 10, marginTop: 20, alignSelf: "stretch" },
+  skStat: { flex: 1, height: 64, borderRadius: 14, backgroundColor: "#EDEFF1" },
+  skCard: { alignSelf: "stretch", height: 96, borderRadius: 16, backgroundColor: "#EDEFF1" },
   gateOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   gateCard: {
     width: "100%",

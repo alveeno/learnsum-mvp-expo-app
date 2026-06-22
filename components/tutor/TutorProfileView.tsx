@@ -20,6 +20,7 @@ import { FollowBtn } from "./feedUi";
 import { ProfileBody, EMPTY_EDU, type ProfileBodyData } from "./ProfileBody";
 import { mapTutorToProfileBody } from "./profileMapping";
 import { C, lookupTutor, type FullTutor } from "./tutorData";
+import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
 import { type FormatId } from "../onboarding/PreferencesScreen";
 import { getTutor } from "../../lib/api";
 
@@ -95,19 +96,29 @@ export function TutorProfileView({
     };
   }, [id]);
 
-  // WhatsApp opens a pre-filled chat; WeChat has no deep link, so we show the ID
-  // (copy needs a native clipboard module → EAS rebuild, deferred).
+  // WhatsApp opens a pre-filled chat; WeChat has no deep link, so we copy the ID
+  // to the clipboard and confirm it.
   const openWhatsApp = () => {
     if (!contact.whatsapp) return;
+    tapMedium();
     const digits = contact.whatsapp.replace(/\D/g, "");
     if (!digits) return;
     const subject = data?.interests?.[0]?.label;
     const msg = `Hi, I found you on LearnSum and I'm interested in tutoring${subject ? ` for ${subject}` : ""}.`;
     Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`).catch(() => {});
   };
-  const showWeChat = () => {
+  const showWeChat = async () => {
     if (!contact.wechat) return;
-    Alert.alert("WeChat", `Add this tutor on WeChat:\n\n${contact.wechat}`, [{ text: "Done" }]);
+    tapMedium();
+    const ok = await copyText(contact.wechat);
+    if (ok) notifySuccess();
+    Alert.alert(
+      "WeChat",
+      ok
+        ? `Copied "${contact.wechat}" — open WeChat and add this ID.`
+        : `Add this tutor on WeChat:\n\n${contact.wechat}`,
+      [{ text: "Done" }],
+    );
   };
   const hasContact = !!contact.whatsapp || !!contact.wechat;
 

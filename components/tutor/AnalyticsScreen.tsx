@@ -3,10 +3,11 @@
  *
  * Ported from `tutor/tutor-analytics.jsx`. Front-end only: "Upgrade" flips local
  * state to reveal the dashboard — there is no real payment yet (payments are on
- * the CLAUDE.md Todo list). The source blurs the locked dashboard; RN can't blur
- * without a native module (EAS rebuild), so it's dimmed (low opacity) instead.
+ * the CLAUDE.md Todo list). The locked dashboard is **frosted** with a real
+ * `expo-blur` BlurView (was an opacity dim before the native build).
  */
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Avatar, MediaSlot } from "./feedUi";
@@ -128,11 +129,18 @@ export function AnalyticsScreen({ premium, onUpgrade }: { premium: boolean; onUp
 
       <View style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-          <View style={premium ? undefined : { opacity: 0.35 }} pointerEvents={premium ? "auto" : "none"}>
+          <View pointerEvents={premium ? "auto" : "none"}>
             <AnalyticsBody />
           </View>
         </ScrollView>
 
+        {!premium && (
+          <>
+            {/* Real frosted glass over the locked dashboard. */}
+            <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} pointerEvents="none" />
+            <View style={styles.lockTint} pointerEvents="none" />
+          </>
+        )}
         {!premium && (
           <View style={styles.lockOverlay} pointerEvents="box-none">
             <View style={styles.upgradeCard}>
@@ -172,6 +180,8 @@ const styles = StyleSheet.create({
   axis: { fontSize: 10.5, color: C.unselIc, fontWeight: "600" },
   label: { fontSize: 13, fontWeight: "600", letterSpacing: 0.3, color: C.muted, textTransform: "uppercase" },
   viewerRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  // A faint wash above the blur so the upgrade card reads clearly on busy charts.
+  lockTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(249,249,247,0.45)" },
   lockOverlay: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, alignItems: "center", justifyContent: "center", paddingHorizontal: 24 },
   upgradeCard: {
     backgroundColor: "#fff",

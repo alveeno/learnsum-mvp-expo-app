@@ -1,5 +1,6 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
+import { saveLang } from "./langStorage";
 import {
   DEFAULT_LANG,
   translations,
@@ -14,10 +15,9 @@ import {
  * every screen. Changing the language re-renders every component that reads it
  * via `useT()` / `useLanguage()` — that's how one tap re-skins the whole app.
  *
- * The current language lives in memory (resets on a full app restart), matching
- * the rest of the app. Persisting it across restarts is a later, isolated change
- * (swap the in-memory state for on-device storage — see CLAUDE.md notes); none of
- * the screens that use `t()` would change.
+ * The language now PERSISTS across restarts: `_layout.tsx` seeds `initialLang`
+ * from AsyncStorage (`loadLang`) at startup, and every `setLang` saves the choice
+ * (`saveLang`). None of the screens that use `t()` changed.
  */
 
 type Translate = (
@@ -33,8 +33,21 @@ type LanguageContextValue = {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLang] = useState<Lang>(DEFAULT_LANG);
+export function LanguageProvider({
+  children,
+  initialLang,
+}: {
+  children: ReactNode;
+  /** Seeded from on-device storage at startup (see app/_layout.tsx). */
+  initialLang?: Lang;
+}) {
+  const [lang, setLangState] = useState<Lang>(initialLang ?? DEFAULT_LANG);
+
+  // Persist every change so the app reopens in the chosen language.
+  const setLang = useCallback((next: Lang) => {
+    setLangState(next);
+    saveLang(next);
+  }, []);
 
   const value = useMemo<LanguageContextValue>(() => {
     const t: Translate = (key, params) => {
