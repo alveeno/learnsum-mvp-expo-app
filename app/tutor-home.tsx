@@ -107,6 +107,7 @@ function TutorShell() {
         onLike={onLike}
         onConnect={onConnect}
         onOpenProfile={openProfile}
+        onCreatePost={() => (registered ? router.push("/post-new" as Href) : requireAuth())}
         showSetup={!setupDone}
         onSetup={startTutorSetup}
         registered={registered}

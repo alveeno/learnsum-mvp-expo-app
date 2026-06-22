@@ -79,8 +79,16 @@ There are three user types:
   to return per-subject `format`/`districts` (+ `me` returns the subject's parent category). When
   there's no real session the Profile tab shows a "couldn't load" state (no fake data); the
   **social-login buttons are placeholders** that clear the session and continue (use email sign-up to
-  actually save). Home feed, the **contact buttons** (WhatsApp/IG/WeChat — not collected yet),
-  and posts are **→ Todo** (see the wiring Todo).
+  actually save). **Tutor posts** are partly wired (`lib/api/posts.ts`): a tutor can **create a
+  text post** (the Home feed **"+"** and a Posts-section header both open the composer at
+  `app/post-new.tsx` → `POST /api/tutors/[slug]/posts`, with a `post_type` of update/showcase/result)
+  and **see their own posts** in a new **Posts section** on the Profile tab
+  (`components/tutor/TutorPosts.tsx` → `GET /api/tutors/[slug]/posts`, sent **with the token** so the
+  owner reads their own posts while still unpublished; refetched via a `markPostsDirty` flag after
+  creating). **Image upload is deferred** (needs a native picker → EAS rebuild — the composer says
+  "Photos are coming soon"); the **Home feed** of other tutors' posts stays **sample data** (no
+  post-stream endpoint, and it's the deferred seeker/browse surface). The **contact buttons**
+  (WhatsApp/IG/WeChat — not collected yet) are still **→ Todo** (see the wiring Todo).
 
 ## Design system
 
@@ -113,6 +121,7 @@ File-based routes (Expo Router). Route map:
 | `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
 | `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
 | `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
+| `/post-new`      | Tutor **post composer** (text + a post_type) → `POST /api/tutors/[slug]/posts` — **built** (text-only; opened from the Home feed "+" and the Profile Posts section. Image upload **→ Todo**, needs a native picker) |
 
 > **No `/notifications` route — notifications aren't built (see the Todo list).**
 
@@ -253,7 +262,9 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   (→ onboarding), stories row, post cards with like (red pop + count), and a "Tutors you may
   know" strip. The strip is **logged-in only** and lists other tutors who share the signed-in
   tutor's **university** (matched against `ME.school`). **No comments** — the comment sheet,
-  count and "view all comments" were removed; likes stay.
+  count and "view all comments" were removed; likes stay. The feed cards are **sample data**, but
+  the header **"+"** is now live: registered tutors open the **post composer** (`app/post-new.tsx`);
+  unregistered ones hit the auth gate. (Adding a **story** is still a stub — stories aren't backed.)
 - **Search** (`SearchScreen` + `FilterSheet`) — text search over a sample directory, trending
   tags, recent searches, and an advanced filter sheet (gesture-driven dual sliders, HK
   district discs, gender, rating/years/sessions/followers).
@@ -265,7 +276,9 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   shared **`ProfileBody`** layout (`GET /api/auth/me`), with a settings button (inert) and a
   **"Change preferences"** sheet (the 5 onboarding sections) that re-opens the onboarding screens to
   edit. Those edits now **save** back to the backend (pre-fill from `me` + availability → walk the
-  chosen screens → `TutorEditSave` flushes via the five edit endpoints; see "Wired so far").
+  chosen screens → `TutorEditSave` flushes via the five edit endpoints; see "Wired so far"). Below
+  the profile, a **Posts section** (`TutorPosts`) lists the tutor's own posts (`GET
+  /api/tutors/[slug]/posts`, **text-only**) with a **"New post"** button → the same composer.
 
 **Auth gate (front-end mock):** the shell treats the user as **registered** only after they pass
 `SignUp` or the mock Log in (`components/auth/authState.ts` — session-only flag). While
@@ -449,6 +462,11 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 - **Chat / in-app messaging** — the Chat tab is UI-only (no messaging backend).
 - **Premium / in-app payments** — the Analytics tab shows a paywall UI only (no real payment).
+- **Posts** — creating a **text post** + the own **Posts list** are wired (`POST` / `GET
+  /api/tutors/[slug]/posts`, `lib/api/posts.ts`). Still Todo: **image upload** (needs a native
+  picker → EAS rebuild; `POST /api/upload` returns a signed upload URL) and a real **multi-tutor
+  home feed** of posts (no post-stream endpoint yet — that's the deferred seeker browse surface, so
+  the Home tab stays sample data). Post **likes** have no endpoint yet (display-only).
 - Replace the prototype sample data and **English-only copy** with live data + i18n (the rest of
   the app is already trilingual).
 

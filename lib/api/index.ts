@@ -23,3 +23,5 @@ export { getAvailability, putAvailability } from "./availability";
 export type { AvailabilityMap, TimeRange } from "./availability";
 export { getFeed } from "./feed";
 export type { FeedResponse, FeedTutor, FeedCategory } from "./feed";
+export { getTutorPosts, createPost } from "./posts";
+export type { Post, PostMedia, PostType, PostsPage } from "./posts";

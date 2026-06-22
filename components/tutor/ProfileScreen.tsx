@@ -24,6 +24,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 
 import { EMPTY_EDU, ProfileBody, type ProfileBodyData } from "./ProfileBody";
 import { mapMeToProfileBody } from "./profileMapping";
+import { TutorPosts } from "./TutorPosts";
 import { consumeProfileDirty, hydrateTutorStoreFromMe } from "./tutorEditStore";
 import { C, ME } from "./tutorData";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -75,6 +76,9 @@ export function ProfileScreen({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
   const [applyError, setApplyError] = useState<string | null>(null);
+  // True on the offline/no-session mock path — the username then isn't a real
+  // slug, so the Posts section (which fetches by slug) is hidden.
+  const [isMock, setIsMock] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -84,6 +88,7 @@ export function ProfileScreen({
         const { data: d, slug } = mapMeToProfileBody(me);
         setData(d);
         setUsername(slug);
+        setIsMock(false);
       })
       .catch((err) => {
         // Only fall back to sample data when the backend is genuinely
@@ -92,6 +97,7 @@ export function ProfileScreen({
         if (err instanceof ApiError && err.isNetworkError && __DEV__) {
           setData(MOCK_BODY);
           setUsername(ME.username);
+          setIsMock(true);
         } else {
           setError(true);
         }
@@ -170,6 +176,7 @@ export function ProfileScreen({
             ) : data ? (
               <>
                 <ProfileBody data={data} />
+                {!isMock && username ? <TutorPosts slug={username} /> : null}
                 <Button
                   label="Change preferences"
                   variant="primary"

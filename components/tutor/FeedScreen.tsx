@@ -199,6 +199,7 @@ export function FeedScreen({
   onLike,
   onConnect,
   onOpenProfile,
+  onCreatePost,
   showSetup,
   onSetup,
   registered,
@@ -209,20 +210,23 @@ export function FeedScreen({
   onLike: (id: string) => void;
   onConnect: (id: string) => void;
   onOpenProfile: (id: string) => void;
+  onCreatePost: () => void;
   showSetup: boolean;
   onSetup: () => void;
   registered: boolean;
   onRequireAuth: () => void;
 }) {
-  // Like / connect are gated by the shell; creating a post and adding a story are
-  // gated here. Unregistered users also don't get the "Tutors you may know" strip
-  // (it matches against the signed-in tutor's education record).
+  // Like / connect are gated by the shell; adding a story is gated here (stories
+  // aren't backed yet). Creating a post is handled by the shell (onCreatePost —
+  // routes to the composer when registered, else the auth gate). Unregistered
+  // users also don't get the "Tutors you may know" strip (it matches against the
+  // signed-in tutor's education record).
   const gatedAction = () => {
     if (!registered) onRequireAuth();
   };
   return (
     <>
-      <FeedBar onCreate={gatedAction} />
+      <FeedBar onCreate={onCreatePost} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: TH.cardGap, paddingBottom: 24 }}>
         {showSetup && <SetupBanner onPress={onSetup} />}
         <StoryRow onOpen={onOpenProfile} onAddStory={gatedAction} />
