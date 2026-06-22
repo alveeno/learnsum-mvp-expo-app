@@ -14,7 +14,7 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { FollowBtn } from "./feedUi";
 import { ProfileBody, EMPTY_EDU, type ProfileBodyData } from "./ProfileBody";
@@ -64,6 +64,10 @@ export function TutorProfileView({
 }) {
   const [data, setData] = useState<ProfileBodyData | null>(null);
   const [name, setName] = useState("");
+  const [contact, setContact] = useState<{ whatsapp: string | null; wechat: string | null }>({
+    whatsapp: null,
+    wechat: null,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -74,12 +78,14 @@ export function TutorProfileView({
         if (cancelled) return;
         setData(mapTutorToProfileBody(tutor));
         setName(tutor.slug ?? id);
+        setContact({ whatsapp: tutor.whatsapp_number ?? null, wechat: tutor.wechat_id ?? null });
       })
       .catch(() => {
         if (cancelled) return;
         const sample = lookupTutor(id);
         setData(sampleToBody(sample));
         setName(sample.username);
+        setContact({ whatsapp: null, wechat: null }); // sample tutors have no real contact
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -88,6 +94,22 @@ export function TutorProfileView({
       cancelled = true;
     };
   }, [id]);
+
+  // WhatsApp opens a pre-filled chat; WeChat has no deep link, so we show the ID
+  // (copy needs a native clipboard module → EAS rebuild, deferred).
+  const openWhatsApp = () => {
+    if (!contact.whatsapp) return;
+    const digits = contact.whatsapp.replace(/\D/g, "");
+    if (!digits) return;
+    const subject = data?.interests?.[0]?.label;
+    const msg = `Hi, I found you on LearnSum and I'm interested in tutoring${subject ? ` for ${subject}` : ""}.`;
+    Linking.openURL(`https://wa.me/${digits}?text=${encodeURIComponent(msg)}`).catch(() => {});
+  };
+  const showWeChat = () => {
+    if (!contact.wechat) return;
+    Alert.alert("WeChat", `Add this tutor on WeChat:\n\n${contact.wechat}`, [{ text: "Done" }]);
+  };
+  const hasContact = !!contact.whatsapp || !!contact.wechat;
 
   return (
     <>
@@ -111,6 +133,32 @@ export function TutorProfileView({
         ) : data ? (
           <>
             <ProfileBody data={data} />
+            {hasContact ? (
+              <View style={styles.contactRow}>
+                {contact.whatsapp ? (
+                  <Pressable
+                    style={[styles.contactBtn, styles.whatsappBtn]}
+                    onPress={openWhatsApp}
+                    accessibilityRole="button"
+                    accessibilityLabel="Message on WhatsApp"
+                  >
+                    <Ionicons name="logo-whatsapp" size={18} color="#fff" />
+                    <Text style={styles.contactBtnText}>WhatsApp</Text>
+                  </Pressable>
+                ) : null}
+                {contact.wechat ? (
+                  <Pressable
+                    style={[styles.contactBtn, styles.wechatBtn]}
+                    onPress={showWeChat}
+                    accessibilityRole="button"
+                    accessibilityLabel="Show WeChat ID"
+                  >
+                    <Ionicons name="logo-wechat" size={18} color="#fff" />
+                    <Text style={styles.contactBtnText}>WeChat</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
             <View style={styles.actionRow}>
               <View style={{ flex: 1 }}>
                 <FollowBtn following={connected} onToggle={onConnect} />
@@ -133,7 +181,20 @@ const styles = StyleSheet.create({
   headTitle: { flex: 1, fontSize: 17, fontWeight: "800", color: C.ink },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 28 },
   loadingWrap: { paddingVertical: 64, alignItems: "center", justifyContent: "center" },
-  actionRow: { flexDirection: "row", gap: 9, marginTop: 22 },
+  contactRow: { flexDirection: "row", gap: 9, marginTop: 22 },
+  contactBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 23,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  contactBtnText: { fontSize: 14.5, fontWeight: "800", color: "#fff" },
+  whatsappBtn: { backgroundColor: "#25D366" },
+  wechatBtn: { backgroundColor: "#09B83E" },
+  actionRow: { flexDirection: "row", gap: 9, marginTop: 12 },
   messageBtn: {
     flex: 1,
     height: 34,

@@ -85,6 +85,8 @@ interface RawTutorDetail {
     bio?: string | null;
     teaching_levels?: string[] | null;
     education?: unknown;
+    whatsapp_number?: string | null;
+    wechat_id?: string | null;
   } | null;
   subjects?: RawSubject[];
   languages?: { language?: string | null; proficiency?: number | null }[];
@@ -151,6 +153,8 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
   setStored("tutor:about:firstName", first);
   setStored("tutor:about:lastName", last);
   setStored("tutor:about:bio", tp.bio ?? "");
+  setStored("tutor:about:whatsapp", tp.whatsapp_number ?? "");
+  setStored("tutor:about:wechat", tp.wechat_id ?? "");
   const g = typeof me.profile.gender === "string" ? me.profile.gender : "";
   setStored<string | null>("tutor:about:gender", GENDER_TO_APP[g] ?? null);
   setStored<EduByLevel>("tutor:about:eduByLevel", normEdu(tp.education));
@@ -279,6 +283,8 @@ export async function saveTutorEdits(): Promise<void> {
   const lastName = getStored<string>("tutor:about:lastName", "").trim();
   const gender = getStored<string | null>("tutor:about:gender", null);
   const bio = getStored<string>("tutor:about:bio", "");
+  const whatsapp = getStored<string>("tutor:about:whatsapp", "").trim();
+  const wechat = getStored<string>("tutor:about:wechat", "").trim();
   const eduByLevel = getStored<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU);
   const levels = [...getStored<Set<string>>("tutor:levels", new Set<string>())];
   const interests = getStored<Interest[]>("tutor:interests", []).filter((it) => it.catId && it.subId);
@@ -321,6 +327,8 @@ export async function saveTutorEdits(): Promise<void> {
     await tolerant(() =>
       patchTutor(slug, {
         bio: bio.trim() || null,
+        whatsapp_number: whatsapp || null,
+        wechat_id: wechat || null,
         university,
         teaching_levels: levels,
         education: Object.keys(education).length ? education : null,

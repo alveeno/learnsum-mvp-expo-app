@@ -225,6 +225,8 @@ export default function TutorAbout() {
   const [firstName, setFirstName] = usePersistentState("tutor:about:firstName", "");
   const [lastName, setLastName] = usePersistentState("tutor:about:lastName", "");
   const [bio, setBio] = usePersistentState("tutor:about:bio", "");
+  const [whatsapp, setWhatsapp] = usePersistentState("tutor:about:whatsapp", "");
+  const [wechat, setWechat] = usePersistentState("tutor:about:wechat", "");
   const [gender, setGender] = usePersistentState<string | null>("tutor:about:gender", null);
   const [education, setEducation] = usePersistentState<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU);
 
@@ -340,6 +342,34 @@ export default function TutorAbout() {
           multiline
           textAlignVertical="top"
         />
+
+        {/* Contact — how students reach the tutor (optional, shown on the profile) */}
+        <Text style={styles.fieldLabel}>{t("about.contact.label")}</Text>
+        <Text style={styles.helper}>{t("about.contact.helper")}</Text>
+        <View style={styles.contactRow}>
+          <Ionicons name="logo-whatsapp" size={20} color="#25D366" />
+          <TextInput
+            style={[styles.input, styles.contactInput]}
+            value={whatsapp}
+            onChangeText={setWhatsapp}
+            placeholder={t("about.contact.whatsappPlaceholder")}
+            placeholderTextColor="#9CA3AF"
+            keyboardType="phone-pad"
+            autoCorrect={false}
+          />
+        </View>
+        <View style={[styles.contactRow, styles.contactRowGap]}>
+          <Ionicons name="logo-wechat" size={20} color="#09B83E" />
+          <TextInput
+            style={[styles.input, styles.contactInput]}
+            value={wechat}
+            onChangeText={setWechat}
+            placeholder={t("about.contact.wechatPlaceholder")}
+            placeholderTextColor="#9CA3AF"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+        </View>
 
         {/* Gender */}
         <Text style={styles.fieldLabel}>
@@ -525,6 +555,9 @@ const styles = StyleSheet.create({
   stackInput: { marginBottom: 8 },
   nameRow: { flexDirection: "row", gap: 10 },
   nameInput: { flex: 1 },
+  contactRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  contactRowGap: { marginTop: 10 },
+  contactInput: { flex: 1 },
 
   // Fields inside one school card (school / qualification / score / status).
   eduFields: { gap: 8 },

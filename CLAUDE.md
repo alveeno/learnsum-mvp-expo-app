@@ -87,8 +87,16 @@ There are three user types:
   owner reads their own posts while still unpublished; refetched via a `markPostsDirty` flag after
   creating). **Image upload is deferred** (needs a native picker → EAS rebuild — the composer says
   "Photos are coming soon"); the **Home feed** of other tutors' posts stays **sample data** (no
-  post-stream endpoint, and it's the deferred seeker/browse surface). The **contact buttons**
-  (WhatsApp/IG/WeChat — not collected yet) are still **→ Todo** (see the wiring Todo).
+  post-stream endpoint, and it's the deferred seeker/browse surface). The **contact buttons** are now
+  wired — **WhatsApp + WeChat only** (Instagram was dropped per a product decision). A tutor enters
+  them in a "How can students reach you?" block on **`TutorAbout`** (optional;
+  `tutor:about:whatsapp`/`tutor:about:wechat`); they're saved on first publish via the existing
+  post-onboarding **`PATCH /api/tutors/[slug]`** (`whatsapp_number`/`wechat_id` — **no backend change
+  needed**) and via the edit flow (`saveTutorEdits` + hydrate). The **"view another tutor"** overlay
+  (`TutorProfileView`) shows a green **WhatsApp** button (opens a pre-filled `wa.me` chat via
+  `Linking`) and a **WeChat** button (shows the ID in an `Alert` — no clipboard module, to avoid an
+  EAS rebuild), each only when that field is set. (This is the **loop-closing** Tier-1 step. The
+  buttons aren't shown on the own-profile/onboarding-review surfaces — only where contacting happens.)
 
 ## Design system
 
@@ -117,7 +125,7 @@ File-based routes (Expo Router). Route map:
 | `/`              | Welcome screen with user-type selection — **built** |
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built** (front-end only — see "Tutor app shell" below) |
 | `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows (reached via the shared `Welcome` screen on completion) — **placeholder built** (real seeker feed **→ Todo**) |
-| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/Instagram/WeChat buttons) — **→ Todo** |
+| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat buttons) — **→ Todo** |
 | `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
 | `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
 | `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
@@ -178,7 +186,12 @@ subscription). Tapping the banner **resumes only the skipped steps** in order, j
 completed ones; first-timers pass through `SignUp` first, returning (signed-up) tutors jump
 straight in. Because a resumed step can be entered directly, `TutorSD` reads its
 subjects/levels from the store (`tutor:interests` / `tutor:levels`) rather than route params.
-State is **session-only** (a full reload resets it).
+The local completion map is **session-only** (a full reload/login resets it) — so on `/tutor-home`
+focus the shell **reconciles it with the backend**: when the user is registered but the local map
+is blank, it calls `GET /api/auth/me` and, if `profile.onboarding_done` is true, marks all steps
+done (`markAllStepsDone`) so a **returning, already-onboarded tutor isn't asked to set up again**
+(the gate/banner is suppressed while that check is in flight to avoid a flash). Offline / no session
+falls back to showing the gate.
 
 **Tutor profile review (`app/onboarding/TutorProfileConfirm.tsx`):** the last screen of the tutor
 flow — a **read-only** preview that reads the whole onboarding store (a one-shot snapshot, no
@@ -236,7 +249,7 @@ publish sheet (`POST /api/onboarding` via `tutorOnboardingPayload.ts`). Still To
 one-shot save for **student/parent**, and the **final credential step for student/parent**
 (Option A). **Social login is planned** — only **Google** is configured on Supabase; the Apple /
 Microsoft buttons on `SignUp` and in `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
-finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, Instagram, WeChat
+finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, WeChat
 + remaining details) and **standalone** publish / self-unpublish (from a Profile/Settings route)
 are **not built yet** — for now the tutor onboarding flow stands in for it, and the **initial**
 publish choice (public + per-audience visibility) is collected on the `TutorProfileConfirm`
@@ -247,9 +260,10 @@ handing off — with a one-line inline error on bad credentials and a `__DEV__` 
 that accepts the login so the app still demos. The social buttons and "Forgot password?" stay
 inert, and there's no standalone `/auth` login route yet.
 
-**No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp,
-Instagram, and WeChat** buttons on the tutor profile (all optional, any combination) — there is
-no `/messages` route and **no inquiry form**.
+**No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp +
+WeChat** buttons on the tutor profile (both optional, either or both) — **Instagram was dropped**
+(a product decision; the old design mentioned it). There is no `/messages` route and **no inquiry
+form**.
 
 ## Tutor app shell (`/tutor-home`)
 
@@ -300,10 +314,11 @@ design and are **not wired to a backend yet** (see the Todo list).
   onboarding store in one shot. Email verification is OFF. **Tutors are home-first:** they land
   on `/tutor-home` and enter onboarding from its "Complete profile" / "Set up your profile"
   prompts (student/parent still go straight into their flow).
-- **Contact flow:** **WhatsApp + Instagram + WeChat** buttons on the tutor profile — all
-  optional, any combination, all shown at once. WhatsApp pre-fills `Hi, I found you on
-  LearnSum and I'm interested in tutoring for [subject].` **No inquiry form. No in-app
-  messaging** (the Chat tab in `/tutor-home` is UI-only — see the Todo list).
+- **Contact flow:** **WhatsApp + WeChat** buttons on the tutor profile — both optional, either
+  or both (**Instagram was dropped**). WhatsApp pre-fills `Hi, I found you on LearnSum and I'm
+  interested in tutoring for [subject].` (the subject is the profile's first subject, omitted if
+  none); WeChat has no deep link, so its button shows the ID in an alert. **No inquiry form. No
+  in-app messaging** (the Chat tab in `/tutor-home` is UI-only — see the Todo list).
 - **Home feed:** personalized weighted matching for seekers (subject > availability > price
   > language > district; per child for parents); **guests** get the latest published tutors
   (`created_at` DESC, unfiltered).
@@ -431,7 +446,7 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 **Screens & routes**
 
-- Public tutor profile page `/tutors/[slug]` — bio + post feed + WhatsApp / Instagram / WeChat
+- Public tutor profile page `/tutors/[slug]` — bio + post feed + WhatsApp / WeChat
   buttons.
 - Standalone seeker **Search** route + **Quick Match** card (a tutor-facing Search tab already
   exists inside `/tutor-home`).
@@ -442,7 +457,7 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   (session-only registered flag, no backend).
 - Real personalized **home feed** for seekers — `/feed` is currently just a "you're all set"
   placeholder.
-- Tutor **profile-completion** screen — bio, photo, WhatsApp / Instagram / WeChat + remaining
+- Tutor **profile-completion** screen — bio, photo, WhatsApp / WeChat + remaining
   details — plus explicit **publish / self-unpublish**.
 
 **Auth & data**
@@ -476,7 +491,7 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 - Post **likes** UI is front-end only (schema on the backend). **Comments were removed** from
   the tutor feed — the `Comment` type and sample `comments` data remain in `tutorData.ts` but
   nothing renders them.
-- **Inquiry form** — contact is WhatsApp / Instagram / WeChat instead.
+- **Inquiry form** — contact is WhatsApp / WeChat instead.
 - **Calendar / per-date scheduling** — availability is recurring weekday time ranges (the
   picker already collects precise start/end ranges).
 

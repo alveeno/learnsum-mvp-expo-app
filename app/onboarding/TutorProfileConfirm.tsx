@@ -124,10 +124,16 @@ export default function TutorProfileConfirm() {
     setSaving(true);
     try {
       const { slug } = await submitTutorOnboarding();
-      // Apply the bio + publish choice in one best-effort PATCH.
+      // Apply the bio + contact + publish choice in one best-effort PATCH
+      // (PATCH /api/tutors/[slug] accepts these; the one-shot onboarding save
+      // doesn't store bio/contact, so this is where they land on first save).
       const bio = getStored<string>("tutor:about:bio", "").trim();
+      const whatsapp = getStored<string>("tutor:about:whatsapp", "").trim();
+      const wechat = getStored<string>("tutor:about:wechat", "").trim();
       const patch: Record<string, unknown> = {};
       if (bio) patch.bio = bio;
+      if (whatsapp) patch.whatsapp_number = whatsapp;
+      if (wechat) patch.wechat_id = wechat;
       if (isPublic) patch.is_published = true;
       if (Object.keys(patch).length > 0) {
         try {
