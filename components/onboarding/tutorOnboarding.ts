@@ -43,6 +43,18 @@ export function markStepDone(id: TutorStep): void {
   setStored<DoneMap>(DONE_KEY, { ...getDone(), [id]: true });
 }
 
+/**
+ * Mark every tracked step done. Used when the backend reports the account has
+ * already finished onboarding (`profile.onboarding_done`), so a returning tutor
+ * who logs in on a fresh session isn't told to "set up your profile" again — the
+ * local completion map is session-only and starts empty after a login/reload.
+ */
+export function markAllStepsDone(): void {
+  const all: DoneMap = {};
+  for (const s of FLOW) all[s.id] = true;
+  setStored<DoneMap>(DONE_KEY, all);
+}
+
 export function incompleteSteps(): TutorStep[] {
   const done = getDone();
   return FLOW.filter((s) => !done[s.id]).map((s) => s.id);

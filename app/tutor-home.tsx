@@ -17,7 +17,8 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isRegistered, setRegistered as persistRegistered } from "../components/auth/authState";
-import { isOnboardingComplete, startTutorSetup } from "../components/onboarding/tutorOnboarding";
+import { isOnboardingComplete, markAllStepsDone, startTutorSetup } from "../components/onboarding/tutorOnboarding";
+import { getMe } from "../lib/api";
 import { AnalyticsScreen } from "../components/tutor/AnalyticsScreen";
 import { ChatScreen } from "../components/tutor/ChatScreen";
 import { FeedScreen } from "../components/tutor/FeedScreen";
@@ -62,12 +63,55 @@ function TutorShell() {
   // doesn't notify subscribers.
   const [setupDone, setSetupDone] = useState(isOnboardingComplete);
   const [registered, setRegistered] = useState(isRegistered);
+  // The local completion map is session-only (empty after a login/reload), so a
+  // returning tutor would otherwise be told to "set up" again. While we confirm
+  // with the backend (onboarding_done), suppress the gate to avoid a flash.
+  const [checkingSetup, setCheckingSetup] = useState(
+    () => isRegistered() && !isOnboardingComplete(),
+  );
   useFocusEffect(
     useCallback(() => {
-      setSetupDone(isOnboardingComplete());
       setRegistered(isRegistered());
+      // A step finished this session is authoritative — trust it.
+      if (isOnboardingComplete()) {
+        setSetupDone(true);
+        setCheckingSetup(false);
+        return;
+      }
+      // Not logged in → genuinely needs setup.
+      if (!isRegistered()) {
+        setSetupDone(false);
+        setCheckingSetup(false);
+        return;
+      }
+      // Registered but locally blank (e.g. just logged in): ask the backend
+      // whether this account already finished onboarding, so we don't re-prompt.
+      let cancelled = false;
+      setCheckingSetup(true);
+      getMe()
+        .then((me) => {
+          if (cancelled) return;
+          if (me.profile.onboarding_done) {
+            markAllStepsDone(); // seed local completion so the banner/resume agree
+            setSetupDone(true);
+          } else {
+            setSetupDone(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setSetupDone(false); // offline / no session → fall back to the gate
+        })
+        .finally(() => {
+          if (!cancelled) setCheckingSetup(false);
+        });
+      return () => {
+        cancelled = true;
+      };
     }, []),
   );
+
+  // Show the setup gate/banner only once we're sure it's needed.
+  const showSetup = !setupDone && !checkingSetup;
 
   // Unregistered taps on engagement actions route to the log-in / sign-up gate
   // instead of mutating state.
@@ -108,7 +152,7 @@ function TutorShell() {
         onConnect={onConnect}
         onOpenProfile={openProfile}
         onCreatePost={() => (registered ? router.push("/post-new" as Href) : requireAuth())}
-        showSetup={!setupDone}
+        showSetup={showSetup}
         onSetup={startTutorSetup}
         registered={registered}
         onRequireAuth={requireAuth}
@@ -129,7 +173,7 @@ function TutorShell() {
   } else if (tab === "analytics") {
     screen = <AnalyticsScreen premium={premium} onUpgrade={() => setPremium(true)} />;
   } else {
-    screen = <ProfileScreen premium={premium} showSetup={!setupDone} onSetup={startTutorSetup} />;
+    screen = <ProfileScreen premium={premium} showSetup={showSetup} onSetup={startTutorSetup} />;
   }
 
   return (
