@@ -7,8 +7,10 @@
  * gradients without a native module → EAS rebuild).
  */
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { PressableScale } from "../ui/PressableScale";
 import { Avatar, EngagementRow, FollowBtn, Logo, MediaSlot, Qualified } from "./feedUi";
 import { C, DIRECTORY, ME, STORIES, TH, TUTORS, tutorById, type FullTutor, type Tutor } from "./tutorData";
 
@@ -42,7 +44,13 @@ function FeedBar({ onCreate }: { onCreate: () => void }) {
 /* first-time profile-setup banner (gold, eye-catching) — starts onboarding */
 function SetupBanner({ onPress }: { onPress: () => void }) {
   return (
-    <Pressable style={styles.banner} onPress={onPress}>
+    <PressableScale style={styles.banner} onPress={onPress}>
+      <LinearGradient
+        colors={["#F6B73C", "#E0941A"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
       <Ionicons name="sparkles" size={120} color="rgba(255,255,255,0.22)" style={styles.bannerGlow} />
       <View style={styles.bannerInner}>
         <View style={styles.bannerKicker}>
@@ -59,7 +67,7 @@ function SetupBanner({ onPress }: { onPress: () => void }) {
           <Ionicons name="arrow-forward" size={18} color="#fff" />
         </View>
       </View>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -67,7 +75,7 @@ function SetupBanner({ onPress }: { onPress: () => void }) {
 function StoryRow({ onOpen, onAddStory }: { onOpen: (id: string) => void; onAddStory: () => void }) {
   return (
     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storyRow}>
-      <Pressable style={styles.storyItem} onPress={onAddStory}>
+      <PressableScale style={styles.storyItem} onPress={onAddStory}>
         <View style={{ width: 66, height: 66 }}>
           <Avatar name={ME.name} size={66} />
           <View style={styles.storyAdd}>
@@ -77,22 +85,27 @@ function StoryRow({ onOpen, onAddStory }: { onOpen: (id: string) => void; onAddS
         <Text style={[styles.storyLabel, { color: C.muted }]} numberOfLines={1}>
           Your story
         </Text>
-      </Pressable>
+      </PressableScale>
 
       {STORIES.map((id) => {
         const t = tutorById(id);
         if (!t) return null;
         return (
-          <Pressable key={id} style={styles.storyItem} onPress={() => onOpen(id)}>
-            <View style={styles.storyRing}>
+          <PressableScale key={id} style={styles.storyItem} onPress={() => onOpen(id)}>
+            <LinearGradient
+              colors={["#F4A923", "#E0941A", "#2D6A4F"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.storyRing}
+            >
               <View style={styles.storyRingInner}>
                 <Avatar name={t.name} uri={t.avatarUrl} size={58} />
               </View>
-            </View>
+            </LinearGradient>
             <Text style={[styles.storyLabel, { color: C.ink }]} numberOfLines={1}>
               {t.username.split(".")[0]}
             </Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </ScrollView>

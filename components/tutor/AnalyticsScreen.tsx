@@ -8,6 +8,7 @@
  */
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Avatar, MediaSlot } from "./feedUi";
@@ -160,6 +161,12 @@ export function AnalyticsScreen({ premium, onUpgrade }: { premium: boolean; onUp
                 ))}
               </View>
               <Pressable onPress={onUpgrade} style={styles.upgradeBtn}>
+                <LinearGradient
+                  colors={["#F6B73C", "#E0941A"]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[StyleSheet.absoluteFill, { borderRadius: 25 }]}
+                />
                 <MaterialIcons name="workspace-premium" size={20} color="#3a2c06" />
                 <Text style={{ fontSize: 17, fontWeight: "700", color: "#3a2c06" }}>Upgrade to Premium</Text>
               </Pressable>

@@ -19,6 +19,7 @@
  */
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -222,6 +223,12 @@ export function ProfileScreen({
         {showSetup && (
           <View style={styles.gateOverlay} pointerEvents="box-none">
             <Pressable style={styles.gateCard} onPress={onSetup}>
+              <LinearGradient
+                colors={["#F6B73C", "#E0941A"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[StyleSheet.absoluteFill, { borderRadius: 20 }]}
+              />
               <View style={styles.gateKicker}>
                 <Ionicons name="rocket" size={14} color="#3a2c06" />
                 <Text style={styles.gateKickerText}>Get started</Text>

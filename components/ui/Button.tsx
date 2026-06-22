@@ -9,6 +9,8 @@ import {
 } from "react-native";
 import type { ReactNode } from "react";
 
+import { tapLight } from "./feedback";
+
 /**
  * Reusable pill-shaped button using the LearnSum design tokens.
  *
@@ -80,7 +82,14 @@ export function Button({
       accessibilityRole="button"
       accessibilityState={{ disabled: isInactive }}
       disabled={isInactive}
-      onPress={onPress}
+      onPress={
+        onPress
+          ? () => {
+              tapLight(); // subtle tactile feedback on every button tap
+              onPress();
+            }
+          : undefined
+      }
       style={buttonStyle}
     >
       {loading ? (

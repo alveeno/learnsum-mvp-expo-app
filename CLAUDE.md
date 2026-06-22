@@ -47,7 +47,10 @@ There are three user types:
   helper: it attaches `Authorization: Bearer <token>`, encodes JSON + query strings, times out,
   and throws a typed `ApiError` whose **`isNetworkError`** flag drives the `__DEV__` offline-mock
   fallback. `token.ts` holds the session token **in memory only** (session-only like the rest of
-  the app — no SecureStore yet, to avoid a native rebuild; the SecureStore swap is a one-file change).
+  the app — **now persisted to `expo-secure-store`**: the in-memory cache backs synchronous reads,
+  and `restoreToken()` in `app/_layout.tsx` reloads the session on a cold start so you stay logged
+  in. Only the Supabase **access** token is stored — it expires (~1h) and there's no refresh-token
+  flow yet, so a restore after expiry falls back to logged-out).
 - **Wired so far:** auth (`signup` / `login` / `logout` / `getMe`, in `lib/api/auth.ts`),
   `getCategories()` (`lib/api/categories.ts`), and the **tutor onboarding one-shot save**
   (`postOnboarding` + `components/onboarding/tutorOnboardingPayload.ts`, fired from the
@@ -85,8 +88,10 @@ There are three user types:
   and **see their own posts** in a new **Posts section** on the Profile tab
   (`components/tutor/TutorPosts.tsx` → `GET /api/tutors/[slug]/posts`, sent **with the token** so the
   owner reads their own posts while still unpublished; refetched via a `markPostsDirty` flag after
-  creating). **Image upload is deferred** (needs a native picker → EAS rebuild — the composer says
-  "Photos are coming soon"); the **Home feed** of other tutors' posts stays **sample data** (no
+  creating). **Image/video upload is now wired** (`expo-image-picker` + `lib/api/upload.ts` →
+  `POST /api/upload` signed URL → `expo-file-system` PUT → public URL on the post; the composer
+  attaches a photo/video and the Posts list renders it). The **Home feed** of other tutors' posts
+  stays **sample data** (no
   post-stream endpoint, and it's the deferred seeker/browse surface). The **contact buttons** are now
   wired — **WhatsApp + WeChat only** (Instagram was dropped per a product decision). A tutor enters
   them in a "How can students reach you?" block on **`TutorAbout`** (optional;
@@ -148,8 +153,10 @@ one flow per role:
   qualifications; the **pay slider is non-linear** — small $10 steps near the bottom growing to
   $100 near the top, so the common $200–$500 range is easy to land on) → `TutorPrefs` →
   `TutorAbout` (a **profile
-  photo** — optional placeholder uploader, mocked, no native picker; **first name, last name and
-  gender are required to Continue**; bio + education stay optional). Education entries use
+  photo** — a **real** picker now (`expo-image-picker`, library/camera, square crop) that uploads to
+  Storage and saves to `profiles.avatar_url` on finish/edit; **WhatsApp + WeChat** contact (see
+  Contact flow); **first name, last name and gender are required to Continue**; bio + education stay
+  optional). Education entries use
   **searchable dropdowns** (`SearchSelect` + `components/onboarding/eduOptions.ts`): school name
   (universities for the University level, HK secondary schools for the Secondary level) and the
   secondary qualification + score/honours, each with a **free-typed fallback** (type + Return); the
@@ -302,9 +309,12 @@ story** — route to the **`/auth/gate`** screen (Log in / Sign up) instead of a
 state for demoing. Real auth / session persistence is still **→ Todo**.
 
 **Caveats (prototype):** front-end only — no backend, no real messaging, no real payment.
-**English-only** (not yet wired into i18n — unlike the rest of the app). Gradients and the
-blur/paywall use **flat-colour / opacity approximations** to avoid a native module (which would
-force an EAS rebuild). The Chat and Premium/payments tabs exist here only as UI from the
+**English-only** (not yet wired into i18n — unlike the rest of the app). The **blur/paywall and
+gate now use real `expo-blur`**, and accent surfaces (setup banner/card, story rings, paywall
+button) use **real `expo-linear-gradient`** — these were flat-colour/opacity approximations before
+the native batch. Story items + the setup banner use a Reanimated **`PressableScale`** (press
+spring + haptic), and every shared `Button` fires a light haptic. (Sound effects + Lottie are
+deferred pending asset files.) The Chat and Premium/payments tabs exist here only as UI from the
 design and are **not wired to a backend yet** (see the Todo list).
 
 ## Architecture decisions
@@ -401,9 +411,9 @@ Rules:
   store a `labelKey: TranslationKey` instead of a literal label.
 - Watch for `(t) => …` callback params (e.g. `onChangeText`) **shadowing** the translate
   function — name them `(text)`.
-- **Current language is in-memory only** (resets on a full app restart), matching the
-  onboarding store. Persisting it across restarts needs a native storage module
-  (AsyncStorage = one EAS rebuild); only the provider's state line would change.
+- **The chosen language now persists** across restarts (`components/i18n/langStorage.ts` →
+  AsyncStorage; `app/_layout.tsx` seeds `LanguageProvider`'s `initialLang` on cold start and every
+  `setLang` saves). (The onboarding draft store is still in-memory by design.)
 - **Deferred (still English on purpose):** content-list *names* — subjects/categories,
   HK districts + regions, language names, and qualification/exam option values
   (`tutorQuals.ts`). These are a later "content pass"; the UI chrome is already translated.
@@ -477,10 +487,11 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 - **Chat / in-app messaging** — the Chat tab is UI-only (no messaging backend).
 - **Premium / in-app payments** — the Analytics tab shows a paywall UI only (no real payment).
-- **Posts** — creating a **text post** + the own **Posts list** are wired (`POST` / `GET
-  /api/tutors/[slug]/posts`, `lib/api/posts.ts`). Still Todo: **image upload** (needs a native
-  picker → EAS rebuild; `POST /api/upload` returns a signed upload URL) and a real **multi-tutor
-  home feed** of posts (no post-stream endpoint yet — that's the deferred seeker browse surface, so
+- **Posts** — creating a post (**text + photo/video**) + the own **Posts list** are wired (`POST` /
+  `GET /api/tutors/[slug]/posts` + `POST /api/upload`, `lib/api/posts.ts` / `lib/api/upload.ts`).
+  Still Todo: real-device **HEIC** photos need `expo-image-manipulator` conversion (Simulator yields
+  jpeg/png so it's fine), and a real **multi-tutor home feed** of posts (no post-stream endpoint
+  yet — that's the deferred seeker browse surface, so
   the Home tab stays sample data). Post **likes** have no endpoint yet (display-only).
 - Replace the prototype sample data and **English-only copy** with live data + i18n (the rest of
   the app is already trilingual).
