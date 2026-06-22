@@ -21,15 +21,19 @@ There are three user types:
 
 ## Stack
 
-- **Expo SDK 56** (`expo ~56.0.8`)
-- **Expo Router** (`~56.2.8`) — file-based routing; entry is `expo-router/entry`
+- **Expo SDK 56** (`expo ~56.0.12`)
+- **Expo Router** (`~56.2.11`) — file-based routing; entry is `expo-router/entry`
 - **NativeWind v4** (`4.2.1`) with **Tailwind CSS v3** (`tailwindcss 3.4.17`)
 - **React Native 0.85** (`0.85.3`)
 - **React 19.2** (`19.2.3`)
 - **TypeScript** throughout (`~6.0.3`)
 - Supporting native modules: `expo-linking`, `expo-status-bar`, `expo-dev-client`,
   `@expo/metro-runtime`, `react-native-reanimated@4.3.1`, `react-native-worklets`,
-  `react-native-safe-area-context`
+  `react-native-safe-area-context`. **Native batch** (added together — one EAS rebuild):
+  `expo-secure-store` (session persistence), `@react-native-async-storage/async-storage`
+  (language persistence), `expo-image-picker` + `expo-file-system` (media pick/upload),
+  `expo-blur`, `expo-linear-gradient`, `expo-clipboard`, `expo-haptics`, `lottie-react-native`
+  (deferred — needs assets), `expo-audio` (deferred — needs assets).
 
 ## Backend connection
 
@@ -99,8 +103,8 @@ There are three user types:
   post-onboarding **`PATCH /api/tutors/[slug]`** (`whatsapp_number`/`wechat_id` — **no backend change
   needed**) and via the edit flow (`saveTutorEdits` + hydrate). The **"view another tutor"** overlay
   (`TutorProfileView`) shows a green **WhatsApp** button (opens a pre-filled `wa.me` chat via
-  `Linking`) and a **WeChat** button (shows the ID in an `Alert` — no clipboard module, to avoid an
-  EAS rebuild), each only when that field is set. (This is the **loop-closing** Tier-1 step. The
+  `Linking`) and a **WeChat** button (copies the ID to the clipboard via `expo-clipboard` +
+  confirms in an `Alert`), each only when that field is set. (This is the **loop-closing** Tier-1 step. The
   buttons aren't shown on the own-profile/onboarding-review surfaces — only where contacting happens.)
 
 ## Design system
@@ -134,7 +138,7 @@ File-based routes (Expo Router). Route map:
 | `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
 | `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
 | `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
-| `/post-new`      | Tutor **post composer** (text + a post_type) → `POST /api/tutors/[slug]/posts` — **built** (text-only; opened from the Home feed "+" and the Profile Posts section. Image upload **→ Todo**, needs a native picker) |
+| `/post-new`      | Tutor **post composer** (text + a post_type + optional photo/video) → `POST /api/tutors/[slug]/posts` (+ `POST /api/upload`) — **built**; opened from the Home feed "+" and the Profile Posts section |
 
 > **No `/notifications` route — notifications aren't built (see the Todo list).**
 
@@ -327,8 +331,8 @@ design and are **not wired to a backend yet** (see the Todo list).
 - **Contact flow:** **WhatsApp + WeChat** buttons on the tutor profile — both optional, either
   or both (**Instagram was dropped**). WhatsApp pre-fills `Hi, I found you on LearnSum and I'm
   interested in tutoring for [subject].` (the subject is the profile's first subject, omitted if
-  none); WeChat has no deep link, so its button shows the ID in an alert. **No inquiry form. No
-  in-app messaging** (the Chat tab in `/tutor-home` is UI-only — see the Todo list).
+  none); WeChat has no deep link, so its button copies the ID to the clipboard + confirms. **No
+  inquiry form. No in-app messaging** (the Chat tab in `/tutor-home` is UI-only — see the Todo list).
 - **Home feed:** personalized weighted matching for seekers (subject > availability > price
   > language > district; per child for parents); **guests** get the latest published tutors
   (`created_at` DESC, unfiltered).
@@ -427,15 +431,22 @@ the MacBook Air M2.
   ```
   npx expo start --clear
   ```
-- **Install the latest development build on the simulator:**
+- **Primary test target is a physical iPhone** (the Simulator is rarely used). Two QR codes,
+  two jobs: the **EAS build** QR *installs* the dev-build app (only after a new native build);
+  the **`npx expo start`** (Metro) QR loads the JS into the already-installed app (every run).
+  JS-only change → just `expo start` + the Metro QR; no rebuild.
+- **When native dependencies change**, a new EAS cloud build is required, then **reinstall** it
+  before the Metro QR will work (`expo start` alone runs new JS on the old binary → "Cannot find
+  native module"):
   ```
-  /Users/alveeno/.npm-global/bin/eas build:run --platform ios --latest
+  /Users/alveeno/.npm-global/bin/eas build --platform ios --profile development-device
   ```
-- **When native dependencies change**, a new EAS cloud build is required before the
-  simulator will pick up the changes:
-  ```
-  /Users/alveeno/.npm-global/bin/eas build --platform ios --profile development
-  ```
+  Install the new build on the phone (scan the EAS build QR), then `npx expo start --clear`.
+  Simulator equivalents: `--profile development` then
+  `/Users/alveeno/.npm-global/bin/eas build:run --platform ios --latest`.
+- **If a fresh build still can't find a just-added native module, add `--clear-cache`** — a stale
+  EAS build cache can compile the module yet fail to embed it (a too-fast ~5-min build is the tell).
+  Expo modules are statically linked into the **main app binary**, not separate `.framework` dirs.
 
 Environment: **macOS**, **Terminal**, **single-line commands only**.
 
@@ -462,9 +473,12 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   exists inside `/tutor-home`).
 - Standalone **Profile** route — editing, account deletion, publish / self-unpublish (a tutor
   Profile tab already exists inside `/tutor-home`).
-- Full auth routes `/auth/*` (email + password and social) and a **real session** — today only
-  the `/auth/gate` log-in/sign-up gate exists (front-end mock) and `LoginSheet`'s login is mocked
-  (session-only registered flag, no backend).
+- Standalone auth routes `/auth/*` (email + password and **social**) — today `SignUp` + the
+  `LoginSheet` (opened from the welcome screen and the `/auth/gate` route) call the **real**
+  `POST /api/auth/signup` / `/login`; the session **persists** via SecureStore. Still Todo: dedicated
+  `/auth/*` routes, **social login** (only Google is configured on Supabase), and a **refresh-token
+  flow** for truly long-lived sessions (only the ~1h access token is stored today, so a cold start
+  after expiry logs out).
 - Real personalized **home feed** for seekers — `/feed` is currently just a "you're all set"
   placeholder.
 - Tutor **profile-completion** screen — bio, photo, WhatsApp / WeChat + remaining
