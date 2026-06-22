@@ -524,6 +524,9 @@ export const translations = {
   "about.photo.add": { en: "Add profile photo", "zh-Hant": "新增個人相片", "zh-Hans": "添加个人照片" },
   "about.photo.change": { en: "Change photo", "zh-Hant": "更換相片", "zh-Hans": "更换照片" },
   "about.photo.remove": { en: "Remove photo", "zh-Hant": "移除相片", "zh-Hans": "移除照片" },
+  "about.photo.library": { en: "Choose from library", "zh-Hant": "從相簿選擇", "zh-Hans": "从相册选择" },
+  "about.photo.camera": { en: "Take a photo", "zh-Hant": "拍照", "zh-Hans": "拍照" },
+  "about.photo.uploadFailed": { en: "Couldn't upload that photo. Please try again.", "zh-Hant": "無法上載該相片，請再試一次。", "zh-Hans": "无法上传该照片，请再试一次。" },
   "about.requiredHint": {
     en: "Add your first name, last name and gender to continue.",
     "zh-Hant": "請填寫名字、姓氏及性別以繼續。",

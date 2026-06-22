@@ -17,7 +17,7 @@ import { submitTutorOnboarding } from "../../components/onboarding/tutorOnboardi
 import { type Prefs } from "../../components/onboarding/PreferencesScreen";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
-import { ApiError, patchTutor } from "../../lib/api";
+import { ApiError, patchProfileMe, patchTutor } from "../../lib/api";
 import { type Interest } from "./StudentCatSel";
 
 /**
@@ -71,12 +71,13 @@ export default function TutorProfileConfirm() {
     const lastName = getStored<string>("tutor:about:lastName", "");
     const bio = getStored<string>("tutor:about:bio", "");
     const gender = getStored<string | null>("tutor:about:gender", null);
+    const avatarUrl = getStored<string>("tutor:about:avatarUrl", "");
     const levels = [...getStored<Set<string>>("tutor:levels", new Set<string>())];
     const interests = getStored<Interest[]>("tutor:interests", []).filter((it) => it.catId && it.subId);
     const details = getStored<Record<string, Detail>>("tutor:sd:details", {});
     const prefs = getStored<Prefs | null>("tutor:prefs", null);
     const eduByLevel = getStored<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU);
-    return { firstName, lastName, bio, gender, levels, interests, details, prefs, eduByLevel };
+    return { firstName, lastName, bio, gender, avatarUrl, levels, interests, details, prefs, eduByLevel };
   }, []);
 
   const fullName = `${store.firstName} ${store.lastName}`.trim() || "Your name";
@@ -87,6 +88,7 @@ export default function TutorProfileConfirm() {
     () => ({
       fullName,
       gender: store.gender,
+      avatarUrl: store.avatarUrl || undefined,
       bio: store.bio,
       levels: store.levels,
       interests: store.interests,
@@ -130,6 +132,7 @@ export default function TutorProfileConfirm() {
       const bio = getStored<string>("tutor:about:bio", "").trim();
       const whatsapp = getStored<string>("tutor:about:whatsapp", "").trim();
       const wechat = getStored<string>("tutor:about:wechat", "").trim();
+      const avatarUrl = getStored<string>("tutor:about:avatarUrl", "").trim();
       const patch: Record<string, unknown> = {};
       if (bio) patch.bio = bio;
       if (whatsapp) patch.whatsapp_number = whatsapp;
@@ -140,6 +143,14 @@ export default function TutorProfileConfirm() {
           await patchTutor(slug, patch);
         } catch (patchErr) {
           if (__DEV__) console.warn("[finish] post-save patch (bio/publish) failed:", patchErr);
+        }
+      }
+      // Avatar lives on `profiles`, not the tutor row → its own best-effort PATCH.
+      if (avatarUrl) {
+        try {
+          await patchProfileMe({ avatar_url: avatarUrl });
+        } catch (avatarErr) {
+          if (__DEV__) console.warn("[finish] post-save avatar patch failed:", avatarErr);
         }
       }
       goToWelcome();

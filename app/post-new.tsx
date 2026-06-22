@@ -3,6 +3,8 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -15,9 +17,11 @@ import {
 
 import { Button } from "../components/ui/Button";
 import { KeyboardAvoider } from "../components/ui/KeyboardAvoider";
+import { notifyError, notifySuccess, tapLight } from "../components/ui/feedback";
+import { pickFromLibrary, takePhoto, type PickedAsset } from "../components/ui/mediaPicker";
 import { markPostsDirty } from "../components/tutor/TutorPosts";
 import { mapMeToProfileBody } from "../components/tutor/profileMapping";
-import { ApiError, createPost, getMe, type PostType } from "../lib/api";
+import { ApiError, createPost, getMe, uploadFile, type PostType } from "../lib/api";
 
 /**
  * Compose a new tutor post (text-only for now — image upload needs a native
@@ -42,8 +46,35 @@ export default function PostNew() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [content, setContent] = useState("");
   const [type, setType] = useState<PostType>("update");
+  const [asset, setAsset] = useState<PickedAsset | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const chooseMedia = () => {
+    Alert.alert("Add media", undefined, [
+      {
+        text: "Photo or video",
+        onPress: async () => {
+          const a = await pickFromLibrary({ allowVideo: true });
+          if (a) {
+            tapLight();
+            setAsset(a);
+          }
+        },
+      },
+      {
+        text: "Take a photo",
+        onPress: async () => {
+          const a = await takePhoto();
+          if (a) {
+            tapLight();
+            setAsset(a);
+          }
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
 
   // Resolve the tutor's own slug (where the post is created).
   useEffect(() => {
@@ -75,7 +106,18 @@ export default function PostNew() {
     setError(null);
     setSubmitting(true);
     try {
-      await createPost(slug, { content: content.trim(), post_type: type });
+      // Upload the attached photo/video first (if any), then create the post.
+      let media;
+      if (asset) {
+        const up = await uploadFile("post", {
+          uri: asset.uri,
+          mimeType: asset.mimeType,
+          isVideo: asset.isVideo,
+        });
+        media = [{ url: up.publicUrl, media_type: up.mediaType, sort_order: 0 }];
+      }
+      await createPost(slug, { content: content.trim(), post_type: type, media });
+      notifySuccess();
       markPostsDirty();
       router.back();
     } catch (err) {
@@ -85,6 +127,7 @@ export default function PostNew() {
         router.back();
         return;
       }
+      notifyError();
       setError(
         err instanceof ApiError && !err.isNetworkError
           ? err.message
@@ -160,10 +203,32 @@ export default function PostNew() {
                 {content.length}/{MAX}
               </Text>
 
-              <View style={styles.photoNote}>
-                <Ionicons name="image-outline" size={16} color="#9CA3AF" />
-                <Text style={styles.photoNoteText}>Photos are coming soon.</Text>
-              </View>
+              {/* Attach a photo or video */}
+              {asset ? (
+                <View style={styles.mediaPreview}>
+                  {asset.isVideo ? (
+                    <View style={styles.videoThumb}>
+                      <Ionicons name="videocam" size={26} color="#fff" />
+                      <Text style={styles.videoThumbText}>Video attached</Text>
+                    </View>
+                  ) : (
+                    <Image source={{ uri: asset.uri }} style={styles.imageThumb} />
+                  )}
+                  <Pressable
+                    style={styles.mediaRemove}
+                    onPress={() => setAsset(null)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Remove media"
+                  >
+                    <Ionicons name="close" size={16} color="#fff" />
+                  </Pressable>
+                </View>
+              ) : (
+                <TouchableOpacity style={styles.attachBtn} onPress={chooseMedia} accessibilityRole="button">
+                  <Ionicons name="image-outline" size={20} color="#2D6A4F" />
+                  <Text style={styles.attachText}>Add photo or video</Text>
+                </TouchableOpacity>
+              )}
             </ScrollView>
 
             <View style={styles.footer}>
@@ -223,8 +288,43 @@ const styles = StyleSheet.create({
     backgroundColor: "#F9F9F7",
   },
   counter: { alignSelf: "flex-end", fontSize: 12, color: "#9CA3AF", marginTop: 6 },
-  photoNote: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 18 },
-  photoNoteText: { fontSize: 12.5, color: "#9CA3AF" },
+  attachBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 18,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "#C9CED4",
+    backgroundColor: "#F9F9F7",
+  },
+  attachText: { fontSize: 15, fontWeight: "700", color: "#2D6A4F" },
+  mediaPreview: { marginTop: 18, position: "relative" },
+  imageThumb: { width: "100%", height: 220, borderRadius: 14, backgroundColor: "#EEE" },
+  videoThumb: {
+    width: "100%",
+    height: 140,
+    borderRadius: 14,
+    backgroundColor: "#16201C",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+  },
+  videoThumbText: { color: "#fff", fontSize: 13.5, fontWeight: "700" },
+  mediaRemove: {
+    position: "absolute",
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   footer: {
     paddingHorizontal: 20,
     paddingTop: 10,

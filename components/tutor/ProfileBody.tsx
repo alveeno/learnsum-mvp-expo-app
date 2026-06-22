@@ -61,6 +61,8 @@ export type Detail = {
 export type ProfileBodyData = {
   fullName: string;
   gender: string | null;
+  /** Profile-photo URL (real data); omit to show initials. */
+  avatarUrl?: string;
   bio: string;
   levels: string[];
   interests: Interest[];
@@ -502,7 +504,7 @@ export function ProfileBody({ data }: { data: ProfileBodyData }) {
     <>
       {/* Profile card */}
       <View style={styles.profileCard}>
-        <Avatar name={data.fullName} size={84} />
+        <Avatar name={data.fullName} size={84} uri={data.avatarUrl} />
         <View style={styles.nameRow}>
           <Text style={styles.name} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
             {data.fullName}

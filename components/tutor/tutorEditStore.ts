@@ -158,7 +158,7 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
   const g = typeof me.profile.gender === "string" ? me.profile.gender : "";
   setStored<string | null>("tutor:about:gender", GENDER_TO_APP[g] ?? null);
   setStored<EduByLevel>("tutor:about:eduByLevel", normEdu(tp.education));
-  setStored<boolean>("tutor:about:photo", !!me.profile.avatar_url);
+  setStored<string>("tutor:about:avatarUrl", typeof me.profile.avatar_url === "string" ? me.profile.avatar_url : "");
 
   // --- TutorTeachLevels: the teaching-levels Set ---
   const levels = Array.isArray(tp.teaching_levels) ? tp.teaching_levels : [];
@@ -285,6 +285,7 @@ export async function saveTutorEdits(): Promise<void> {
   const bio = getStored<string>("tutor:about:bio", "");
   const whatsapp = getStored<string>("tutor:about:whatsapp", "").trim();
   const wechat = getStored<string>("tutor:about:wechat", "").trim();
+  const avatarUrl = getStored<string>("tutor:about:avatarUrl", "").trim();
   const eduByLevel = getStored<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU);
   const levels = [...getStored<Set<string>>("tutor:levels", new Set<string>())];
   const interests = getStored<Interest[]>("tutor:interests", []).filter((it) => it.catId && it.subId);
@@ -299,6 +300,7 @@ export async function saveTutorEdits(): Promise<void> {
     profileFields.display_name = firstName || lastName;
   }
   if (gender) profileFields.gender = GENDER_TO_BACKEND[gender] ?? null;
+  profileFields.avatar_url = avatarUrl || null; // always sent so removal persists
   if (Object.keys(profileFields).length) {
     await tolerant(() => patchProfileMe(profileFields));
   }

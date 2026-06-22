@@ -12,7 +12,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { C } from "./tutorData";
 import { getStored, setStored } from "../onboarding/onboardingStore";
@@ -60,6 +60,15 @@ function PostRow({ post }: { post: Post }) {
         <Text style={styles.date}>{relativeTime(post.created_at)}</Text>
       </View>
       <Text style={styles.content}>{post.content}</Text>
+      {post.post_media[0] ? (
+        post.post_media[0].media_type === "video" ? (
+          <View style={styles.postVideo}>
+            <Ionicons name="play-circle" size={38} color="#fff" />
+          </View>
+        ) : (
+          <Image source={{ uri: post.post_media[0].url }} style={styles.postImage} />
+        )
+      ) : null}
       <View style={styles.statRow}>
         <Ionicons name="heart-outline" size={15} color={C.muted} />
         <Text style={styles.statText}>{post.likes_count}</Text>
@@ -149,6 +158,8 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 11.5, fontWeight: "800", color: C.greenD, letterSpacing: 0.3 },
   date: { fontSize: 12.5, color: C.muted },
   content: { fontSize: 14.5, color: C.ink, lineHeight: 21 },
+  postImage: { width: "100%", height: 200, borderRadius: 12, marginTop: 10, backgroundColor: "#EDEFF1" },
+  postVideo: { width: "100%", height: 160, borderRadius: 12, marginTop: 10, backgroundColor: "#16201C", alignItems: "center", justifyContent: "center" },
   statRow: { flexDirection: "row", alignItems: "center", gap: 4, marginTop: 10 },
   statText: { fontSize: 12.5, color: C.muted },
 });

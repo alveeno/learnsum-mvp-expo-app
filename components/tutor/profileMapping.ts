@@ -107,6 +107,7 @@ export function buildProfileBody(
   fullName: string,
   gender: string | null,
   detail: RawTutorDetail,
+  avatarUrl?: string | null,
 ): ProfileBodyData {
   const tp = detail.tutor_profile ?? {};
   const interests: Interest[] = [];
@@ -124,6 +125,7 @@ export function buildProfileBody(
   return {
     fullName: fullName || "Your profile",
     gender,
+    avatarUrl: avatarUrl ?? undefined,
     bio: tp.bio ?? "",
     levels: Array.isArray(tp.teaching_levels) ? tp.teaching_levels : [],
     interests,
@@ -138,7 +140,8 @@ export function mapMeToProfileBody(me: MeResponse): { data: ProfileBodyData; slu
   const detail = (me.detail ?? {}) as RawTutorDetail;
   const fullName = me.profile.full_name || me.profile.display_name || "";
   const gender = typeof me.profile.gender === "string" ? me.profile.gender : null;
-  const data = buildProfileBody(fullName, gender, detail);
+  const avatarUrl = typeof me.profile.avatar_url === "string" ? me.profile.avatar_url : null;
+  const data = buildProfileBody(fullName, gender, detail, avatarUrl);
   return { data, slug: detail.tutor_profile?.slug ?? "" };
 }
 
@@ -150,7 +153,7 @@ interface RawTutorSlug {
   university?: string | null;
   teaching_levels?: string[] | null;
   education?: unknown;
-  profiles?: { display_name?: string | null } | null;
+  profiles?: { display_name?: string | null; avatar_url?: string | null } | null;
   tutor_subcategories?: unknown[];
   tutor_languages?: { language?: string | null; proficiency?: number | null }[];
 }
@@ -169,5 +172,6 @@ export function mapTutorToProfileBody(tutor: RawTutorSlug): ProfileBodyData {
     languages: tutor.tutor_languages ?? [],
   };
   const fullName = tutor.profiles?.display_name || tutor.slug || "";
-  return buildProfileBody(fullName, null, detail); // [slug] doesn't return gender
+  // [slug] doesn't return gender; avatar comes from the joined profiles row.
+  return buildProfileBody(fullName, null, detail, tutor.profiles?.avatar_url);
 }

@@ -49,10 +49,17 @@ export async function getTutorPosts(slug: string, page = 1): Promise<PostsPage> 
   });
 }
 
-/** Create a post on the caller's own tutor profile (owner only). Text-only for now. */
+/** One media item to attach on create (url from POST /api/upload's public_url). */
+export interface NewPostMedia {
+  url: string;
+  media_type: "image" | "video";
+  sort_order?: number;
+}
+
+/** Create a post on the caller's own tutor profile (owner only). */
 export async function createPost(
   slug: string,
-  body: { content: string; post_type: PostType; content_zh?: string },
+  body: { content: string; post_type: PostType; content_zh?: string; media?: NewPostMedia[] },
 ): Promise<Post> {
   const res = await apiFetch<{ post: Post }>(`/api/tutors/${encodeURIComponent(slug)}/posts`, {
     method: "POST",

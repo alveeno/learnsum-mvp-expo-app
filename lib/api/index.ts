@@ -24,4 +24,6 @@ export type { AvailabilityMap, TimeRange } from "./availability";
 export { getFeed } from "./feed";
 export type { FeedResponse, FeedTutor, FeedCategory } from "./feed";
 export { getTutorPosts, createPost } from "./posts";
-export type { Post, PostMedia, PostType, PostsPage } from "./posts";
+export type { Post, PostMedia, PostType, PostsPage, NewPostMedia } from "./posts";
+export { uploadFile } from "./upload";
+export type { UploadKind } from "./upload";

@@ -2,7 +2,10 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -16,6 +19,9 @@ import {
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
+import { notifyError, tapLight } from "../../components/ui/feedback";
+import { pickFromLibrary, takePhoto, type PickedAsset } from "../../components/ui/mediaPicker";
+import { uploadFile } from "../../lib/api";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { onStepContinue } from "../../components/onboarding/tutorOnboarding";
 import {
@@ -221,7 +227,35 @@ function StatusToggle({ ongoing, onChange }: { ongoing: boolean; onChange: (v: b
 export default function TutorAbout() {
   const t = useT();
 
-  const [photo, setPhoto] = usePersistentState<boolean>("tutor:about:photo", false);
+  // Real profile photo: pick → upload to Storage → keep the public URL (saved to
+  // profiles.avatar_url on finish/edit). Empty string = no photo.
+  const [avatarUrl, setAvatarUrl] = usePersistentState<string>("tutor:about:avatarUrl", "");
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const hasPhoto = avatarUrl.length > 0;
+
+  const runPhoto = async (pick: () => Promise<PickedAsset | null>) => {
+    const a = await pick();
+    if (!a) return;
+    setUploadingPhoto(true);
+    try {
+      const up = await uploadFile("avatar", { uri: a.uri, mimeType: a.mimeType });
+      setAvatarUrl(up.publicUrl);
+      tapLight();
+    } catch {
+      notifyError();
+      Alert.alert(t("about.photo.add"), t("about.photo.uploadFailed"));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+  const choosePhoto = () => {
+    Alert.alert(t("about.photo.add"), undefined, [
+      { text: t("about.photo.library"), onPress: () => runPhoto(() => pickFromLibrary({ square: true })) },
+      { text: t("about.photo.camera"), onPress: () => runPhoto(() => takePhoto({ square: true })) },
+      { text: t("common.cancel"), style: "cancel" },
+    ]);
+  };
+
   const [firstName, setFirstName] = usePersistentState("tutor:about:firstName", "");
   const [lastName, setLastName] = usePersistentState("tutor:about:lastName", "");
   const [bio, setBio] = usePersistentState("tutor:about:bio", "");
@@ -276,28 +310,31 @@ export default function TutorAbout() {
         <Text style={styles.h1}>{t("about.title")}</Text>
         <Text style={styles.sub}>{t("about.subtitle")}</Text>
 
-        {/* Profile photo (optional) — placeholder uploader; selecting an image is
-            mocked for now (no native picker → no EAS rebuild). */}
+        {/* Profile photo (optional) — real picker → upload; the public URL is
+            saved to profiles.avatar_url on finish/edit. */}
         <View style={styles.photoBlock}>
           <View style={styles.photoWrap}>
             <Pressable
-              onPress={() => setPhoto(true)}
-              style={[styles.photoCircle, photo && styles.photoCircleSet]}
+              onPress={choosePhoto}
+              disabled={uploadingPhoto}
+              style={[styles.photoCircle, hasPhoto && styles.photoCircleSet]}
               accessibilityRole="button"
-              accessibilityLabel={photo ? t("about.photo.change") : t("about.photo.add")}
+              accessibilityLabel={hasPhoto ? t("about.photo.change") : t("about.photo.add")}
             >
-              <Ionicons
-                name={photo ? "person" : "camera-outline"}
-                size={photo ? 44 : 30}
-                color={photo ? "#FFFFFF" : "#9CA3AF"}
-              />
+              {uploadingPhoto ? (
+                <ActivityIndicator color={hasPhoto ? "#FFFFFF" : "#2D6A4F"} />
+              ) : hasPhoto ? (
+                <Image source={{ uri: avatarUrl }} style={styles.photoImage} />
+              ) : (
+                <Ionicons name="camera-outline" size={30} color="#9CA3AF" />
+              )}
             </Pressable>
             <View style={styles.photoBadge} pointerEvents="none">
-              <Ionicons name={photo ? "pencil" : "add"} size={14} color="#FFFFFF" />
+              <Ionicons name={hasPhoto ? "pencil" : "add"} size={14} color="#FFFFFF" />
             </View>
-            {photo ? (
+            {hasPhoto ? (
               <Pressable
-                onPress={() => setPhoto(false)}
+                onPress={() => setAvatarUrl("")}
                 hitSlop={8}
                 style={styles.photoRemove}
                 accessibilityRole="button"
@@ -307,7 +344,7 @@ export default function TutorAbout() {
               </Pressable>
             ) : null}
           </View>
-          <Text style={styles.photoLabel}>{photo ? t("about.photo.change") : t("about.photo.add")}</Text>
+          <Text style={styles.photoLabel}>{hasPhoto ? t("about.photo.change") : t("about.photo.add")}</Text>
         </View>
 
         {/* Name (required) */}
@@ -665,6 +702,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   photoCircleSet: { backgroundColor: "#2D6A4F", borderStyle: "solid", borderColor: "#2D6A4F" },
+  photoImage: { width: 96, height: 96, borderRadius: 48 },
   photoBadge: {
     position: "absolute",
     right: 2,
