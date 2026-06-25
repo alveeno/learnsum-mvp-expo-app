@@ -11,6 +11,7 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useEffect, useRef, useState } from "react";
 import { Animated, Image, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
+import { playLike } from "../ui/sound";
 import { avatarColor, C, initials, type PostKind, type Stats } from "./tutorData";
 
 /* ===== Avatar — a real photo when `uri` is given, else initials on a
@@ -197,6 +198,7 @@ export function EngagementRow({
   const wasLiked = useRef(liked);
   useEffect(() => {
     if (liked && !wasLiked.current) {
+      playLike(); // pop sound, in sync with the heart animation
       Animated.sequence([
         Animated.spring(scale, { toValue: 1.4, useNativeDriver: true, speed: 50, bounciness: 14 }),
         Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 18, bounciness: 9 }),

@@ -198,8 +198,12 @@ export default function ParentChildSetup() {
     setStep({ kind: "child", index: i, phase: "preferences" });
   };
 
-  const confirm = () =>
-    router.push({ pathname: "/onboarding/Welcome", params: { next: "/feed" } });
+  // Stash the roster so the one-shot save (seekerOnboardingPayload) can read the
+  // children's names + levels — they live in a route param, not the store.
+  const confirm = () => {
+    setStored("parent:roster", roster);
+    router.push({ pathname: "/onboarding/CreateAccount", params: { role: "parent", next: "/feed" } });
+  };
 
   // ---- per-child category step ----
   if (step.kind === "child" && step.phase === "category") {

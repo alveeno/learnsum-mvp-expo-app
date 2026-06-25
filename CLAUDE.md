@@ -33,7 +33,8 @@ There are three user types:
   `expo-secure-store` (session persistence), `@react-native-async-storage/async-storage`
   (language persistence), `expo-image-picker` + `expo-file-system` (media pick/upload),
   `expo-blur`, `expo-linear-gradient`, `expo-clipboard`, `expo-haptics`, `lottie-react-native`
-  (deferred — needs assets), `expo-audio` (deferred — needs assets).
+  (deferred — needs assets), `expo-audio` (**wired + live** in `components/ui/sound.ts`; clips in
+  `assets/sounds/`).
 
 ## Backend connection
 
@@ -133,21 +134,23 @@ File-based routes (Expo Router). Route map:
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built** (front-end only — see "Tutor app shell" below) |
-| `/feed`          | Placeholder "You're all set" landing for the **student/parent** flows (reached via the shared `Welcome` screen on completion) — **placeholder built** (real seeker feed **→ Todo**) |
-| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat buttons) — **→ Todo** |
-| `/search`        | Standalone seeker search route + Quick Match card — **→ Todo** (a tutor-facing Search tab **is** built inside `/tutor-home`) |
-| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab **is** built inside `/tutor-home`) |
+| `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Account). **Built** (front-end only, sample data — see "Seeker app shell" below). Student/parent land here after onboarding/login |
+| `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat) — **built** (real shareable route; reuses the shared `TutorProfileContent`; the seeker shell pushes into it; sample-data fallback when the slug isn't a real tutor) |
+| `/search`        | Standalone seeker search route — **→ Todo** as a *standalone* route, but a **Search tab + Quick Match card is built inside the `/feed` seeker shell** (and a tutor Search tab inside `/tutor-home`) |
+| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab is in `/tutor-home`; a seeker **Account** tab is in `/feed`) |
 | `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
 | `/post-new`      | Tutor **post composer** (text + a post_type + optional photo/video) → `POST /api/tutors/[slug]/posts` (+ `POST /api/upload`) — **built**; opened from the Home feed "+" and the Profile Posts section |
+| `/onboarding/CreateAccount` | **Student/parent final credential step** (email + password / social) → `POST /api/auth/signup` then the **best-effort** one-shot save → `Welcome` → `/feed` — **built** (Option A: credentials on the last step; reuses the trilingual `signup.*` copy) |
 
 > **No `/notifications` route — notifications aren't built (see the Todo list).**
 
 Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
 one flow per role:
 
-- **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs`
+- **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs` → `CreateAccount`
+  (final credential step; Skip on Prefs bypasses straight to `/feed`)
 - **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
-  preferences, one child at a time, then a review)
+  preferences, one child at a time, then a review) → `CreateAccount`
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting years of
   **teaching** experience, preferred pay, **lesson format** (In person / Online / Both,
@@ -177,7 +180,9 @@ one flow per role:
 - **Shared completion (`app/onboarding/Welcome.tsx`):** every role's final **Continue** lands on a
   "Welcome to LearnSum" screen whose own Continue clears the onboarding stack and routes to the
   role's home — **tutor → `/tutor-home`, student/parent → `/feed`** (passed in as a `next` route
-  param). Skipping out of a flow still goes straight to `/feed`, bypassing `Welcome`.
+  param). Skipping out of a flow still goes straight to `/feed`, bypassing `Welcome`. For
+  **student/parent**, the final Continue first passes through **`CreateAccount`** (the credential
+  step), which on success routes on to `Welcome` → `/feed`.
 
 **Routing from the welcome screen:** **student** and **parent** go straight into the first
 screen of their onboarding flow, which finishes on the shared `Welcome` screen and then `/feed`
@@ -248,8 +253,13 @@ that takes email + password (and Google/Apple/Microsoft buttons) **before** any 
 collected, to catch returning users. **Continue now calls the real backend** (`POST
 /api/auth/signup` via `lib/api`): a new email creates the account and stores the session token,
 then continues into onboarding; an email that already exists (or a "session-less" signup) opens
-the existing `LoginSheet` (pre-filled). If the backend is unreachable **in `__DEV__`** it falls
-back to the old `REGISTERED_EMAILS` mock so the app still demos offline.
+the existing `LoginSheet` (pre-filled). If the backend is unreachable it shows a **"can't reach the
+server"** error — a real backend is **required**; there is **no offline fake sign-up** (the old
+`REGISTERED_EMAILS` `__DEV__` mock, which waved the user into onboarding with nothing saved, was
+removed — matching the login change). The screen also has a
+persistent **"Already have an account? Log in"** link at the bottom so a returning tutor can open
+the `LoginSheet` directly (email pre-filled if typed) instead of typing into the register form and
+getting bounced — i.e. no double credential entry; logging in there `dismissTo`s `/tutor-home`.
 **This intentionally diverges from Option A below** (which collected credentials on the *final*
 step) — for the tutor flow, credentials now come first.
 
@@ -265,11 +275,19 @@ finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, WeC
 are **not built yet** — for now the tutor onboarding flow stands in for it, and the **initial**
 publish choice (public + per-audience visibility) is collected on the `TutorProfileConfirm`
 publish sheet (see "Tutor profile review" above; saved to `tutor:visibility`). **Log in** uses the `LoginSheet` bottom sheet (opened
-from the welcome screen and from the `/auth/gate` route); its "Log in" button now calls **`POST
-/api/auth/login`** (`lib/api/auth`) — storing the session token, marking the user registered, and
-handing off — with a one-line inline error on bad credentials and a `__DEV__` offline fallback
-that accepts the login so the app still demos. The social buttons and "Forgot password?" stay
-inert, and there's no standalone `/auth` login route yet.
+from the welcome screen, the `SignUp` screen, and the `/auth/gate` route); its "Log in" button now calls **`POST
+/api/auth/login`** (`lib/api/auth`) — storing the session token, marking the user registered,
+resolving the account's **role** via `GET /api/auth/me`, and handing off via **`onLoggedIn(role)`** —
+with a one-line inline error on bad credentials **or an unreachable server**. A **real session is
+required**: there is **no offline fake-login** (the old `__DEV__` accept-on-network-error fallback
+was removed — it left the user "logged in" with no session whenever the backend was down, so the
+setup banner stayed and the profile tab was empty; start the backend / point `EXPO_PUBLIC_API_URL`
+at it to log in for real). **From the welcome screen the login now routes by role**
+(this was previously a no-op that just closed the sheet): **tutor → `/tutor-home`**, **student/parent
+→ `/feed`** (their flows aren't built yet), and an unknown/`null` role defaults to `/tutor-home`
+(the path in active development). The `SignUp` / `/auth/gate` callers ignore the role and go to
+`/tutor-home` (tutor-only surfaces). The social buttons and "Forgot password?" stay inert, and
+there's no standalone `/auth` login route yet.
 
 **No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp +
 WeChat** buttons on the tutor profile (both optional, either or both) — **Instagram was dropped**
@@ -317,9 +335,37 @@ state for demoing. Real auth / session persistence is still **→ Todo**.
 gate now use real `expo-blur`**, and accent surfaces (setup banner/card, story rings, paywall
 button) use **real `expo-linear-gradient`** — these were flat-colour/opacity approximations before
 the native batch. Story items + the setup banner use a Reanimated **`PressableScale`** (press
-spring + haptic), and every shared `Button` fires a light haptic. (Sound effects + Lottie are
-deferred pending asset files.) The Chat and Premium/payments tabs exist here only as UI from the
+spring + haptic), and every shared `Button` fires a light haptic. **Sound effects are now wired**
+(`components/ui/sound.ts` via `expo-audio` — already in the build): a sound rides with the button
+tap, the like pop, and success/error, plus a per-icon "pop" on the onboarding category/subject grid
+cascade. The clips live in `assets/sounds/` (`tap/like/success/error/pop.mp3`) and are wired in
+`sound.ts`. Lottie is still deferred pending assets. The Chat and Premium/payments tabs exist here only as UI from the
 design and are **not wired to a backend yet** (see the Todo list).
+
+## Seeker app shell (`/tutor-home`'s student/parent counterpart — `/feed`)
+
+The student/parent landing after onboarding/login (`app/feed.tsx`), in `components/seeker/`.
+Mirrors the tutor shell: a single stateful controller with a custom bottom tab bar switching four
+tabs. Front-end only, **sample data** (reuses the tutor `DIRECTORY` / `TUTORS`), **English-only**
+like the tutor shell.
+
+- **Home** (`SeekerFeedScreen`) — Instagram-style vertical **post feed** (reuses the tutor
+  `feedUi` post-card primitives): a stories row, post cards with **like + Save** (no tutor-only
+  "complete profile" banner or "+" composer), and a "Recommended for you" strip.
+- **Search** (`SeekerSearchScreen` + the shared `FilterSheet`) — text + advanced filters over the
+  sample directory, trending tags, recent views, and a gold **Quick Match** card on top
+  (`quickMatch.ts`: reads the seeker's onboarding picks — subject/district — and surfaces the single
+  best-fit tutor with a "why" line; falls back to top-rated). Its filters **persist across restarts**
+  (`filterStorage.ts` → AsyncStorage).
+- **Saved** (`SeekerSavedScreen`) — bookmarked tutors. The Save state is a shared in-memory store
+  (`savedTutors.ts`, `useSyncExternalStore`) so the tab and the public profile route stay in sync.
+- **Account** (`SeekerAccountScreen`) — language switch (the real `LanguagePicker`), a "Become a
+  tutor" link to `/tutor-home`, and log out.
+
+Tapping any tutor pushes the **public `/tutors/[slug]` route** (the tab bar hides while viewing,
+returns on back). Likes are local session state; Save is the seeker's primary action (no
+tutor-style "Connect"). Real backend data + i18n are a later pass (the `getFeed` endpoint returns
+tutor *cards*, not a post stream, so the feed stays sample data).
 
 ## Architecture decisions
 
@@ -467,20 +513,22 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 **Screens & routes**
 
-- Public tutor profile page `/tutors/[slug]` — bio + post feed + WhatsApp / WeChat
-  buttons.
-- Standalone seeker **Search** route + **Quick Match** card (a tutor-facing Search tab already
-  exists inside `/tutor-home`).
+- **DONE:** Public tutor profile page `/tutors/[slug]` (bio + post feed + WhatsApp / WeChat) — a
+  real shareable route reusing the shared `TutorProfileContent`.
+- **DONE (inside the `/feed` seeker shell):** seeker **Search** tab + **Quick Match** card. A
+  *standalone* `/search` route is still Todo (the tutor-facing Search tab is inside `/tutor-home`).
 - Standalone **Profile** route — editing, account deletion, publish / self-unpublish (a tutor
-  Profile tab already exists inside `/tutor-home`).
+  Profile tab is inside `/tutor-home`; a seeker **Account** tab is inside `/feed`).
 - Standalone auth routes `/auth/*` (email + password and **social**) — today `SignUp` + the
-  `LoginSheet` (opened from the welcome screen and the `/auth/gate` route) call the **real**
-  `POST /api/auth/signup` / `/login`; the session **persists** via SecureStore. Still Todo: dedicated
+  `LoginSheet` (opened from the welcome screen, the `SignUp` screen, and the `/auth/gate` route)
+  call the **real** `POST /api/auth/signup` / `/login`; the welcome-screen login routes by role
+  (tutor → `/tutor-home`, student/parent → `/feed`); the session **persists** via SecureStore. Still Todo: dedicated
   `/auth/*` routes, **social login** (only Google is configured on Supabase), and a **refresh-token
   flow** for truly long-lived sessions (only the ~1h access token is stored today, so a cold start
   after expiry logs out).
-- Real personalized **home feed** for seekers — `/feed` is currently just a "you're all set"
-  placeholder.
+- **DONE (front-end, sample data):** the seeker **`/feed`** is now an Instagram-style post-feed app
+  shell (Home / Search / Saved / Account). Still Todo: a **real** personalized post feed from the
+  backend (no post-stream endpoint yet — `getFeed` returns tutor cards, not posts).
 - Tutor **profile-completion** screen — bio, photo, WhatsApp / WeChat + remaining
   details — plus explicit **publish / self-unpublish**.
 
@@ -489,13 +537,23 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 - **DONE:** `SignUp` / `LoginSheet` create/restore the Supabase **session** via `lib/api/auth`
   (`POST /api/auth/signup` · `/login`), with the in-memory token store carrying the Bearer token.
   **DONE (tutor):** the tutor onboarding store is **persisted in one shot** at the publish sheet
-  (`POST /api/onboarding`). **Still Todo:** the same one-shot save for **student / parent** and the
-  **final credential step for student / parent**.
-- **DONE:** email existence is handled by `signup` (an existing email routes to the login sheet);
-  `REGISTERED_EMAILS` survives only as the `__DEV__` offline fallback.
+  (`POST /api/onboarding`). **DONE (student / parent, front-end):** a **final credential step**
+  (`app/onboarding/CreateAccount.tsx`, Option A) creates the account then runs a **best-effort**
+  one-shot save (`components/onboarding/seekerOnboardingPayload.ts`). The save is best-effort
+  because the backend's `/api/onboarding` is currently **tutor-shaped** — it may reject student/
+  parent bodies; the save swallows that and onboarding still completes (account is created). **Still
+  Todo (backend):** confirm/extend `/api/onboarding` to accept the student/parent shapes so the data
+  actually persists. (Continue now requires a reachable backend to create the account, like the tutor
+  flow; **Skip still bypasses straight to `/feed`** with no account.)
+- **DONE:** email existence is handled by `signup` (an existing email routes to the login sheet).
+  The old `REGISTERED_EMAILS` `__DEV__` offline mock was **removed** — both `SignUp` and `LoginSheet`
+  now **require a reachable backend** and show a "can't reach the server" error otherwise (no fake
+  sign-up / login).
 - **Social login** — only **Google** is configured on Supabase; Apple / Microsoft buttons are
   placeholder UI.
-- **Saved filter preferences** — persist a seeker's filters across sessions.
+- **DONE:** **Saved filter preferences** — the seeker Search tab's advanced filters now persist
+  across sessions (`components/seeker/filterStorage.ts` → AsyncStorage; restored on mount, saved on
+  apply).
 
 **`/tutor-home` shell — front-end only today, needs backend**
 

@@ -136,6 +136,10 @@ const CATEGORIES: Category[] = [
 // Dark slate the "Others" circle fills with while its search is open.
 const OTHERS_ACTIVE_COLOR = "#3F4A56";
 
+// Per-icon delay (ms) for the grid "load-up" cascade — each circle pops in this
+// much after the previous, playing a soft pop as it lands (see SelectableCircle).
+const CASCADE_STAGGER = 55;
+
 // Extended, searchable subjects per category — IN ADDITION to the main subs
 // above. These are only surfaced through the "Others" search. Colours are
 // themed to each category; icons are reasonable MaterialCommunityIcons glyphs.
@@ -290,6 +294,9 @@ export function CategorySelect({
   const { requestSkip, skipModal } = useSkipGuard();
 
   const [view, setView] = useState<"grid" | "subs">("grid");
+  // The category grid cascades in on first view; it disarms once the user opens
+  // a category, so returning to the grid (from subs) doesn't re-cascade.
+  const [gridArmed, setGridArmed] = useState(true);
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
   // Composite keys "<catId>:<subId>" of every chosen subcategory.
   const [selected, setSelected] = useState<Set<string>>(() => {
@@ -358,6 +365,7 @@ export function CategorySelect({
   const openCategory = (catId: string) => {
     setActiveCatId(catId);
     setView("subs");
+    setGridArmed(false); // don't re-cascade the category grid on the way back
     // Each category starts with search closed and empty.
     setSearchOpen(false);
     setQuery("");
@@ -502,7 +510,7 @@ export function CategorySelect({
             <Text style={styles.subtitle}>{subtitleText}</Text>
 
             <View style={styles.grid}>
-              {CATEGORIES.map((cat) => {
+              {CATEGORIES.map((cat, i) => {
                 const n = countForCat(cat.id);
                 return (
                   <SelectableCircle
@@ -513,6 +521,7 @@ export function CategorySelect({
                     color={cat.color}
                     badge={n}
                     badgeColor={cat.color}
+                    entranceDelay={gridArmed ? i * CASCADE_STAGGER : null}
                     onPress={() => openCategory(cat.id)}
                     accessibilityLabel={`${cat.label}${n > 0 ? `, ${n} selected` : ""}`}
                     renderIcon={({ size, color }) => (
@@ -652,13 +661,14 @@ export function CategorySelect({
             ) : null}
 
             <View style={[styles.grid, hasDividerAbove && styles.gridSearchOpen]}>
-              {activeCat.subs.map((sub) => (
+              {activeCat.subs.map((sub, i) => (
                 <SelectableCircle
                   key={sub.id}
                   style={styles.gridItem}
                   label={sub.label}
                   selected={selected.has(keyFor(activeCat.id, sub.id))}
                   color={sub.color}
+                  entranceDelay={i * CASCADE_STAGGER}
                   onPress={() => toggleSub(activeCat.id, sub.id)}
                   renderIcon={({ size, color }) => (
                     <MaterialCommunityIcons name={sub.icon} size={size} color={color} />
@@ -672,6 +682,7 @@ export function CategorySelect({
                 label={t("common.others")}
                 selected={searchOpen}
                 color={OTHERS_ACTIVE_COLOR}
+                entranceDelay={activeCat.subs.length * CASCADE_STAGGER}
                 onPress={toggleSearch}
                 accessibilityLabel={searchOpen ? "Close search" : "Search for more"}
                 renderIcon={({ size, color }) => (

@@ -1,63 +1,80 @@
-import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
-
-import { Button } from "../components/ui/Button";
-import { useT } from "../components/i18n/LanguageProvider";
-
 /**
- * Home feed — placeholder.
+ * Seeker (student/parent) app shell — the home a student/parent lands on after
+ * onboarding (and where the welcome-screen / login routes them).
  *
- * The student and parent onboarding flows land here when finished or skipped
- * (the tutor flow lands on /tutor-home instead). The real feed of matched tutors
- * isn't built yet (see the route map in CLAUDE.md); this just gives every flow a
- * real screen to arrive on instead of an unmatched route.
+ * Mirrors the tutor shell (`app/tutor-home.tsx`): one stateful controller with a
+ * custom bottom tab bar switching four tabs — Home (Instagram-style post feed) /
+ * Search (+ Quick Match) / Saved / Account. Tapping any tutor opens the public
+ * profile route `app/tutors/[slug].tsx` (a real, shareable URL), so the tab bar
+ * hides while viewing a profile and returns on back.
+ *
+ * Front-end only, sample data, English-only (see CLAUDE.md). Likes are local
+ * session state; saved tutors live in the shared `savedTutors` store so the
+ * Saved tab and the profile route stay in sync.
  */
-export default function Feed() {
-  const t = useT();
+import { router, type Href } from "expo-router";
+import { useState } from "react";
+import { View } from "react-native";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
+
+import { useSavedTutors } from "../components/seeker/savedTutors";
+import { SeekerAccountScreen } from "../components/seeker/SeekerAccountScreen";
+import { SeekerFeedScreen } from "../components/seeker/SeekerFeedScreen";
+import { SeekerSavedScreen } from "../components/seeker/SeekerSavedScreen";
+import { SeekerSearchScreen } from "../components/seeker/SeekerSearchScreen";
+import { SeekerTabBar, type SeekerTabId } from "../components/seeker/SeekerTabBar";
+import { TH } from "../components/tutor/tutorData";
+
+function toggle(set: Set<string>, id: string): Set<string> {
+  const n = new Set(set);
+  if (n.has(id)) n.delete(id);
+  else n.add(id);
+  return n;
+}
+
+function SeekerShell() {
+  const insets = useSafeAreaInsets();
+  const [tab, setTab] = useState<SeekerTabId>("home");
+  const [likes, setLikes] = useState<Set<string>>(() => new Set(["chloe"]));
+  const { ids: saved, toggle: toggleSaved } = useSavedTutors();
+
+  const openProfile = (id: string) => router.push(`/tutors/${id}` as Href);
+  const onLike = (id: string) => setLikes((s) => toggle(s, id));
+
+  let screen;
+  if (tab === "home") {
+    screen = (
+      <SeekerFeedScreen
+        likes={likes}
+        saved={saved}
+        onLike={onLike}
+        onToggleSave={toggleSaved}
+        onOpenProfile={openProfile}
+        onGoSearch={() => setTab("search")}
+      />
+    );
+  } else if (tab === "search") {
+    screen = <SeekerSearchScreen saved={saved} onToggleSave={toggleSaved} onOpenProfile={openProfile} />;
+  } else if (tab === "saved") {
+    screen = <SeekerSavedScreen saved={saved} onToggleSave={toggleSaved} onOpenProfile={openProfile} />;
+  } else {
+    screen = <SeekerAccountScreen />;
+  }
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View style={styles.iconWrap}>
-          <Ionicons name="sparkles" size={32} color="#2D6A4F" />
-        </View>
-        <Text style={styles.title}>{t("feed.title")}</Text>
-        <Text style={styles.subtitle}>{t("feed.subtitle")}</Text>
-        <Button
-          label={t("feed.back")}
-          variant="ghost"
-          onPress={() => router.replace("/")}
-          style={styles.btn}
-        />
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      <View style={{ flex: 1, backgroundColor: tab === "home" ? TH.pageBg : "#fff", paddingTop: insets.top }}>
+        {screen}
       </View>
-    </SafeAreaView>
+      <SeekerTabBar tab={tab} onSelect={setTab} savedCount={saved.size} bottomInset={insets.bottom} />
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#FFFFFF" },
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 32,
-  },
-  iconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#E8F1ED",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  title: { fontSize: 24, fontWeight: "800", color: "#16201C" },
-  subtitle: {
-    marginTop: 10,
-    fontSize: 15.5,
-    lineHeight: 22,
-    color: "#6B7280",
-    textAlign: "center",
-  },
-  btn: { marginTop: 28, paddingHorizontal: 28 },
-});
+export default function Feed() {
+  return (
+    <SafeAreaProvider>
+      <SeekerShell />
+    </SafeAreaProvider>
+  );
+}

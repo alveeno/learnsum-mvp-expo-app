@@ -7,7 +7,10 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import type { ReactNode } from "react";
+import { useEffect, type ComponentType, type ReactNode } from "react";
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
+
+import { playPop } from "./sound";
 
 /**
  * Reusable "grey circle that fills with a colour when selected" used by the
@@ -44,11 +47,20 @@ type SelectableCircleProps = {
   /** Extra style for the label text (e.g. a smaller font so long words fit). */
   labelStyle?: StyleProp<TextStyle>;
   accessibilityLabel?: string;
+  /**
+   * When a number (ms), the circle pops/​fades in after this delay and plays a
+   * `pop` sound as it lands — staggered per index for a cascade effect (used by
+   * the onboarding category/subject grids). Omit / null = render statically.
+   */
+  entranceDelay?: number | null;
 };
 
 const RESTING_BG = "#F0F1F3"; // grey circle before selection
 const RESTING_ICON = "#9CA3AF"; // muted glyph before selection
 const SELECTED_ICON = "#FFFFFF"; // white glyph once filled
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+const ENTRANCE_SPRING = { damping: 13, stiffness: 200, mass: 0.6 };
 
 export function SelectableCircle({
   label,
@@ -63,9 +75,27 @@ export function SelectableCircle({
   style,
   labelStyle,
   accessibilityLabel,
+  entranceDelay,
 }: SelectableCircleProps) {
   const glyphSize = iconSize ?? Math.round(size * 0.43);
   const glyphColor = selected ? SELECTED_ICON : RESTING_ICON;
+
+  // Staggered entrance: start small + transparent, spring to full, and tick a
+  // pop sound at the same delay. Hooks run unconditionally; the animated style
+  // is only applied (and the timer only set) when entranceDelay is given.
+  const animate = typeof entranceDelay === "number" && entranceDelay >= 0;
+  const progress = useSharedValue(animate ? 0 : 1);
+  const enterStyle = useAnimatedStyle(() => ({
+    opacity: progress.value,
+    transform: [{ scale: 0.6 + 0.4 * progress.value }],
+  }));
+  useEffect(() => {
+    if (!animate) return;
+    progress.value = withDelay(entranceDelay as number, withSpring(1, ENTRANCE_SPRING));
+    const id = setTimeout(() => playPop(), entranceDelay as number);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Flatten to a plain object: this app routes JSX through NativeWind's runtime
   // (jsxImportSource), which drops the function form of `style` on Pressable.
@@ -80,9 +110,13 @@ export function SelectableCircle({
 
   const showBadge = typeof badge === "number" && badge > 0;
 
+  // Use the Reanimated Pressable only when animating in, so non-cascade usages
+  // (format / language / day grids, education level) are untouched.
+  const Root = (animate ? AnimatedPressable : Pressable) as ComponentType<Record<string, unknown>>;
+
   return (
-    <Pressable
-      style={wrapperStyle}
+    <Root
+      style={animate ? [wrapperStyle, enterStyle] : wrapperStyle}
       onPress={onPress}
       disabled={!onPress}
       accessibilityRole="button"
@@ -101,7 +135,7 @@ export function SelectableCircle({
         ) : null}
       </View>
       <Text style={[styles.label, labelStyle]}>{label}</Text>
-    </Pressable>
+    </Root>
   );
 }
 
