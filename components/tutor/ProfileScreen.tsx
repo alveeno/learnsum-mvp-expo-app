@@ -20,7 +20,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -31,8 +31,9 @@ import { consumeProfileDirty, hydrateTutorStoreFromMe } from "./tutorEditStore";
 import { C, ME } from "./tutorData";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
+import { resetStore } from "../onboarding/onboardingStore";
 import { startEditing } from "../onboarding/tutorOnboarding";
-import { ApiError, getAvailability, getMe } from "../../lib/api";
+import { ApiError, getAvailability, getMe, logout } from "../../lib/api";
 
 // The "Change preferences" sheet — one option per onboarding screen.
 const EDIT_SECTIONS: { key: string; label: string; hint?: string; route: string }[] = [
@@ -171,6 +172,15 @@ export function ProfileScreen({
     startEditing(routes);
   };
 
+  // Log out: clear the session (token + keychain) and wipe the in-memory
+  // onboarding draft/completion so signing up a NEW account re-runs onboarding
+  // from scratch, then return to the welcome screen. Immediate, no confirm.
+  const onLogOut = () => {
+    void logout();
+    resetStore();
+    router.replace("/");
+  };
+
   return (
     <>
       <View style={styles.topRow}>
@@ -205,6 +215,12 @@ export function ProfileScreen({
                   variant="primary"
                   onPress={() => setSheetOpen(true)}
                   style={styles.changeBtn}
+                />
+                <Button
+                  label="Log out"
+                  variant="destructive"
+                  onPress={onLogOut}
+                  style={styles.logoutBtn}
                 />
               </>
             ) : null}
@@ -282,6 +298,7 @@ const styles = StyleSheet.create({
   errorWrap: { paddingVertical: 64, paddingHorizontal: 24, alignItems: "center", justifyContent: "center", gap: 12 },
   errorText: { fontSize: 14.5, color: C.muted, textAlign: "center", lineHeight: 21 },
   changeBtn: { marginTop: 28 },
+  logoutBtn: { marginTop: 12 },
   gateTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(249,249,247,0.4)" },
   skWrap: { alignItems: "center", paddingTop: 8 },
   skAvatar: { width: 92, height: 92, borderRadius: 46, backgroundColor: "#E9EBEE" },

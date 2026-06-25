@@ -22,8 +22,9 @@ import { playTap } from "./sound";
  *              (e.g. "Back to categories").
  * - "tint":    Soft green-tinted chip with green text — suggestive actions
  *              (e.g. "Suggest a new category").
+ * - "destructive": Red (#E63946) with white text — log out / delete.
  */
-type ButtonVariant = "primary" | "accent" | "ghost" | "tint";
+type ButtonVariant = "primary" | "accent" | "ghost" | "tint" | "destructive";
 
 type ButtonProps = {
   label: string;
@@ -54,9 +55,11 @@ export function Button({
         ? styles.accent
         : variant === "tint"
           ? styles.tint
-          : styles.ghost;
+          : variant === "destructive"
+            ? styles.destructive
+            : styles.ghost;
   const labelColorStyle =
-    variant === "primary"
+    variant === "primary" || variant === "destructive"
       ? styles.labelPrimary
       : variant === "accent"
         ? styles.labelAccent
@@ -96,7 +99,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === "primary" ? "#FFFFFF" : "#1A1A1A"}
+          color={variant === "primary" || variant === "destructive" ? "#FFFFFF" : "#1A1A1A"}
         />
       ) : icon ? (
         <View style={styles.content}>
@@ -129,6 +132,9 @@ const styles = StyleSheet.create({
   },
   tint: {
     backgroundColor: "#E8F1EC", // soft Forest Green tint
+  },
+  destructive: {
+    backgroundColor: "#E63946", // Destructive / red
   },
   disabled: {
     opacity: 0.5,

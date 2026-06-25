@@ -327,8 +327,13 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
 `SignUp` or the mock Log in (`components/auth/authState.ts` — session-only flag). While
 unregistered, engagement actions — **like, connect, advanced search filters, create post, add
 story** — route to the **`/auth/gate`** screen (Log in / Sign up) instead of acting, and the
-"Tutors you may know" strip is hidden. A `__DEV__`-only toggle in the shell flips this registered
-state for demoing. Real auth / session persistence is still **→ Todo**.
+"Tutors you may know" strip is hidden. (The old `__DEV__`-only "registered" demo toggle was
+**removed** — the real signup/login session drives this now.) The **Profile tab has a red "Log out"
+button** at the bottom: it clears the session (`logout()` — token + keychain) and **wipes the
+in-memory onboarding store** (`resetStore()` — completion map, `registered` flag, staged answers)
+for a clean slate, then returns to the welcome screen, so a fresh signup re-runs onboarding from
+scratch. Real auth / session persistence is otherwise wired (SecureStore); a refresh-token flow is
+still **→ Todo**.
 
 **Caveats (prototype):** front-end only — no backend, no real messaging, no real payment.
 **English-only** (not yet wired into i18n — unlike the rest of the app). The **blur/paywall and

@@ -42,6 +42,17 @@ export function clearStored(key: string): void {
   delete store[key];
 }
 
+/**
+ * Wipe the entire in-memory draft — a clean slate equivalent to a fresh app
+ * start. Used on logout so signing up a NEW account re-runs onboarding from
+ * scratch (clears the onboarding completion map, the `registered` flag, any
+ * staged answers, and the signup email/password). Language lives elsewhere
+ * (AsyncStorage / LanguageProvider) and is unaffected.
+ */
+export function resetStore(): void {
+  for (const key of Object.keys(store)) delete store[key];
+}
+
 type Updater<T> = T | ((prev: T) => T);
 
 /**

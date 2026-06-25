@@ -10,13 +10,12 @@
  * "Tutor" on the welcome screen; the "set up your profile" banner (home) and gate
  * (profile) start — or resume — onboarding, and hide once every step is done.
  */
-import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { isRegistered, setRegistered as persistRegistered } from "../components/auth/authState";
+import { isRegistered } from "../components/auth/authState";
 import { isOnboardingComplete, markAllStepsDone, startTutorSetup } from "../components/onboarding/tutorOnboarding";
 import { getMe } from "../lib/api";
 import { AnalyticsScreen } from "../components/tutor/AnalyticsScreen";
@@ -33,18 +32,6 @@ function toggle(set: Set<string>, id: string): Set<string> {
   if (n.has(id)) n.delete(id);
   else n.add(id);
   return n;
-}
-
-/* __DEV__-only pill to flip the mock "registered" state without walking the
-   whole sign-up flow — for demoing the gated vs ungated experience. Never
-   rendered in production builds. */
-function DevAuthToggle({ registered, onToggle }: { registered: boolean; onToggle: () => void }) {
-  return (
-    <Pressable onPress={onToggle} style={devStyles.pill} accessibilityRole="button">
-      <Ionicons name={registered ? "lock-open" : "lock-closed"} size={13} color="#fff" />
-      <Text style={devStyles.text}>DEV · {registered ? "Logged in" : "Logged out"}</Text>
-    </Pressable>
-  );
 }
 
 function TutorShell() {
@@ -117,13 +104,6 @@ function TutorShell() {
   // instead of mutating state.
   const requireAuth = () => router.push("/auth/gate" as Href);
 
-  // __DEV__ demo toggle: flip the mock registered flag (store + local state).
-  const toggleDevAuth = () => {
-    const next = !registered;
-    persistRegistered(next);
-    setRegistered(next);
-  };
-
   const onLike = (id: string) => {
     if (!registered) return requireAuth();
     setLikes((s) => toggle(s, id));
@@ -192,28 +172,11 @@ function TutorShell() {
             />
           </View>
         )}
-        {__DEV__ && <DevAuthToggle registered={registered} onToggle={toggleDevAuth} />}
       </View>
       <TabBar tab={tab} onSelect={goTab} unread={unread} premium={premium} bottomInset={insets.bottom} />
     </View>
   );
 }
-
-const devStyles = StyleSheet.create({
-  pill: {
-    position: "absolute",
-    right: 12,
-    bottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 11,
-    borderRadius: 999,
-    backgroundColor: "rgba(17,24,39,0.82)",
-  },
-  text: { color: "#fff", fontSize: 11.5, fontWeight: "700" },
-});
 
 export default function TutorHome() {
   return (
