@@ -511,6 +511,12 @@ export const translations = {
     "zh-Hant": "以 Microsoft 註冊",
     "zh-Hans": "以 Microsoft 注册",
   },
+  "signup.haveAccount": {
+    en: "Already have an account?",
+    "zh-Hant": "已經有帳戶？",
+    "zh-Hans": "已经有账户？",
+  },
+  "signup.logIn": { en: "Log in", "zh-Hant": "登入", "zh-Hans": "登录" },
 
   // ---- onboarding complete (shared "Welcome to LearnSum" screen) ----
   "welcomeDone.title": { en: "Welcome to LearnSum", "zh-Hant": "歡迎使用 LearnSum", "zh-Hans": "欢迎使用 LearnSum" },

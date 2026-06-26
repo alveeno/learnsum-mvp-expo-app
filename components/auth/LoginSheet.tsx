@@ -4,18 +4,22 @@ import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { markRegistered } from "../auth/authState";
 import { BottomSheet } from "../ui/BottomSheet";
-import { ApiError, login } from "../../lib/api";
+import { ApiError, getMe, login, type Role } from "../../lib/api";
 
 /**
  * Log-in bottom sheet.
  *
  * "Log in" calls the real backend (POST /api/auth/login): on success it stores
- * the session token, marks the user registered (the session-only flag in
- * authState) and hands off via `onLoggedIn`. Wrong credentials show an inline
- * error; if the backend is unreachable in __DEV__ it falls back to accepting the
- * login so the app still demos offline. "Forgot password?" and the social
- * buttons are still inert. Copy is intentionally English-only for now (it'll be
- * translated with the rest of the auth build — see the i18n notes in CLAUDE.md).
+ * the session token, resolves the account's role (GET /api/auth/me), marks the
+ * user registered (the session-only flag in authState) and hands off via
+ * `onLoggedIn(role)` — so the caller can route to the right home (tutor →
+ * /tutor-home, student/parent → /feed). A real session is REQUIRED: wrong
+ * credentials or an unreachable backend show an inline error — there is no
+ * offline fake-login (that previously left the user "logged in" with no session
+ * whenever the backend was down). "Forgot password?" and the
+ * social buttons are still inert. Copy is intentionally English-only for now
+ * (it'll be translated with the rest of the auth build — see the i18n notes in
+ * CLAUDE.md).
  */
 export function LoginSheet({
   visible,
@@ -27,8 +31,12 @@ export function LoginSheet({
   onClose: () => void;
   /** Pre-fill the email field (e.g. when redirected here from sign-up). */
   initialEmail?: string;
-  /** Called after a (mock) successful login — navigate here. Falls back to onClose. */
-  onLoggedIn?: () => void;
+  /**
+   * Called after a successful login with the account's role (or null when it
+   * couldn't be resolved, e.g. the __DEV__ offline fallback) — navigate here.
+   * Falls back to onClose.
+   */
+  onLoggedIn?: (role: Role | null) => void;
 }) {
   const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
@@ -47,9 +55,9 @@ export function LoginSheet({
 
   const canSubmit = email.trim() !== "" && password !== "" && !submitting;
 
-  const handleSuccess = () => {
+  const handleSuccess = (role: Role | null) => {
     markRegistered();
-    if (onLoggedIn) onLoggedIn();
+    if (onLoggedIn) onLoggedIn(role);
     else onClose();
   };
 
@@ -59,14 +67,23 @@ export function LoginSheet({
     setSubmitting(true);
     try {
       await login(email, password);
-      handleSuccess();
-    } catch (err) {
-      // Offline demo fallback: accept the login so the app still works without
-      // the backend running.
-      if (err instanceof ApiError && err.isNetworkError && __DEV__) {
-        handleSuccess();
-        return;
+      // Resolve the account's role so the caller can route to the right home.
+      // A failure here (e.g. transient) shouldn't block a successful login — we
+      // just hand off a null role and let the caller fall back to a default.
+      let role: Role | null = null;
+      try {
+        role = (await getMe()).profile.role;
+      } catch {
+        role = null;
       }
+      handleSuccess(role);
+    } catch (err) {
+      // No offline fake-login: a real session is required. A network failure
+      // shows a "can't reach the server" message rather than pretending the
+      // login worked — the old fallback left the user "logged in" with no real
+      // session (setup banner stuck on, profile tab empty) whenever the backend
+      // was down. Start the backend (or point EXPO_PUBLIC_API_URL at it) to log
+      // in for real.
       setError(
         err instanceof ApiError && !err.isNetworkError
           ? "Incorrect email or password."

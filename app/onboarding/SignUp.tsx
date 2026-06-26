@@ -23,19 +23,13 @@ import { ApiError, clearToken, signup } from "../../lib/api";
  * Tutor onboarding — sign-up / account gate (the entry screen).
  *
  * Collects email + password (and offers social sign-up) BEFORE any onboarding
- * info is filled in. Continue now calls the real backend (POST /api/auth/signup):
+ * info is filled in. Continue calls the real backend (POST /api/auth/signup):
  *  - success → the account exists + the token is stored → continue into onboarding.
  *  - already registered (or no session returned) → open the LoginSheet pre-filled.
- *  - backend unreachable in __DEV__ → fall back to the old mock so the app still
- *    demos offline (REGISTERED_EMAILS below decides login-vs-continue).
+ *  - backend unreachable → show a "can't reach the server" error. A real backend
+ *    is REQUIRED; we do NOT fake the sign-up offline (the old REGISTERED_EMAILS
+ *    mock waved the user into onboarding with nothing actually saved).
  */
-
-// __DEV__ OFFLINE FALLBACK ONLY: emails treated as "already registered" when the
-// backend can't be reached during a demo. Real existence comes from signup() now.
-const REGISTERED_EMAILS = ["existing@learnsum.com", "demo@learnsum.com"];
-function emailExists(email: string): boolean {
-  return REGISTERED_EMAILS.includes(email.trim().toLowerCase());
-}
 
 /** A signup error that means the email already has an account → send to login. */
 function isAlreadyRegistered(err: ApiError): boolean {
@@ -88,11 +82,10 @@ export default function SignUp() {
     } catch (err) {
       if (err instanceof ApiError && isAlreadyRegistered(err)) {
         sendToLogin();
-      } else if (err instanceof ApiError && err.isNetworkError && __DEV__) {
-        // Offline demo fallback: mimic the old mock behaviour.
-        if (emailExists(email)) sendToLogin();
-        else proceed();
       } else {
+        // No offline fake sign-up: a real backend is required. A network failure
+        // shows a "can't reach the server" message rather than pretending an
+        // account was created.
         setError(
           err instanceof ApiError && !err.isNetworkError
             ? err.message
@@ -212,6 +205,18 @@ export default function SignUp() {
           disabled={!valid || submitting}
           onPress={onContinue}
         />
+        {/* Returning users who know they already have an account: skip typing
+            into the register form and go straight to log in (email prefilled if
+            already typed). Avoids entering credentials twice. */}
+        <Pressable
+          style={styles.haveAccountRow}
+          onPress={() => setLoginVisible(true)}
+          accessibilityRole="button"
+          disabled={submitting}
+        >
+          <Text style={styles.haveAccountText}>{t("signup.haveAccount")}</Text>
+          <Text style={styles.haveAccountLink}>{t("signup.logIn")}</Text>
+        </Pressable>
       </View>
 
       <LoginSheet
@@ -299,4 +304,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 8,
   },
+  haveAccountRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+  },
+  haveAccountText: { fontSize: 14, color: "#6B7280" },
+  haveAccountLink: { fontSize: 14, fontWeight: "700", color: "#2D6A4F" },
 });

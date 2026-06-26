@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useState } from "react";
 import { SafeAreaView, StyleSheet, Text, View } from "react-native";
 
@@ -9,6 +9,7 @@ import { LoginSheet } from "../components/auth/LoginSheet";
 import { LanguagePicker } from "../components/i18n/LanguagePicker";
 import { useT } from "../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../components/i18n/translations";
+import { type Role } from "../lib/api";
 
 type UserTypeKey = "student" | "parent" | "tutor";
 
@@ -66,6 +67,18 @@ export default function Index() {
     if (selectedType) {
       router.push(selectedType.route);
     }
+  };
+
+  // A returning user logs in from the sheet → route to their role's home. Tutor
+  // lands on the tutor app shell; student/parent on the placeholder /feed (their
+  // flows aren't built yet). An unknown role (e.g. the __DEV__ offline fallback,
+  // where the profile can't be fetched) defaults to the tutor home — that's the
+  // path in active development. `replace` so Back doesn't return to this screen.
+  const handleLoggedIn = (role: Role | null) => {
+    setLoginOpen(false);
+    const dest: Href =
+      role === "student" || role === "parent" ? "/feed" : "/tutor-home";
+    router.replace(dest);
   };
 
   return (
@@ -145,7 +158,11 @@ export default function Index() {
         </View>
       </View>
 
-      <LoginSheet visible={loginOpen} onClose={() => setLoginOpen(false)} />
+      <LoginSheet
+        visible={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onLoggedIn={handleLoggedIn}
+      />
     </SafeAreaView>
   );
 }
