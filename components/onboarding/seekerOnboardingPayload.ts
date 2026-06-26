@@ -8,37 +8,37 @@ import { type Interest } from "../../app/onboarding/StudentCatSel";
  * in-memory onboarding store — the seeker analogue of `tutorOnboardingPayload`.
  *
  * The account is created first by signup() on the CreateAccount step; this then
- * saves the collected answers. The backend's onboarding endpoint is currently
- * tutor-shaped (see CLAUDE.md), so student/parent support may not exist yet —
- * `submitSeekerOnboarding` is therefore BEST-EFFORT: it swallows any failure
- * (network, or the backend rejecting the shape) and reports `saved:false` rather
- * than throwing, so onboarding still completes. Mirrors the tutor flow's offline
- * fall-through. Aligning the exact shape with the backend is a later step.
+ * saves the collected answers. The backend's `POST /api/onboarding` FULLY
+ * supports student + parent (it branches by role and writes via the
+ * `complete_onboarding` RPC), so the shape here MUST match that contract:
+ *   - student → `{ role, profile, student: { school_level, format, districts,
+ *       languages, interests, availability } }`
+ *   - parent  → `{ role, profile, parent: { searching_for_self, children: [{
+ *       name, school_level, format, districts, languages, interests, availability }] } }`
+ * `interests` are subject **slugs** (== the app's `subId`; the backend re-maps
+ * them to UUIDs), and districts stay `"<region>:<Label>"` (the backend maps the
+ * labels). `submitSeekerOnboarding` stays BEST-EFFORT (swallows errors →
+ * `saved:false`) so a network blip can't block onboarding completion — but with
+ * the correct shape it now genuinely PERSISTS on success.
  */
 
 type ChildInput = { name: string; level: string | null };
 export type SeekerRole = "student" | "parent";
 
-type InterestOut = { subcategory: string; category: string; label?: string };
-type PrefsOut = {
-  format: Prefs["format"];
-  districts: string[];
-  languages: string[];
-  availability: Record<string, { start: number; end: number }[]>;
-};
-
-function interestsOut(list: Interest[]): InterestOut[] {
-  return list
-    .filter((it) => it.catId && it.subId)
-    .map((it) => ({ subcategory: it.subId, category: it.catId, label: it.label }));
-}
-
-function prefsOut(pf: Prefs | null): PrefsOut {
+// One seeker section (a student, or one parent child) in the exact shape the
+// backend reads: school_level + format + districts + languages + interests
+// (subject slugs) + availability. (tutoring `type` and `budget` aren't collected
+// in seeker onboarding, so they're omitted → the backend stores null.)
+function seekerSection(level: string | null, interests: Interest[], pf: Prefs | null) {
   return {
+    school_level: level,
     format: pf?.format ?? null,
     districts: pf?.format === "online" ? [] : pf?.districts ?? [],
     languages: [...(pf?.langs ?? []), ...(pf?.moreLangs ?? [])],
-    availability: (pf?.avail ?? {}) as PrefsOut["availability"],
+    // Subject SLUGS (the backend maps slug → subcategory UUID). Drop custom
+    // user-typed subjects (no real slug) — the backend would skip them anyway.
+    interests: interests.filter((it) => it.catId && it.subId).map((it) => it.subId),
+    availability: (pf?.avail ?? {}) as Record<string, { start: number; end: number }[]>,
   };
 }
 
@@ -46,11 +46,11 @@ export function buildStudentPayload() {
   return {
     role: "student",
     profile: {},
-    student: {
-      education_level: getStored<string | null>("student:eduLevel", null),
-      interests: interestsOut(getStored<Interest[]>("student:interests", [])),
-      ...prefsOut(getStored<Prefs | null>("student:prefs", null)),
-    },
+    student: seekerSection(
+      getStored<string | null>("student:eduLevel", null),
+      getStored<Interest[]>("student:interests", []),
+      getStored<Prefs | null>("student:prefs", null),
+    ),
   };
 }
 
@@ -59,12 +59,17 @@ export function buildParentPayload() {
   return {
     role: "parent",
     profile: {},
-    children: roster.map((child, i) => ({
-      name: child.name,
-      education_level: child.level,
-      interests: interestsOut(getStored<Interest[]>(`parent:child:${i}:interests`, [])),
-      ...prefsOut(getStored<Prefs | null>(`parent:child:${i}:prefs`, null)),
-    })),
+    parent: {
+      searching_for_self: false,
+      children: roster.map((child, i) => ({
+        name: child.name,
+        ...seekerSection(
+          child.level,
+          getStored<Interest[]>(`parent:child:${i}:interests`, []),
+          getStored<Prefs | null>(`parent:child:${i}:prefs`, null),
+        ),
+      })),
+    },
   };
 }
 

@@ -542,14 +542,17 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 - **DONE:** `SignUp` / `LoginSheet` create/restore the Supabase **session** via `lib/api/auth`
   (`POST /api/auth/signup` · `/login`), with the in-memory token store carrying the Bearer token.
   **DONE (tutor):** the tutor onboarding store is **persisted in one shot** at the publish sheet
-  (`POST /api/onboarding`). **DONE (student / parent, front-end):** a **final credential step**
-  (`app/onboarding/CreateAccount.tsx`, Option A) creates the account then runs a **best-effort**
-  one-shot save (`components/onboarding/seekerOnboardingPayload.ts`). The save is best-effort
-  because the backend's `/api/onboarding` is currently **tutor-shaped** — it may reject student/
-  parent bodies; the save swallows that and onboarding still completes (account is created). **Still
-  Todo (backend):** confirm/extend `/api/onboarding` to accept the student/parent shapes so the data
-  actually persists. (Continue now requires a reachable backend to create the account, like the tutor
-  flow; **Skip still bypasses straight to `/feed`** with no account.)
+  (`POST /api/onboarding`). **DONE (student / parent):** a **final credential step**
+  (`app/onboarding/CreateAccount.tsx`, Option A) creates the account then runs the one-shot save
+  (`components/onboarding/seekerOnboardingPayload.ts`). The backend's `POST /api/onboarding`
+  **already supports student + parent** (it branches by role → the `complete_onboarding` RPC), and the
+  payload now **matches that contract** (`school_level`, `interests` as subject **slugs**, parent
+  `parent:{ children:[…] }`), so the data **persists** on success. The save stays **best-effort**
+  (swallows network errors so onboarding still completes; the account is already created). (Continue
+  requires a reachable backend to create the account, like the tutor flow; **Skip still bypasses
+  straight to `/feed`** with no account.) *(Earlier notes here said the backend was "tutor-shaped /
+  may reject seeker onboarding" — that was wrong; corrected after reading the route. See the backend
+  repo's `BACKEND_GAP_ANALYSIS.md` H1.)*
 - **DONE:** email existence is handled by `signup` (an existing email routes to the login sheet).
   The old `REGISTERED_EMAILS` `__DEV__` offline mock was **removed** — both `SignUp` and `LoginSheet`
   now **require a reachable backend** and show a "can't reach the server" error otherwise (no fake
