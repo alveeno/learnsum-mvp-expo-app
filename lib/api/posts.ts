@@ -28,6 +28,8 @@ export interface Post {
   post_type: PostType;
   likes_count: number;
   comments_count: number;
+  /** Whether the signed-in caller has liked this post (false/undefined for guests). */
+  liked_by_me?: boolean;
   created_at: string;
   post_media: PostMedia[];
 }

@@ -78,6 +78,15 @@ export function SeekerAccountScreen() {
           <Text style={styles.idRole}>Student / parent</Text>
         </View>
 
+        <View style={styles.group}>
+          <Row
+            icon="chatbubbles-outline"
+            label="Messages"
+            sub="Your conversations with tutors"
+            onPress={() => router.push("/messages" as Href)}
+          />
+        </View>
+
         <Text style={styles.sectionLabel}>Preferences</Text>
         <View style={styles.group}>
           <Row icon="globe-outline" label="Language" right={<LanguagePicker />} />

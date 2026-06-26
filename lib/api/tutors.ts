@@ -23,6 +23,8 @@ export interface TutorProfile {
 
 /** Full public profile from GET /api/tutors/[slug] (profile + subjects + posts). */
 export interface TutorDetail {
+  /** The tutor's profile id — used as participant_id to start an in-app chat. */
+  id?: string;
   slug: string;
   bio: string | null;
   university: string | null;
@@ -45,6 +47,65 @@ export interface TutorDetail {
 export async function getTutor(slug: string): Promise<TutorDetail> {
   const res = await apiFetch<{ tutor: TutorDetail }>(`/api/tutors/${encodeURIComponent(slug)}`);
   return res.tutor;
+}
+
+/** A lean browse/search card from GET /api/tutors (same shape as a feed card). */
+export interface BrowseTutorCard {
+  slug: string;
+  bio: string | null;
+  tutoring_format: string | null;
+  tutoring_type: string | null;
+  created_at: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  district: string | null;
+  categories: { id: string; name_en: string; name_zh: string; slug: string }[];
+}
+
+/**
+ * Structured browse filters for GET /api/tutors. Arrays are sent comma-separated
+ * (the backend matches ANY). `district`/`gender`/`language` are the multi-value
+ * sets; districts must be hk_district ENUM CODES (e.g. "CentralWestern"), not the
+ * "Central & Western" display label — map first (see hkDistricts.districtEnumFromName).
+ * Omit a field to leave that dimension unfiltered. There is no free-text search on
+ * the backend, so the Search screen narrows the returned cards by text client-side.
+ */
+export interface TutorSearchParams {
+  district?: string[];
+  gender?: string[];
+  language?: string[];
+  subcategory_id?: string;
+  tutoring_format?: "in_person" | "online" | "both";
+  tutoring_type?: "individual" | "group" | "both";
+  min_rate?: number;
+  max_rate?: number;
+  min_age?: number;
+  max_age?: number;
+  page?: number;
+}
+
+export interface TutorSearchResult {
+  tutors: BrowseTutorCard[];
+  pagination: { page: number; page_size: number; total: number; has_more: boolean };
+}
+
+/** Browse/search published tutors with the full structured filter set. */
+export async function searchTutors(params: TutorSearchParams = {}): Promise<TutorSearchResult> {
+  return apiFetch<TutorSearchResult>("/api/tutors", {
+    query: {
+      district: params.district?.length ? params.district.join(",") : undefined,
+      gender: params.gender?.length ? params.gender.join(",") : undefined,
+      language: params.language?.length ? params.language.join(",") : undefined,
+      subcategory_id: params.subcategory_id,
+      tutoring_format: params.tutoring_format,
+      tutoring_type: params.tutoring_type,
+      min_rate: params.min_rate,
+      max_rate: params.max_rate,
+      min_age: params.min_age,
+      max_age: params.max_age,
+      page: params.page,
+    },
+  });
 }
 
 /** Update own tutor profile with any subset of editable fields. */

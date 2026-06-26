@@ -15,8 +15,21 @@ export { getCategories, getSubcategoryIndex, subcategoryIdForSlug } from "./cate
 export type { Category, Subcategory, IndexedSubcategory } from "./categories";
 export { postOnboarding } from "./onboarding";
 export type { OnboardingResult, OnboardingSkipped } from "./onboarding";
-export { patchTutor, setTutorPublished, getTutor, putTutorSubjects, putTutorLanguages } from "./tutors";
-export type { TutorProfile, TutorDetail, TutorSubjectInput } from "./tutors";
+export { patchTutor, setTutorPublished, getTutor, putTutorSubjects, putTutorLanguages, searchTutors } from "./tutors";
+export type { TutorProfile, TutorDetail, TutorSubjectInput, BrowseTutorCard, TutorSearchParams, TutorSearchResult } from "./tutors";
+export { getSavedTutors, saveTutor, unsaveTutor } from "./saved";
+export type { SavedTutor } from "./saved";
+export { getPostLikes, likePost, unlikePost } from "./likes";
+export type { LikeState } from "./likes";
+export {
+  listConversations,
+  startConversation,
+  getMessages,
+  sendMessage,
+  markConversationRead,
+  getMyId,
+} from "./chat";
+export type { Conversation, ChatParticipant, ChatMessage, MessagesPage } from "./chat";
 export { patchProfileMe } from "./profiles";
 export type { ProfileMeUpdate } from "./profiles";
 export { getAvailability, putAvailability } from "./availability";

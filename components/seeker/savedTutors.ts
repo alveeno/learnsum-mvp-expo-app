@@ -1,16 +1,21 @@
 import { useSyncExternalStore } from "react";
 
+import { getSavedTutors, saveTutor, unsaveTutor } from "../../lib/api";
+
 /**
- * Saved tutors — a tiny in-memory store of the tutor ids a seeker has bookmarked.
+ * Saved tutors — the set of tutor SLUGS the signed-in seeker has bookmarked,
+ * backed by the backend (`/api/saved`).
  *
- * Shared between the seeker shell (Saved tab + the Save button on feed/search)
- * and the standalone `app/tutors/[slug].tsx` route, which is a separate Expo
- * Router screen and so can't read the shell's React state. A module-level Set +
- * subscriber list (read through `useSavedTutors`) keeps every surface in sync.
+ * Shared between the seeker shell (Saved tab + the Save button on search) and the
+ * standalone `app/tutors/[slug].tsx` route, which is a separate Expo Router screen
+ * and so can't read the shell's React state. A module-level Set + subscriber list
+ * (read through `useSavedTutors`) keeps every surface in sync.
  *
- * Session-only for now, matching the rest of the prototype's in-memory state
- * (see CLAUDE.md). Persisting bookmarks across restarts would be an AsyncStorage
- * pass later, alongside the deferred "saved filter preferences".
+ * Keyed by slug because that's what tutor cards / the profile route carry. Writes
+ * are optimistic: the icon flips immediately, then the POST/DELETE runs and the
+ * change is reverted if the request fails. Call `hydrateSaved()` once after sign-in
+ * (the seeker shell does) to load the existing bookmarks. The sample-data Home feed
+ * keeps its OWN local set — only real tutors (a real slug) belong here.
  */
 let saved = new Set<string>();
 const listeners = new Set<() => void>();
@@ -22,18 +27,41 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-export function isSaved(id: string): boolean {
-  return saved.has(id);
-}
-
-export function toggleSaved(id: string): void {
-  if (saved.has(id)) saved.delete(id);
-  else saved.add(id);
-  emit();
+export function isSaved(slug: string): boolean {
+  return saved.has(slug);
 }
 
 export function getSavedIds(): string[] {
   return [...saved];
+}
+
+/** Load the seeker's existing bookmarks from the backend (call once after sign-in). */
+export async function hydrateSaved(): Promise<void> {
+  try {
+    const list = await getSavedTutors();
+    saved = new Set(list.map((t) => t.slug));
+    listeners.forEach((l) => l());
+  } catch {
+    // Offline / not signed in — leave the set empty; the UI just shows nothing saved.
+  }
+}
+
+/** Optimistically toggle a bookmark, then persist; revert if the request fails. */
+export function toggleSaved(slug: string): void {
+  if (!slug) return;
+  const wasSaved = saved.has(slug);
+  // Optimistic flip.
+  if (wasSaved) saved.delete(slug);
+  else saved.add(slug);
+  emit();
+
+  const request = wasSaved ? unsaveTutor(slug) : saveTutor({ slug });
+  request.catch(() => {
+    // Revert on failure (e.g. a sample-data slug the backend doesn't know → 404).
+    if (wasSaved) saved.add(slug);
+    else saved.delete(slug);
+    emit();
+  });
 }
 
 function subscribe(fn: () => void): () => void {
@@ -42,7 +70,7 @@ function subscribe(fn: () => void): () => void {
 }
 
 /** Subscribe a component to the saved-tutor set (re-renders on every change). */
-export function useSavedTutors(): { ids: Set<string>; toggle: (id: string) => void } {
+export function useSavedTutors(): { ids: Set<string>; toggle: (slug: string) => void } {
   const ids = useSyncExternalStore(subscribe, () => saved);
   return { ids, toggle: toggleSaved };
 }

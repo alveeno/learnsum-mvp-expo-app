@@ -13,11 +13,11 @@
  * Saved tab and the profile route stay in sync.
  */
 import { router, type Href } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useSavedTutors } from "../components/seeker/savedTutors";
+import { hydrateSaved, useSavedTutors } from "../components/seeker/savedTutors";
 import { SeekerAccountScreen } from "../components/seeker/SeekerAccountScreen";
 import { SeekerFeedScreen } from "../components/seeker/SeekerFeedScreen";
 import { SeekerSavedScreen } from "../components/seeker/SeekerSavedScreen";
@@ -36,19 +36,29 @@ function SeekerShell() {
   const insets = useSafeAreaInsets();
   const [tab, setTab] = useState<SeekerTabId>("home");
   const [likes, setLikes] = useState<Set<string>>(() => new Set(["chloe"]));
+  // Home is still a sample-data feed, so its Save button uses a local set —
+  // saving a sample tutor to the real backend would 404. Search + Saved (and the
+  // public profile route) use the backend-backed store below.
+  const [homeSaved, setHomeSaved] = useState<Set<string>>(() => new Set());
   const { ids: saved, toggle: toggleSaved } = useSavedTutors();
+
+  // Load the seeker's real bookmarks once when the shell mounts.
+  useEffect(() => {
+    void hydrateSaved();
+  }, []);
 
   const openProfile = (id: string) => router.push(`/tutors/${id}` as Href);
   const onLike = (id: string) => setLikes((s) => toggle(s, id));
+  const toggleHomeSaved = (id: string) => setHomeSaved((s) => toggle(s, id));
 
   let screen;
   if (tab === "home") {
     screen = (
       <SeekerFeedScreen
         likes={likes}
-        saved={saved}
+        saved={homeSaved}
         onLike={onLike}
-        onToggleSave={toggleSaved}
+        onToggleSave={toggleHomeSaved}
         onOpenProfile={openProfile}
         onGoSearch={() => setTab("search")}
       />

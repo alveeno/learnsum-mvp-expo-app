@@ -12,20 +12,20 @@
  */
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isRegistered } from "../components/auth/authState";
 import { isOnboardingComplete, markAllStepsDone, startTutorSetup } from "../components/onboarding/tutorOnboarding";
 import { getMe } from "../lib/api";
 import { AnalyticsScreen } from "../components/tutor/AnalyticsScreen";
-import { ChatScreen } from "../components/tutor/ChatScreen";
+import { ChatList } from "../components/chat/ChatList";
 import { FeedScreen } from "../components/tutor/FeedScreen";
 import { ProfileScreen } from "../components/tutor/ProfileScreen";
 import { SearchScreen } from "../components/tutor/SearchScreen";
 import { TabBar, type TabId } from "../components/tutor/TabBar";
 import { TutorProfileView } from "../components/tutor/TutorProfileView";
-import { CHATS, TH, TUTORS } from "../components/tutor/tutorData";
+import { C, TH, TUTORS } from "../components/tutor/tutorData";
 
 function toggle(set: Set<string>, id: string): Set<string> {
   const n = new Set(set);
@@ -120,7 +120,9 @@ function TutorShell() {
     setTab(id);
   };
 
-  const unread = CHATS.filter((c) => c.unread > 0).length;
+  // The per-conversation unread badges live in the list itself; the tab-bar
+  // count would need its own poll, so leave it at 0 for now.
+  const unread = 0;
 
   let screen;
   if (tab === "home") {
@@ -149,7 +151,22 @@ function TutorShell() {
       />
     );
   } else if (tab === "chat") {
-    screen = <ChatScreen />;
+    screen = (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 10 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", letterSpacing: -0.6, color: C.ink }}>Messages</Text>
+          <Text style={{ fontSize: 13.5, color: C.muted, marginTop: 2 }}>Parents and students who reached out to you.</Text>
+        </View>
+        <ChatList
+          onOpen={(c) =>
+            router.push({
+              pathname: "/messages/[id]",
+              params: { id: c.id, name: c.other_participant?.display_name ?? "LearnSum user" },
+            })
+          }
+        />
+      </View>
+    );
   } else if (tab === "analytics") {
     screen = <AnalyticsScreen premium={premium} onUpgrade={() => setPremium(true)} />;
   } else {

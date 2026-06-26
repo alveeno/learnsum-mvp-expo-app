@@ -97,6 +97,11 @@ const REGION_BY_NAME: Record<string, RegionId> = Object.fromEntries(
 export const districtEnumFromKey = (key: string): string | null =>
   DISTRICT_ENUM_BY_NAME[districtName(key)] ?? null;
 
+/** Bare district name ("Sha Tin") → hk_district enum code ("ShaTin"), or null.
+ *  Used by the seeker Search filters, which hold plain district names. */
+export const districtEnumFromName = (name: string): string | null =>
+  DISTRICT_ENUM_BY_NAME[name] ?? null;
+
 /** hk_district enum code ("ShaTin") → store key ("nt:Sha Tin"), or null. */
 export const districtKeyFromEnum = (code: string): string | null => {
   const name = DISTRICT_NAME_BY_ENUM[code];

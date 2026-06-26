@@ -223,12 +223,16 @@ export function FilterSheet({
   onApply,
   onClose,
   count,
+  hideUnsupported = false,
 }: {
   visible: boolean;
   init: Filters;
   onApply: (f: Filters) => void;
   onClose: () => void;
   count: (f: Filters) => number;
+  /** Hide the rating / years / sessions / followers sliders — the seeker search
+   *  runs against the real backend, which doesn't support those filters yet. */
+  hideUnsupported?: boolean;
 }) {
   const [f, setF] = useState<Filters>(init);
   const [region, setRegion] = useState(REGIONS[0].id);
@@ -330,21 +334,25 @@ export function FilterSheet({
               </View>
             </FRow>
 
-            <FRow label="Minimum rating" value={f.rating ? `${f.rating.toFixed(1)}★ & up` : "Any"}>
-              <Slider min={0} max={5} step={0.5} value={f.rating} onChange={(v) => set("rating", v as number)} />
-            </FRow>
+            {!hideUnsupported && (
+              <>
+                <FRow label="Minimum rating" value={f.rating ? `${f.rating.toFixed(1)}★ & up` : "Any"}>
+                  <Slider min={0} max={5} step={0.5} value={f.rating} onChange={(v) => set("rating", v as number)} />
+                </FRow>
 
-            <FRow label="Years of teaching experience" value={f.years ? `${f.years}+ yrs` : "Any"}>
-              <Slider min={0} max={10} step={1} value={f.years} onChange={(v) => set("years", v as number)} />
-            </FRow>
+                <FRow label="Years of teaching experience" value={f.years ? `${f.years}+ yrs` : "Any"}>
+                  <Slider min={0} max={10} step={1} value={f.years} onChange={(v) => set("years", v as number)} />
+                </FRow>
 
-            <FRow label="Successful sessions" value={f.sessions ? `${f.sessions}+` : "Any"}>
-              <Slider min={0} max={300} step={10} value={f.sessions} onChange={(v) => set("sessions", v as number)} />
-            </FRow>
+                <FRow label="Successful sessions" value={f.sessions ? `${f.sessions}+` : "Any"}>
+                  <Slider min={0} max={300} step={10} value={f.sessions} onChange={(v) => set("sessions", v as number)} />
+                </FRow>
 
-            <FRow label="Followers" value={f.followers ? `${f.followers >= 1000 ? f.followers / 1000 + "k" : f.followers}+` : "Any"}>
-              <Slider min={0} max={3000} step={100} value={f.followers} onChange={(v) => set("followers", v as number)} />
-            </FRow>
+                <FRow label="Followers" value={f.followers ? `${f.followers >= 1000 ? f.followers / 1000 + "k" : f.followers}+` : "Any"}>
+                  <Slider min={0} max={3000} step={100} value={f.followers} onChange={(v) => set("followers", v as number)} />
+                </FRow>
+              </>
+            )}
           </ScrollView>
 
           <View style={styles.sheetFoot}>

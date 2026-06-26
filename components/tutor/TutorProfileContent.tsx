@@ -13,15 +13,17 @@
  * WhatsApp/WeChat deep-link logic) lives here, single-sourced.
  */
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useState, type ReactNode } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { ProfileBody, EMPTY_EDU, type ProfileBodyData } from "./ProfileBody";
 import { mapTutorToProfileBody } from "./profileMapping";
+import { TutorPostFeed } from "./TutorPostFeed";
 import { C, lookupTutor, type FullTutor } from "./tutorData";
 import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
 import { type FormatId } from "../onboarding/PreferencesScreen";
-import { getTutor } from "../../lib/api";
+import { getTutor, startConversation } from "../../lib/api";
 
 // Sample tutor (FullTutor) → a thin ProfileBodyData for the offline / sample-id
 // fallback. Real tutors (a real slug) get the full profile from the backend.
@@ -63,6 +65,11 @@ export function TutorProfileContent({
 }) {
   const [data, setData] = useState<ProfileBodyData | null>(null);
   const [name, setName] = useState("");
+  // The real slug when the backend fetch succeeds; null for the sample-data
+  // fallback (sample tutors have no real posts to show or like).
+  const [postsSlug, setPostsSlug] = useState<string | null>(null);
+  // Who the in-app "Message" button starts a chat with (the tutor's profile id).
+  const [chatTarget, setChatTarget] = useState<{ id: string; name: string } | null>(null);
   const [contact, setContact] = useState<{ whatsapp: string | null; wechat: string | null }>({
     whatsapp: null,
     wechat: null,
@@ -77,6 +84,8 @@ export function TutorProfileContent({
         if (cancelled) return;
         setData(mapTutorToProfileBody(tutor));
         setName(tutor.slug ?? id);
+        setPostsSlug(tutor.slug ?? id);
+        setChatTarget(tutor.id ? { id: tutor.id, name: tutor.slug ?? id } : null);
         setContact({ whatsapp: tutor.whatsapp_number ?? null, wechat: tutor.wechat_id ?? null });
       })
       .catch(() => {
@@ -84,6 +93,8 @@ export function TutorProfileContent({
         const sample = lookupTutor(id);
         setData(sampleToBody(sample));
         setName(sample.username);
+        setPostsSlug(null); // sample fallback — no real posts
+        setChatTarget(null); // sample fallback — no real account to message
         setContact({ whatsapp: null, wechat: null }); // sample tutors have no real contact
       })
       .finally(() => {
@@ -119,6 +130,18 @@ export function TutorProfileContent({
     );
   };
   const hasContact = !!contact.whatsapp || !!contact.wechat;
+
+  // Start (or reopen) an in-app chat with this tutor, then open the thread.
+  const onMessage = async () => {
+    if (!chatTarget) return;
+    tapMedium();
+    try {
+      const { id: convId } = await startConversation(chatTarget.id);
+      router.push({ pathname: "/messages/[id]", params: { id: convId, name: chatTarget.name } });
+    } catch {
+      Alert.alert("Messaging", "Please log in to message this tutor.");
+    }
+  };
 
   return (
     <>
@@ -168,7 +191,19 @@ export function TutorProfileContent({
                 ) : null}
               </View>
             ) : null}
+            {chatTarget ? (
+              <Pressable
+                style={styles.messageBtn}
+                onPress={onMessage}
+                accessibilityRole="button"
+                accessibilityLabel="Message this tutor in the app"
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color="#fff" />
+                <Text style={styles.messageBtnText}>Message</Text>
+              </Pressable>
+            ) : null}
             {actions}
+            {postsSlug ? <TutorPostFeed slug={postsSlug} /> : null}
           </>
         ) : null}
       </ScrollView>
@@ -195,4 +230,15 @@ const styles = StyleSheet.create({
   contactBtnText: { fontSize: 14.5, fontWeight: "800", color: "#fff" },
   whatsappBtn: { backgroundColor: "#25D366" },
   wechatBtn: { backgroundColor: "#09B83E" },
+  messageBtn: {
+    height: 46,
+    borderRadius: 23,
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: C.green,
+  },
+  messageBtnText: { fontSize: 14.5, fontWeight: "800", color: "#fff" },
 });

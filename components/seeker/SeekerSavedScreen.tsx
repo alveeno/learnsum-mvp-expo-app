@@ -1,17 +1,34 @@
 /**
  * Seeker (student/parent) SAVED tab — the tutors a seeker has bookmarked.
  *
- * Reads the shared saved-tutor set (passed down from the shell, backed by
- * `savedTutors.ts`) and lists each one from the sample directory. Tapping a row
- * opens the public profile route; the bookmark removes it. Empty until the
- * seeker saves someone from the feed, search, or a profile.
+ * Wired to the backend: fetches the caller's bookmarks from GET /api/saved on
+ * mount (the tab remounts each time it's opened, so it picks up tutors saved
+ * elsewhere). Rows are filtered by the shared saved-set so un-saving removes a
+ * row instantly (optimistic) without waiting for a refetch. Tapping a row opens
+ * the real public profile by slug; the bookmark removes it.
  */
 import { Ionicons } from "@expo/vector-icons";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { SaveButton } from "./SaveButton";
-import { Avatar, Qualified } from "../tutor/feedUi";
-import { C, lookupTutor } from "../tutor/tutorData";
+import { Avatar } from "../tutor/feedUi";
+import { C } from "../tutor/tutorData";
+import { districtKeyFromEnum, districtName } from "../onboarding/hkDistricts";
+import { getSavedTutors, type SavedTutor } from "../../lib/api";
+
+function slugToName(slug: string): string {
+  return slug.split("-").filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+}
+function cardName(t: SavedTutor): string {
+  return t.display_name?.trim() || slugToName(t.slug);
+}
+function subtitle(t: SavedTutor): string {
+  const subject = t.categories[0]?.name_en;
+  const key = t.district ? districtKeyFromEnum(t.district) : null;
+  const loc = key ? districtName(key) : t.district ?? "";
+  return [subject, loc].filter(Boolean).join(" · ");
+}
 
 export function SeekerSavedScreen({
   saved,
@@ -19,54 +36,76 @@ export function SeekerSavedScreen({
   onOpenProfile,
 }: {
   saved: Set<string>;
-  onToggleSave: (id: string) => void;
-  onOpenProfile: (id: string) => void;
+  onToggleSave: (slug: string) => void;
+  onOpenProfile: (slug: string) => void;
 }) {
-  const ids = [...saved];
-  const tutors = ids.map((id) => lookupTutor(id));
+  const [cards, setCards] = useState<SavedTutor[] | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    getSavedTutors()
+      .then((list) => {
+        if (!cancelled) setCards(list);
+      })
+      .catch(() => {
+        if (!cancelled) setCards([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Show only cards still in the saved set (so an un-save removes the row at once).
+  const tutors = useMemo(() => (cards ?? []).filter((t) => saved.has(t.slug)), [cards, saved]);
 
   return (
     <>
       <View style={styles.header}>
         <Text style={styles.title}>Saved tutors</Text>
-        {ids.length > 0 && <Text style={styles.count}>{ids.length}</Text>}
+        {saved.size > 0 && <Text style={styles.count}>{saved.size}</Text>}
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-        {tutors.length === 0 ? (
+        {loading && cards === null ? (
+          <View style={styles.stateWrap}>
+            <ActivityIndicator color={C.green} />
+          </View>
+        ) : tutors.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
               <Ionicons name="bookmark-outline" size={34} color={C.green} />
             </View>
             <Text style={styles.emptyTitle}>No saved tutors yet</Text>
             <Text style={styles.emptyBody}>
-              Tap the bookmark on any tutor in your feed or search to keep them here for later.
+              Tap the bookmark on any tutor in your search to keep them here for later.
             </Text>
           </View>
         ) : (
-          tutors.map((t) => (
-            <Pressable key={t.id} onPress={() => onOpenProfile(t.id)} style={styles.row}>
-              <Avatar name={t.name} uri={t.avatarUrl} size={48} />
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          tutors.map((t) => {
+            const name = cardName(t);
+            const sub = subtitle(t);
+            return (
+              <Pressable key={t.slug} onPress={() => onOpenProfile(t.slug)} style={styles.row}>
+                <Avatar name={name} uri={t.avatar_url ?? undefined} size={48} />
+                <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: 14.5, fontWeight: "700", color: C.ink }} numberOfLines={1}>
-                    {t.username}
+                    {name}
                   </Text>
-                  {t.qualified && <Qualified mini />}
+                  {!!sub && (
+                    <Text style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }} numberOfLines={1}>
+                      {sub}
+                    </Text>
+                  )}
                 </View>
-                <Text style={{ fontSize: 13, color: C.ink, marginTop: 1 }} numberOfLines={1}>
-                  {t.name}
-                </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 }}>
-                  <Ionicons name="star" size={13} color={C.gold} />
-                  <Text style={{ fontSize: 12, color: C.muted }} numberOfLines={1}>
-                    {t.stats.rating} · {t.subject} · {t.loc}
-                  </Text>
-                </View>
-              </View>
-              <SaveButton saved onToggle={() => onToggleSave(t.id)} />
-            </Pressable>
-          ))
+                <SaveButton saved onToggle={() => onToggleSave(t.slug)} />
+              </Pressable>
+            );
+          })
         )}
       </ScrollView>
     </>
@@ -90,6 +129,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  stateWrap: { paddingVertical: 48, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingVertical: 56, paddingHorizontal: 24 },
   emptyIcon: {
     width: 72,
