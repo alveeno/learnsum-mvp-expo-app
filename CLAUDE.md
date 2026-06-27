@@ -107,6 +107,47 @@ There are three user types:
   `Linking`) and a **WeChat** button (copies the ID to the clipboard via `expo-clipboard` +
   confirms in an `Alert`), each only when that field is set. (This is the **loop-closing** Tier-1 step. The
   buttons aren't shown on the own-profile/onboarding-review surfaces — only where contacting happens.)
+- **Now wired to real backend data** (a batch added alongside backend migrations 0017–0020, all
+  applied to live Supabase — accurate detail in the backend repo's `FRONTEND_WIRING.md` §3.7/§3.10
+  and `BACKEND_GAP_ANALYSIS.md`):
+  - **Search** — **both** the seeker (`components/seeker/SeekerSearchScreen.tsx`) and tutor
+    (`components/tutor/SearchScreen.tsx`) Search tabs query **`GET /api/tutors`** via `searchTutors`
+    (`lib/api/tutors.ts`), driven by the shared `FilterSheet`. `components/seeker/searchFilters.ts`
+    (`filtersToSearchParams`) maps the sheet's `Filters` → query params: price→rate range, age,
+    lesson mode→`tutoring_format`, districts (names → `hk_district` enum via `districtEnumFromName`),
+    gender (app codes → backend enum). The **rating/years/sessions/followers** sliders have no
+    backend filter, so they're hidden via the sheet's **`hideUnsupported`** prop and ignored. Range
+    filters are only sent when narrowed from the full bounds (an untouched slider never excludes
+    tutors). Results render as `BrowseTutorCard`s.
+  - **Saved** — `components/seeker/savedTutors.ts` is now **backend-backed** (`lib/api/saved.ts`:
+    `GET /api/saved` · `POST /api/saved` · `DELETE /api/saved/[id]`, keyed by tutor **slug**). It's
+    still the shared module-level store (`useSyncExternalStore`) so the Saved tab, search, and the
+    `/tutors/[slug]` route stay in sync, but writes are now **optimistic** (icon flips, then the
+    request runs, reverted on failure) and `hydrateSaved()` loads existing bookmarks once after
+    sign-in (the seeker shell calls it). The sample-data Home feed keeps its **own** local set — only
+    real slugs belong in the backed store.
+  - **Post likes** — wired on the tutor profile post feed (`components/tutor/TutorPostFeed.tsx`) via
+    `lib/api/likes.ts` (`POST` / `DELETE /api/posts/[id]/likes`); the posts feed returns
+    `liked_by_me` per post for initial state, and each like/unlike returns the fresh authoritative
+    `likes_count`. (The **Home** feeds' likes — tutor + seeker — are still local sample state.)
+  - **In-app chat** — a real REST-polling messaging feature (`lib/api/chat.ts`): `GET /api/conversations`,
+    `POST /api/conversations { participant_id }` (start/find a 1:1 thread), `GET`/`POST
+    /api/conversations/[id]/messages` (paginated, newest-first), `PATCH …/messages` (mark read). The
+    backend supports Realtime, but the app **polls** (no Supabase client — it re-fetches on an
+    interval while a screen is open). UI in `components/chat/` (`ChatList.tsx` + `ChatThread.tsx`) and
+    routes `app/messages/index.tsx` + `app/messages/[id].tsx`. **Entry points:** the tutor shell's
+    **Chat tab** (`ChatList` in `app/tutor-home.tsx`), the seeker **Account → Messages** row, and a
+    **"Message"** button on tutor profiles (`TutorProfileContent.tsx` → `startConversation` →
+    `/messages/[id]`; falls back to a "log in to message" alert for the sample tutors that have no
+    real account id).
+  - **Per-subject teaching levels** — the tutor's chosen levels are now sent **per subject** in the
+    onboarding payload (`tutorOnboardingPayload.ts`) and the tutor-subjects edit (`tutorEditStore.ts`);
+    backend migration 0020 stores them on `tutor_subcategories.levels`.
+  - `lib/api/client.ts` now sends an **`ngrok-skip-browser-warning: true`** header so dev tunnels
+    return JSON instead of ngrok's browser-warning HTML (harmless on non-ngrok hosts).
+- **Still sample data (deliberate "leave Home as-is" decision):** only the **seeker Home feed**
+  (`components/seeker/SeekerFeedScreen.tsx`) and its like/save, plus the **tutor Home feed**
+  (`FeedScreen`) — there's no post-stream endpoint (`getFeed` returns tutor *cards*, not posts).
 
 ## Design system
 
@@ -133,8 +174,9 @@ File-based routes (Expo Router). Route map:
 | Route            | Purpose |
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
-| `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built** (front-end only — see "Tutor app shell" below) |
-| `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Account). **Built** (front-end only, sample data — see "Seeker app shell" below). Student/parent land here after onboarding/login |
+| `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built**; **Search + Chat are now backend-wired**, Home stays sample data, Analytics is a paywall mock — see "Tutor app shell" below |
+| `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Account). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
+| `/messages`, `/messages/[id]` | **In-app chat** — conversation list + thread, REST-polling (`lib/api/chat.ts` → `/api/conversations*`). **Built** (real backend). Reached from the tutor Chat tab, the seeker Account → Messages row, and the "Message" button on a tutor profile |
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat) — **built** (real shareable route; reuses the shared `TutorProfileContent`; the seeker shell pushes into it; sample-data fallback when the slug isn't a real tutor) |
 | `/search`        | Standalone seeker search route — **→ Todo** as a *standalone* route, but a **Search tab + Quick Match card is built inside the `/feed` seeker shell** (and a tutor Search tab inside `/tutor-home`) |
 | `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab is in `/tutor-home`; a seeker **Account** tab is in `/feed`) |
@@ -289,10 +331,9 @@ at it to log in for real). **From the welcome screen the login now routes by rol
 `/tutor-home` (tutor-only surfaces). The social buttons and "Forgot password?" stay inert, and
 there's no standalone `/auth` login route yet.
 
-**No dedicated messaging screen** (in-app chat is **→ Todo**). Contact happens via **WhatsApp +
-WeChat** buttons on the tutor profile (both optional, either or both) — **Instagram was dropped**
-(a product decision; the old design mentioned it). There is no `/messages` route and **no inquiry
-form**.
+**In-app chat is now built** (`/messages` routes + `lib/api/chat.ts`, REST-polling — see "Wired so
+far"). Tutor-profile **WhatsApp + WeChat** buttons (both optional, either or both — **Instagram was
+dropped**, a product decision) remain the *off-app* contact path; there's still **no inquiry form**.
 
 ## Tutor app shell (`/tutor-home`)
 
@@ -308,10 +349,12 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   count and "view all comments" were removed; likes stay. The feed cards are **sample data**, but
   the header **"+"** is now live: registered tutors open the **post composer** (`app/post-new.tsx`);
   unregistered ones hit the auth gate. (Adding a **story** is still a stub — stories aren't backed.)
-- **Search** (`SearchScreen` + `FilterSheet`) — text search over a sample directory, trending
-  tags, recent searches, and an advanced filter sheet (gesture-driven dual sliders, HK
-  district discs, gender, rating/years/sessions/followers).
-- **Chat** (`ChatScreen`) — conversation list + thread with a composer.
+- **Search** (`SearchScreen` + `FilterSheet`) — **now queries `GET /api/tutors`** (real results),
+  with trending tags, recent searches, and the advanced filter sheet (gesture-driven dual sliders,
+  HK district discs, gender; the rating/years/sessions/followers sliders are hidden via
+  `hideUnsupported` — no backend filter). See "Wired so far".
+- **Chat** (`ChatList`) — **now backend-wired** (REST-polling): the conversation list, opening a
+  thread at `/messages/[id]` (`ChatThread`). See "Wired so far".
 - **Analytics** (`AnalyticsScreen`) — Premium paywall over a dimmed dashboard; "Upgrade"
   reveals it locally.
 - **Profile** (`ProfileScreen`) — own profile, **dimmed behind a "Set up your profile" gate**
@@ -335,8 +378,10 @@ for a clean slate, then returns to the welcome screen, so a fresh signup re-runs
 scratch. Real auth / session persistence is otherwise wired (SecureStore); a refresh-token flow is
 still **→ Todo**.
 
-**Caveats (prototype):** front-end only — no backend, no real messaging, no real payment.
-**English-only** (not yet wired into i18n — unlike the rest of the app). The **blur/paywall and
+**Caveats (prototype):** **Search + Chat are now backend-wired** (real `/api/tutors` results + real
+REST-polling messaging — see "Wired so far"); what remains front-end only is the **Home feed**
+(sample posts) and the **Analytics/Premium** tab (no real payment). **English-only** (not yet wired
+into i18n — unlike the rest of the app). The **blur/paywall and
 gate now use real `expo-blur`**, and accent surfaces (setup banner/card, story rings, paywall
 button) use **real `expo-linear-gradient`** — these were flat-colour/opacity approximations before
 the native batch. Story items + the setup banner use a Reanimated **`PressableScale`** (press
@@ -344,33 +389,35 @@ spring + haptic), and every shared `Button` fires a light haptic. **Sound effect
 (`components/ui/sound.ts` via `expo-audio` — already in the build): a sound rides with the button
 tap, the like pop, and success/error, plus a per-icon "pop" on the onboarding category/subject grid
 cascade. The clips live in `assets/sounds/` (`tap/like/success/error/pop.mp3`) and are wired in
-`sound.ts`. Lottie is still deferred pending assets. The Chat and Premium/payments tabs exist here only as UI from the
-design and are **not wired to a backend yet** (see the Todo list).
+`sound.ts`. Lottie is still deferred pending assets. The **Premium/payments** tab (Analytics) is
+still UI-only — **not wired to a backend** (see the Todo list); the Chat tab **is** wired now.
 
 ## Seeker app shell (`/tutor-home`'s student/parent counterpart — `/feed`)
 
 The student/parent landing after onboarding/login (`app/feed.tsx`), in `components/seeker/`.
 Mirrors the tutor shell: a single stateful controller with a custom bottom tab bar switching four
-tabs. Front-end only, **sample data** (reuses the tutor `DIRECTORY` / `TUTORS`), **English-only**
-like the tutor shell.
+tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wired**; only the
+**Home feed** is still sample data.
 
 - **Home** (`SeekerFeedScreen`) — Instagram-style vertical **post feed** (reuses the tutor
   `feedUi` post-card primitives): a stories row, post cards with **like + Save** (no tutor-only
-  "complete profile" banner or "+" composer), and a "Recommended for you" strip.
-- **Search** (`SeekerSearchScreen` + the shared `FilterSheet`) — text + advanced filters over the
-  sample directory, trending tags, recent views, and a gold **Quick Match** card on top
-  (`quickMatch.ts`: reads the seeker's onboarding picks — subject/district — and surfaces the single
-  best-fit tutor with a "why" line; falls back to top-rated). Its filters **persist across restarts**
-  (`filterStorage.ts` → AsyncStorage).
-- **Saved** (`SeekerSavedScreen`) — bookmarked tutors. The Save state is a shared in-memory store
-  (`savedTutors.ts`, `useSyncExternalStore`) so the tab and the public profile route stay in sync.
-- **Account** (`SeekerAccountScreen`) — language switch (the real `LanguagePicker`), a "Become a
-  tutor" link to `/tutor-home`, and log out.
+  "complete profile" banner or "+" composer), and a "Recommended for you" strip. **Still sample
+  data** (no post-stream endpoint — see "Wired so far").
+- **Search** (`SeekerSearchScreen` + the shared `FilterSheet`) — **now queries `GET /api/tutors`**
+  (real results) with the advanced filters, trending tags, recent views, and a gold **Quick Match**
+  card on top (`quickMatch.ts`: reads the seeker's onboarding picks — subject/district — and
+  surfaces the single best-fit tutor with a "why" line; falls back to top-rated). Its filters
+  **persist across restarts** (`filterStorage.ts` → AsyncStorage).
+- **Saved** (`SeekerSavedScreen`) — bookmarked tutors, **now backend-backed** (`savedTutors.ts` →
+  `/api/saved`). Still a shared store (`useSyncExternalStore`) so the tab, search, and the public
+  profile route stay in sync, with optimistic writes; `hydrateSaved()` loads bookmarks after sign-in.
+- **Account** (`SeekerAccountScreen`) — a **Messages** row (→ `/messages`, the in-app chat),
+  language switch (the real `LanguagePicker`), a "Become a tutor" link to `/tutor-home`, and log out.
 
 Tapping any tutor pushes the **public `/tutors/[slug]` route** (the tab bar hides while viewing,
-returns on back). Likes are local session state; Save is the seeker's primary action (no
-tutor-style "Connect"). Real backend data + i18n are a later pass (the `getFeed` endpoint returns
-tutor *cards*, not a post stream, so the feed stays sample data).
+returns on back). Home-feed likes are local session state; Save is the seeker's primary action (no
+tutor-style "Connect"). i18n for this shell is a later pass; the **Home feed** stays sample data (the
+`getFeed` endpoint returns tutor *cards*, not a post stream).
 
 ## Architecture decisions
 
@@ -383,7 +430,8 @@ tutor *cards*, not a post stream, so the feed stays sample data).
   or both (**Instagram was dropped**). WhatsApp pre-fills `Hi, I found you on LearnSum and I'm
   interested in tutoring for [subject].` (the subject is the profile's first subject, omitted if
   none); WeChat has no deep link, so its button copies the ID to the clipboard + confirms. **No
-  inquiry form. No in-app messaging** (the Chat tab in `/tutor-home` is UI-only — see the Todo list).
+  inquiry form.** In-app messaging **is now built** (`/messages`, REST-polling — see "Wired so far"):
+  a **"Message"** button on tutor profiles starts a conversation, alongside the off-app WhatsApp/WeChat.
 - **Home feed:** personalized weighted matching for seekers (subject > availability > price
   > language > district; per child for parents); **guests** get the latest published tutors
   (`created_at` DESC, unfiltered).
@@ -392,7 +440,8 @@ tutor *cards*, not a post stream, so the feed stays sample data).
 - **Auth is required for:** posting content, profile editing / account deletion, and saving
   filter preferences. In the `/tutor-home` shell (front-end mock) unregistered users are **also**
   gated on engagement — like, connect, advanced filters, create post, add story — via the
-  `/auth/gate` screen. **Notifications and chat aren't built** (see the Todo list).
+  `/auth/gate` screen. **Chat is built** (real REST-polling messaging); **notifications aren't**
+  (see the Todo list).
 
 ## Onboarding state & persistence
 
@@ -531,9 +580,10 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   `/auth/*` routes, **social login** (only Google is configured on Supabase), and a **refresh-token
   flow** for truly long-lived sessions (only the ~1h access token is stored today, so a cold start
   after expiry logs out).
-- **DONE (front-end, sample data):** the seeker **`/feed`** is now an Instagram-style post-feed app
-  shell (Home / Search / Saved / Account). Still Todo: a **real** personalized post feed from the
-  backend (no post-stream endpoint yet — `getFeed` returns tutor cards, not posts).
+- **DONE:** the seeker **`/feed`** is an Instagram-style post-feed app shell (Home / Search / Saved /
+  Account), with **Search + Saved now backend-wired** (`GET /api/tutors`, `/api/saved`). Still Todo:
+  a **real** personalized post feed for the **Home** tab (no post-stream endpoint yet — `getFeed`
+  returns tutor cards, not posts — so Home stays sample data by decision).
 - Tutor **profile-completion** screen — bio, photo, WhatsApp / WeChat + remaining
   details — plus explicit **publish / self-unpublish**.
 
@@ -562,24 +612,32 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 - **DONE:** **Saved filter preferences** — the seeker Search tab's advanced filters now persist
   across sessions (`components/seeker/filterStorage.ts` → AsyncStorage; restored on mount, saved on
   apply).
+- **DONE:** **Search, Saved, post likes, and in-app chat are wired to the backend** (a batch
+  alongside backend migrations 0017–0020). Both Search tabs query `GET /api/tutors`; Saved is backed
+  by `/api/saved`; tutor-profile post likes use `/api/posts/[id]/likes`; chat (`/messages`) polls
+  `/api/conversations*`. See "Wired so far" for the full breakdown.
 
 **`/tutor-home` shell — front-end only today, needs backend**
 
-- **Chat / in-app messaging** — the Chat tab is UI-only (no messaging backend).
+- **DONE: Chat / in-app messaging** — the Chat tab (and `/messages` routes) are now wired to a real
+  REST-polling backend (`lib/api/chat.ts` → `/api/conversations*`). See "Wired so far".
 - **Premium / in-app payments** — the Analytics tab shows a paywall UI only (no real payment).
 - **Posts** — creating a post (**text + photo/video**) + the own **Posts list** are wired (`POST` /
   `GET /api/tutors/[slug]/posts` + `POST /api/upload`, `lib/api/posts.ts` / `lib/api/upload.ts`).
-  Still Todo: real-device **HEIC** photos need `expo-image-manipulator` conversion (Simulator yields
-  jpeg/png so it's fine), and a real **multi-tutor home feed** of posts (no post-stream endpoint
-  yet — that's the deferred seeker browse surface, so
-  the Home tab stays sample data). Post **likes** have no endpoint yet (display-only).
-- Replace the prototype sample data and **English-only copy** with live data + i18n (the rest of
-  the app is already trilingual).
+  **Post likes are now wired on the tutor profile post feed** (`/api/posts/[id]/likes`,
+  `lib/api/likes.ts`). Still Todo: real-device **HEIC** photos need `expo-image-manipulator`
+  conversion (Simulator yields jpeg/png so it's fine), and a real **multi-tutor home feed** of posts
+  (no post-stream endpoint yet — that's the deferred seeker browse surface, so the Home tab stays
+  sample data; the Home feeds' likes are still local sample state).
+- Replace the **remaining** prototype sample data (the Home feeds) and **English-only copy** with
+  live data + i18n (the rest of the app is already trilingual). Search, Saved, likes, and chat are
+  **already on live data**.
 
 **Deferred by design (may stay out)**
 
 - Push notifications **and** in-app notifications (no `/notifications`).
-- Post **likes** UI is front-end only (schema on the backend). **Comments were removed** from
+- Post **likes** are **wired on the tutor profile post feed** (`/api/posts/[id]/likes`); the
+  **Home** feeds' likes (tutor + seeker) are still local sample state. **Comments were removed** from
   the tutor feed — the `Comment` type and sample `comments` data remain in `tutorData.ts` but
   nothing renders them.
 - **Inquiry form** — contact is WhatsApp / WeChat instead.
