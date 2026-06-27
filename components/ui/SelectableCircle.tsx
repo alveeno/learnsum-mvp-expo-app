@@ -7,10 +7,10 @@ import {
   type TextStyle,
   type ViewStyle,
 } from "react-native";
-import { useEffect, type ComponentType, type ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
 
-import { playPop } from "./sound";
+import { playPop, playTap } from "./sound";
 
 /**
  * Reusable "grey circle that fills with a colour when selected" used by the
@@ -61,6 +61,7 @@ const SELECTED_ICON = "#FFFFFF"; // white glyph once filled
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const ENTRANCE_SPRING = { damping: 13, stiffness: 200, mass: 0.6 };
+const PRESS_SPRING = { damping: 16, stiffness: 360, mass: 0.45 };
 
 export function SelectableCircle({
   label,
@@ -85,9 +86,13 @@ export function SelectableCircle({
   // is only applied (and the timer only set) when entranceDelay is given.
   const animate = typeof entranceDelay === "number" && entranceDelay >= 0;
   const progress = useSharedValue(animate ? 0 : 1);
+  const pressScale = useSharedValue(1);
   const enterStyle = useAnimatedStyle(() => ({
     opacity: progress.value,
     transform: [{ scale: 0.6 + 0.4 * progress.value }],
+  }));
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pressScale.value }],
   }));
   useEffect(() => {
     if (!animate) return;
@@ -110,14 +115,23 @@ export function SelectableCircle({
 
   const showBadge = typeof badge === "number" && badge > 0;
 
-  // Use the Reanimated Pressable only when animating in, so non-cascade usages
-  // (format / language / day grids, education level) are untouched.
-  const Root = (animate ? AnimatedPressable : Pressable) as ComponentType<Record<string, unknown>>;
-
   return (
-    <Root
-      style={animate ? [wrapperStyle, enterStyle] : wrapperStyle}
-      onPress={onPress}
+    <AnimatedPressable
+      style={animate ? [wrapperStyle, enterStyle, pressStyle] : [wrapperStyle, pressStyle]}
+      onPressIn={() => {
+        pressScale.value = withSpring(0.92, PRESS_SPRING);
+      }}
+      onPressOut={() => {
+        pressScale.value = withSpring(1, PRESS_SPRING);
+      }}
+      onPress={
+        onPress
+          ? () => {
+              playTap();
+              onPress();
+            }
+          : undefined
+      }
       disabled={!onPress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel ?? label}
@@ -135,7 +149,7 @@ export function SelectableCircle({
         ) : null}
       </View>
       <Text style={[styles.label, labelStyle]}>{label}</Text>
-    </Root>
+    </AnimatedPressable>
   );
 }
 

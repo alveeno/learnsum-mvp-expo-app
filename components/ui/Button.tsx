@@ -10,7 +10,6 @@ import {
 import type { ReactNode } from "react";
 
 import { tapLight } from "./feedback";
-import { playTap } from "./sound";
 
 /**
  * Reusable pill-shaped button using the LearnSum design tokens.
@@ -90,7 +89,6 @@ export function Button({
         onPress
           ? () => {
               tapLight(); // subtle tactile feedback on every button tap
-              playTap(); // …with a matching tap sound
               onPress();
             }
           : undefined

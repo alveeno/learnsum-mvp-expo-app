@@ -25,7 +25,7 @@ import { getStored, setStored } from "../onboarding/onboardingStore";
  *
  * Reads `GET /api/auth/me` (profile + tutor_profile + subjects + languages) and
  * `GET /api/availability`, and writes the same store keys the onboarding screens
- * read (TutorAbout / TutorTeachLevels / TutorCatSel / TutorSD / TutorPrefs).
+ * read (TutorAbout / TutorCatSel / TutorSD / TutorPrefs).
  * Mirrors the shapes in tutorOnboardingPayload.ts (the reverse direction).
  */
 
@@ -37,6 +37,7 @@ type Detail = {
   years: string;
   pay: number;
   format: "in_person" | "online" | "both";
+  levels: string[];
   districts: string[];
   achievements: string[];
   experiences: unknown[];
@@ -58,6 +59,7 @@ const DEFAULT_SAVE_DETAIL: Detail = {
   years: "0",
   pay: 0,
   format: "both",
+  levels: [],
   districts: [],
   achievements: [],
   experiences: [],
@@ -73,6 +75,8 @@ interface RawSubject {
   achievements?: unknown;
   qualifications?: unknown;
   experience?: unknown;
+  teaching_levels?: string[] | null;
+  levels?: string[] | null;
   subcategories?: {
     name_en?: string | null;
     slug?: string | null;
@@ -94,6 +98,8 @@ interface RawTutorDetail {
 
 const isFormat = (v: unknown): v is Detail["format"] =>
   v === "in_person" || v === "online" || v === "both";
+
+const VALID_LEVELS = new Set(["kindergarten", "primary", "middle", "high", "university", "adult"]);
 
 // Backend gender_type → the app's TutorAbout gender keys.
 const GENDER_TO_APP: Record<string, string> = {
@@ -124,6 +130,24 @@ function normEdu(education: unknown): EduByLevel {
     secondary: e.secondary ?? [],
     university: e.university ?? [],
   };
+}
+
+function normLevels(value: unknown, fallback: string[] = []): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return [...new Set(value.filter((x): x is string => typeof x === "string" && VALID_LEVELS.has(x)))];
+}
+
+function deriveTeachingLevels(
+  interests: Interest[],
+  details: Record<string, Detail>,
+  fallback: string[],
+): string[] {
+  const levels = new Set<string>();
+  for (const it of interests) {
+    const d = details[`${it.catId}:${it.subId}`];
+    for (const level of d?.levels ?? []) if (VALID_LEVELS.has(level)) levels.add(level);
+  }
+  return levels.size > 0 ? [...levels] : fallback;
 }
 
 // Split a stored full_name/display_name back into first + last for TutorAbout.
@@ -160,8 +184,8 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
   setStored<EduByLevel>("tutor:about:eduByLevel", normEdu(tp.education));
   setStored<string>("tutor:about:avatarUrl", typeof me.profile.avatar_url === "string" ? me.profile.avatar_url : "");
 
-  // --- TutorTeachLevels: the teaching-levels Set ---
-  const levels = Array.isArray(tp.teaching_levels) ? tp.teaching_levels : [];
+  // --- Compatibility: top-level teaching levels from the current backend ---
+  const levels = normLevels(tp.teaching_levels);
   setStored<Set<string>>("tutor:levels", new Set(levels));
 
   // --- TutorCatSel + TutorSD: interests + per-subject details ---
@@ -183,6 +207,7 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
       years: String(sub.years_experience ?? "0"),
       pay: sub.hourly_rate_min ?? 0,
       format: isFormat(sub.format) ? sub.format : "both",
+      levels: normLevels(sub.teaching_levels ?? sub.levels, levels),
       districts: Array.isArray(sub.districts)
         ? sub.districts.map(districtKeyFromEnum).filter((k): k is string => !!k)
         : [],
@@ -287,9 +312,13 @@ export async function saveTutorEdits(): Promise<void> {
   const wechat = getStored<string>("tutor:about:wechat", "").trim();
   const avatarUrl = getStored<string>("tutor:about:avatarUrl", "").trim();
   const eduByLevel = getStored<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU);
-  const levels = [...getStored<Set<string>>("tutor:levels", new Set<string>())];
   const interests = getStored<Interest[]>("tutor:interests", []).filter((it) => it.catId && it.subId);
   const details = getStored<Record<string, Detail>>("tutor:sd:details", {});
+  const levels = deriveTeachingLevels(
+    interests,
+    details,
+    [...getStored<Set<string>>("tutor:levels", new Set<string>())],
+  );
   const prefs = getStored<Prefs | null>("tutor:prefs", null);
   const slug = getStored<string>("tutor:slug", "");
 

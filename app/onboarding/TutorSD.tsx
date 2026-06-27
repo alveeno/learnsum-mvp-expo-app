@@ -21,6 +21,7 @@ import {
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
+import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { DistrictPicker } from "../../components/onboarding/DistrictPicker";
 import { districtName } from "../../components/onboarding/hkDistricts";
 import { getStored, usePersistentState } from "../../components/onboarding/onboardingStore";
@@ -60,6 +61,7 @@ import { subIconFor, type Interest } from "./StudentCatSel";
  */
 
 type Subject = { id: string; label: string; catId: string; color: string };
+type LevelKey = "kindergarten" | "primary" | "middle" | "high" | "university" | "adult";
 type Qualification = {
   type?: string;
   detail?: string;
@@ -79,6 +81,7 @@ type Detail = {
   years: string;
   pay: number;
   format: FormatId;
+  levels: string[];
   /** Chosen districts ("<regionId>:<District Name>"); only used for in-person / both. */
   districts: string[];
   achievements: string[];
@@ -120,6 +123,7 @@ const DEFAULT_DETAIL: Detail = {
   years: "0",
   pay: 300,
   format: "both",
+  levels: [],
   districts: [],
   achievements: [],
   experiences: [],
@@ -143,6 +147,14 @@ const LEVEL_KEYS: Record<string, TranslationKey> = {
   university: "level.university",
   adult: "level.adult",
 };
+const LEVEL_OPTIONS: { key: LevelKey; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "kindergarten", icon: "happy" },
+  { key: "primary", icon: "pencil" },
+  { key: "middle", icon: "book" },
+  { key: "high", icon: "school" },
+  { key: "university", icon: "library" },
+  { key: "adult", icon: "briefcase" },
+];
 
 const FORMAT_KEYS: Record<FormatId, TranslationKey> = {
   in_person: "format.in_person",
@@ -323,6 +335,49 @@ function Select({
         </ScrollView>
       </BottomSheet>
     </>
+  );
+}
+
+function LevelPicker({
+  value,
+  onChange,
+}: {
+  value: string[];
+  onChange: (levels: string[]) => void;
+}) {
+  const t = useT();
+  const selected = new Set(value ?? []);
+  const toggle = (key: LevelKey) => {
+    const next = new Set(selected);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onChange(LEVEL_OPTIONS.filter((level) => next.has(level.key)).map((level) => level.key));
+  };
+
+  return (
+    <View style={styles.levelPickGrid}>
+      {LEVEL_OPTIONS.map((level) => {
+        const label = t(LEVEL_KEYS[level.key]);
+        const on = selected.has(level.key);
+        return (
+          <SelectableCircle
+            key={level.key}
+            style={styles.levelPickItem}
+            label={label}
+            selected={on}
+            color="#2D6A4F"
+            size={58}
+            iconSize={24}
+            labelStyle={styles.levelPickLabel}
+            onPress={() => toggle(level.key)}
+            accessibilityLabel={`${label}${on ? ", selected" : ""}`}
+            renderIcon={({ size, color }) => (
+              <Ionicons name={level.icon} size={size} color={color} />
+            )}
+          />
+        );
+      })}
+    </View>
   );
 }
 
@@ -638,7 +693,9 @@ function DetailCard({
   }, [open, rise]);
 
   const n = detail.quals.length;
+  const levelCount = (detail.levels ?? []).length;
   const summary = [
+    levelCount ? `${levelCount} level${levelCount > 1 ? "s" : ""}` : "Choose levels",
     detail.years !== "0" ? `${detail.years} yr` : null,
     n ? `${n} qual${n > 1 ? "s" : ""}` : null,
   ]
@@ -677,6 +734,17 @@ function DetailCard({
             },
           ]}
         >
+          {/* Teaching levels are per subject: a tutor might teach primary
+              Maths but only senior-secondary Physics. */}
+          <FieldLabel icon="school">Teaching levels for this subject</FieldLabel>
+          <Text style={styles.levelHelper}>
+            Pick every student level you are comfortable teaching for {subject.label}.
+          </Text>
+          <LevelPicker
+            value={detail.levels ?? []}
+            onChange={(levels) => onPatch({ levels })}
+          />
+
           {/* Years of teaching experience */}
           <FieldLabel icon="schedule">{t("sd.field.years")}</FieldLabel>
           <View style={styles.wheelCard}>
@@ -875,8 +943,8 @@ function DetailCard({
 // ---- screen -----------------------------------------------------------------
 
 export default function TutorSD() {
-  // Subjects + teaching levels come from the shared store (saved by TutorCatSel
-  // and TutorTeachLevels), not route params — so this screen also renders when
+  // Subjects come from the shared store (saved by TutorCatSel), not route
+  // params — so this screen also renders when
   // it's jumped into directly during a "resume the skipped steps" pass.
   const subjects = useMemo<Subject[]>(() => {
     const arr = getStored<Interest[]>("tutor:interests", []);
@@ -889,12 +957,6 @@ export default function TutorSD() {
         color: it.color ?? "#2D6A4F",
       }));
   }, []);
-
-  const levels = useMemo<string[]>(
-    () => [...getStored<Set<string>>("tutor:levels", new Set<string>())],
-    [],
-  );
-  const hasHighUni = levels.includes("high") && levels.includes("university");
 
   // Per-subject details, keyed by "<catId>:<subId>". Persisted so leaving this
   // screen (e.g. to add a missing subject upstream) and returning keeps every
@@ -915,27 +977,32 @@ export default function TutorSD() {
   const t = useT();
 
   const keyOf = (s: Subject) => `${s.catId}:${s.id}`;
-  const getDetail = (key: string) => details[key] ?? DEFAULT_DETAIL;
+  const getDetail = (key: string) => ({ ...DEFAULT_DETAIL, ...(details[key] ?? {}) });
   const patch = (key: string, partial: Partial<Detail>) =>
     setDetails((prev) => ({
       ...prev,
-      [key]: { ...(prev[key] ?? DEFAULT_DETAIL), ...partial },
+      [key]: { ...DEFAULT_DETAIL, ...(prev[key] ?? {}), ...partial },
     }));
 
   const academic = subjects.filter((s) => s.catId === "academics");
-  const completed = academic.filter((s) =>
+  const academicNeedingProof = academic.filter((s) => {
+    const levels = getDetail(keyOf(s)).levels ?? [];
+    return levels.includes("high") || levels.includes("university");
+  });
+  const completed = academicNeedingProof.filter((s) =>
     getDetail(keyOf(s)).quals.some((q) => !!q.type),
   ).length;
-  const allDone = academic.length > 0 && completed === academic.length;
-  const showBanner = hasHighUni && academic.length > 0;
-  const missing = hasHighUni && academic.length > 0 && completed < academic.length;
+  const allDone = academicNeedingProof.length > 0 && completed === academicNeedingProof.length;
+  const showBanner = academicNeedingProof.length > 0;
+  const missing = academicNeedingProof.length > 0 && completed < academicNeedingProof.length;
 
   const openFirstIncompleteAcademic = () => {
-    const target = academic.find(
+    const target = academicNeedingProof.find(
       (s) => !getDetail(keyOf(s)).quals.some((q) => !!q.type),
     );
     if (target) setOpenKey(keyOf(target));
   };
+  const firstMissingLevels = subjects.find((s) => (getDetail(keyOf(s)).levels ?? []).length === 0);
 
   const firstTimeNext = () => router.push("/onboarding/TutorPrefs");
   // Confirm on the review = completing this step; Skip advances without it.
@@ -947,15 +1014,15 @@ export default function TutorSD() {
     setView("details");
   };
   const onContinue = () => {
+    if (firstMissingLevels) {
+      setOpenKey(keyOf(firstMissingLevels));
+      return;
+    }
     if (missing) setModal(true);
     else goReview();
   };
 
   if (view === "review") {
-    const levelsText =
-      levels.length > 0
-        ? levels.map((k) => (LEVEL_KEYS[k] ? t(LEVEL_KEYS[k]) : k)).join(", ")
-        : t("common.notSet");
     return (
       <SafeAreaView style={styles.safeArea}>
         {/* Disable the iOS swipe-from-edge "back" gesture on this screen so it
@@ -983,10 +1050,6 @@ export default function TutorSD() {
         >
           <Text style={styles.h1}>{t("sd.review.title")}</Text>
           <Text style={styles.sub}>{t("sd.review.subtitle")}</Text>
-          <Text style={styles.levelsLine}>
-            <Text style={styles.levelsLabel}>{t("sd.review.teaches")}</Text>
-            {levelsText}
-          </Text>
 
           <View style={styles.cardsWrap}>
             {subjects.map((s) => {
@@ -995,6 +1058,9 @@ export default function TutorSD() {
               const achievements = d.achievements.filter((a) => a.trim().length > 0);
               const quals = d.quals.filter((q) => !!q.type);
               const payText = d.pay >= PAY_MAX ? "$3000+" : `$${d.pay}`;
+              const levelLines = (d.levels ?? []).map((level) =>
+                LEVEL_KEYS[level] ? t(LEVEL_KEYS[level]) : level,
+              );
               return (
                 <View key={key} style={styles.card}>
                   <View style={styles.cardHeader}>
@@ -1011,6 +1077,7 @@ export default function TutorSD() {
                     </TouchableOpacity>
                   </View>
                   <View style={styles.revBody}>
+                    <RevSection label="Teaching levels" lines={levelLines} />
                     <RevSection
                       label={t("sd.field.years")}
                       lines={[
@@ -1080,6 +1147,9 @@ export default function TutorSD() {
       >
         <Text style={styles.h1}>{t("sd.title")}</Text>
         <Text style={styles.sub}>{t("sd.subtitle")}</Text>
+        <Text style={styles.levelsNotice}>
+          Choose teaching levels inside each subject before you review.
+        </Text>
 
         {showBanner ? (
           <View style={[styles.banner, allDone ? styles.bannerGreen : styles.bannerGold]}>
@@ -1094,7 +1164,7 @@ export default function TutorSD() {
               </Text>
             </View>
             <Text style={styles.bannerProgress}>
-              {t("sd.banner.progress", { completed, total: academic.length })}
+              {t("sd.banner.progress", { completed, total: academicNeedingProof.length })}
             </Text>
             {!allDone ? (
               <TouchableOpacity
@@ -1204,6 +1274,7 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 18, paddingBottom: 24 },
   h1: { marginTop: 6, fontSize: 28, fontWeight: "700", letterSpacing: -0.5, color: "#16201C" },
   sub: { marginTop: 6, fontSize: 15, color: "#6B7280", lineHeight: 21 },
+  levelsNotice: { marginTop: 10, fontSize: 13.5, fontWeight: "700", color: "#2D6A4F", lineHeight: 19 },
 
   banner: { marginTop: 16, padding: 14, borderRadius: 18 },
   bannerGreen: { backgroundColor: "#E8F1ED" },
@@ -1239,8 +1310,6 @@ const styles = StyleSheet.create({
   cardSummary: { fontSize: 12.5, color: "#6B7280", marginTop: 1 },
   expanded: { paddingHorizontal: 16, paddingBottom: 18 },
 
-  levelsLine: { marginTop: 12, fontSize: 14, color: "#16201C" },
-  levelsLabel: { fontWeight: "700" },
   revName: { flex: 1 },
   revEdit: { flexDirection: "row", alignItems: "center", gap: 3 },
   revEditText: { color: "#2D6A4F", fontSize: 13.5, fontWeight: "700" },
@@ -1258,6 +1327,16 @@ const styles = StyleSheet.create({
 
   fieldLabel: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 18, marginBottom: 8 },
   fieldLabelText: { fontSize: 13.5, fontWeight: "700", color: "#16201C" },
+  levelHelper: { marginTop: -2, marginBottom: 12, fontSize: 12.5, lineHeight: 18, color: "#6B7280" },
+  levelPickGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    rowGap: 14,
+    paddingVertical: 2,
+  },
+  levelPickItem: { width: "31%" },
+  levelPickLabel: { marginTop: 7, fontSize: 11.5, lineHeight: 14 },
 
   // Location header: the field label on the left, "Same as previous" on the right.
   locHeaderRow: {

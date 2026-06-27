@@ -51,6 +51,7 @@ export type Detail = {
   years: string;
   pay: number;
   format: FormatId;
+  levels: string[];
   /** District DISPLAY names (already resolved by the caller). */
   districts: string[];
   achievements: string[];
@@ -78,6 +79,7 @@ export const DEFAULT_DETAIL: Detail = {
   years: "0",
   pay: 300,
   format: "both",
+  levels: [],
   districts: [],
   achievements: [],
   experiences: [],
@@ -131,14 +133,14 @@ const LANG_LABEL: Record<string, string> = {
 const LANG_ORDER = ["cantonese", "mandarin", "english"];
 const FLUENCY = [null, "Beginner", "Intermediate", "Advanced", "Fluent"] as const;
 
-const LEVEL_TRACK: { key: string; label: string }[] = [
-  { key: "kindergarten", label: "KG" },
-  { key: "primary", label: "Primary" },
-  { key: "middle", label: "Jr Sec" },
-  { key: "high", label: "Sr Sec" },
-  { key: "university", label: "Uni" },
-  { key: "adult", label: "Adult" },
-];
+const LEVEL_LABEL: Record<string, string> = {
+  kindergarten: "KG",
+  primary: "Primary",
+  middle: "Jr Sec",
+  high: "Sr Sec",
+  university: "Uni",
+  adult: "Adult",
+};
 
 type EduItem = {
   name: string;
@@ -341,6 +343,9 @@ function SubjectCard({
   const quals = detail.quals.filter((q) => !!q.type);
   const achievements = detail.achievements.filter((a) => a.trim().length > 0);
   const experiences = detail.experiences.filter((e) => e.text.trim().length > 0);
+  const taughtLevels = (detail.levels ?? [])
+    .map((level) => LEVEL_LABEL[level] ?? level)
+    .filter(Boolean);
 
   const qualViews = quals.map(qualView);
   const gradeTiles = qualViews.filter((v): v is { big: string; label: string; line: string } => !!v.big);
@@ -389,6 +394,19 @@ function SubjectCard({
             <View style={styles.areaRow}>
               <Ionicons name="location-outline" size={14} color={C.muted} />
               <Text style={styles.areaText}>{areas.join(" · ")}</Text>
+            </View>
+          ) : null}
+
+          {taughtLevels.length > 0 ? (
+            <View style={styles.subjectLevels}>
+              <MaterialIcons name="school" size={15} color={C.greenD} />
+              <View style={styles.subjectLevelPills}>
+                {taughtLevels.map((level) => (
+                  <View key={level} style={styles.subjectLevelPill}>
+                    <Text style={styles.subjectLevelText}>{level}</Text>
+                  </View>
+                ))}
+              </View>
             </View>
           ) : null}
 
@@ -497,9 +515,6 @@ export function ProfileBody({ data }: { data: ProfileBodyData }) {
     return ids.map((id) => ({ id, label: LANG_LABEL[id] ?? id, level: levels[id] ?? 0 }));
   }, [data.langLevels]);
 
-  const levelsSet = useMemo(() => new Set(data.levels), [data.levels]);
-  const hasLevels = LEVEL_TRACK.some((l) => levelsSet.has(l.key));
-
   return (
     <>
       {/* Profile card */}
@@ -594,29 +609,6 @@ export function ProfileBody({ data }: { data: ProfileBodyData }) {
           </View>
         </>
       ) : null}
-
-      {/* Levels taught */}
-      {hasLevels ? (
-        <>
-          <SectionLabel>Levels taught</SectionLabel>
-          <View style={styles.card}>
-            <View style={styles.levelTrack}>
-              <View style={styles.levelLine} />
-              <View style={styles.levelDotsRow}>
-                {LEVEL_TRACK.map((l) => {
-                  const on = levelsSet.has(l.key);
-                  return (
-                    <View key={l.key} style={styles.levelCol}>
-                      <View style={[styles.levelDot, on ? styles.levelDotOn : styles.levelDotOff]} />
-                      <Text style={[styles.levelLabel, on && styles.levelLabelOn]}>{l.label}</Text>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-        </>
-      ) : null}
     </>
   );
 }
@@ -657,6 +649,10 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 13, fontWeight: "700", color: C.greenD },
   areaRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   areaText: { flex: 1, fontSize: 13, color: C.muted, fontWeight: "600" },
+  subjectLevels: { flexDirection: "row", alignItems: "flex-start", gap: 8 },
+  subjectLevelPills: { flex: 1, flexDirection: "row", flexWrap: "wrap", gap: 7 },
+  subjectLevelPill: { backgroundColor: C.greenTint, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5 },
+  subjectLevelText: { fontSize: 12, fontWeight: "800", color: C.greenD },
   statRow: { flexDirection: "row", gap: 10 },
   statTile: { flex: 1, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: C.hairline, borderRadius: 14, paddingVertical: 14, alignItems: "center" },
   statValue: { fontSize: 18, fontWeight: "800", color: C.greenD },
@@ -678,13 +674,4 @@ const styles = StyleSheet.create({
   langLevel: { fontSize: 13, fontWeight: "600", color: C.muted },
   langTrack: { height: 6, borderRadius: 3, backgroundColor: "#E5E7EB", overflow: "hidden" },
   langFill: { height: 6, borderRadius: 3, backgroundColor: C.green },
-  levelTrack: { position: "relative", justifyContent: "center" },
-  levelLine: { position: "absolute", left: "8.33%", right: "8.33%", top: 6, height: 2, backgroundColor: "#E5E7EB" },
-  levelDotsRow: { flexDirection: "row" },
-  levelCol: { flex: 1, alignItems: "center" },
-  levelDot: { width: 14, height: 14, borderRadius: 7, borderWidth: 2 },
-  levelDotOn: { backgroundColor: C.green, borderColor: C.green },
-  levelDotOff: { backgroundColor: "#FFFFFF", borderColor: "#D1D5DB" },
-  levelLabel: { fontSize: 11, color: C.muted, fontWeight: "600", marginTop: 8, textAlign: "center" },
-  levelLabelOn: { color: C.greenD, fontWeight: "800" },
 });

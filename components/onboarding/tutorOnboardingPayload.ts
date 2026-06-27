@@ -7,7 +7,7 @@ import { type FormatId, type Prefs } from "./PreferencesScreen";
  * store, and submit it.
  *
  * Mirrors the store keys/shapes that TutorProfileConfirm reads (TutorAbout /
- * TutorTeachLevels / TutorCatSel / TutorSD / TutorPrefs). The backend re-maps
+ * TutorCatSel / TutorSD / TutorPrefs). The backend re-maps
  * subject slugs → ids and gender aliases, so we send the app's own values.
  *
  * Notes on the mapping decisions:
@@ -29,6 +29,7 @@ type Detail = {
   years: string;
   pay: number;
   format: FormatId;
+  levels?: string[];
   districts: string[];
   achievements: string[];
   experiences: unknown[];
@@ -40,6 +41,7 @@ const DEFAULT_DETAIL: Detail = {
   years: "0",
   pay: 0,
   format: "both",
+  levels: [],
   districts: [],
   achievements: [],
   experiences: [],
@@ -96,11 +98,24 @@ function readStore() {
     lastName: getStored<string>("tutor:about:lastName", "").trim(),
     gender: getStored<string | null>("tutor:about:gender", null),
     eduByLevel: getStored<EduByLevel>("tutor:about:eduByLevel", EMPTY_EDU),
-    levels: [...getStored<Set<string>>("tutor:levels", new Set<string>())],
     interests: getStored<Interest[]>("tutor:interests", []).filter((it) => it.catId && it.subId),
     details: getStored<Record<string, Detail>>("tutor:sd:details", {}),
     prefs: getStored<Prefs | null>("tutor:prefs", null),
+    fallbackLevels: [...getStored<Set<string>>("tutor:levels", new Set<string>())],
   };
+}
+
+function deriveTeachingLevels(
+  interests: Interest[],
+  details: Record<string, Detail>,
+  fallback: string[],
+): string[] {
+  const levels = new Set<string>();
+  for (const it of interests) {
+    const d = details[`${it.catId}:${it.subId}`];
+    for (const level of d?.levels ?? []) levels.add(level);
+  }
+  return levels.size > 0 ? [...levels] : fallback;
 }
 
 export function deriveTutorSlug(): string {
@@ -113,6 +128,7 @@ export function deriveTutorSlug(): string {
 export function buildTutorPayload(slug: string): TutorOnboardingBody {
   const s = readStore();
   const detailFor = (it: Interest) => s.details[`${it.catId}:${it.subId}`] ?? DEFAULT_DETAIL;
+  const levels = deriveTeachingLevels(s.interests, s.details, s.fallbackLevels);
 
   const subjects = s.interests.map((it) => {
     const d = detailFor(it);
@@ -159,7 +175,7 @@ export function buildTutorPayload(slug: string): TutorOnboardingBody {
       slug,
       university,
       format: collapseFormat(subjects.map((x) => x.format)),
-      levels: s.levels,
+      levels,
       education: Object.keys(education).length ? education : null,
       current_studies: currentStudies,
       subjects,

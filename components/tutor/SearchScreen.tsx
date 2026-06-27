@@ -1,61 +1,64 @@
 /**
- * Tutor app — SEARCH (tutors only).
+ * Tutor app — SEARCH (find other tutors), wired to the backend.
  *
- * Ported from `tutor/tutor-search.jsx`. Live text + filter search over the
- * directory, trending tags, recent searches, and the advanced filter sheet.
+ * Queries GET /api/tutors with the FilterSheet's structured filters (price / age /
+ * lesson mode / district / gender → query params). The backend has no free-text
+ * search, so the typed query narrows the fetched cards on-device. Tapping a result
+ * opens that tutor's REAL profile (by slug) — which is where the in-app Message
+ * button lives. The rating/years/sessions/followers sliders are hidden here (no
+ * backend filter — same as the seeker search).
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
-import { Avatar, FollowBtn, Qualified } from "./feedUi";
-import { activeCount, DEF_FILTERS, FilterSheet, passFilters, type Filters } from "./FilterSheet";
-import { C, DIRECTORY, type FullTutor } from "./tutorData";
+import { Avatar, FollowBtn } from "./feedUi";
+import { activeCount, DEF_FILTERS, FilterSheet, type Filters } from "./FilterSheet";
+import { C } from "./tutorData";
+import { filtersToSearchParams } from "../seeker/searchFilters";
+import { districtKeyFromEnum, districtName } from "../onboarding/hkDistricts";
+import { ApiError, searchTutors, type BrowseTutorCard } from "../../lib/api";
 
-const TRENDING = ["#DSEmaths", "#basketballHK", "#IBchemistry", "#phonics", "#examtips"];
+function slugToName(slug: string): string {
+  return slug.split("-").filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
+}
+function cardName(t: BrowseTutorCard): string {
+  return t.display_name?.trim() || slugToName(t.slug);
+}
+function subtitle(t: BrowseTutorCard): string {
+  const subject = t.categories[0]?.name_en;
+  const key = t.district ? districtKeyFromEnum(t.district) : null;
+  const loc = key ? districtName(key) : t.district ?? "";
+  return [subject, loc].filter(Boolean).join(" · ");
+}
 
 function ResultRow({
   t,
-  recent,
   connected,
   onConnect,
   onOpen,
-  onRemove,
 }: {
-  t: FullTutor;
-  recent?: boolean;
+  t: BrowseTutorCard;
   connected: boolean;
   onConnect: () => void;
   onOpen: () => void;
-  onRemove?: () => void;
 }) {
+  const name = cardName(t);
+  const sub = subtitle(t);
   return (
     <Pressable onPress={onOpen} style={styles.row}>
-      <Avatar name={t.name} size={48} />
+      <Avatar name={name} uri={t.avatar_url ?? undefined} size={48} />
       <View style={{ flex: 1, minWidth: 0 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-          <Text style={{ fontSize: 14.5, fontWeight: "700", color: C.ink }} numberOfLines={1}>
-            {t.username}
-          </Text>
-          {t.qualified && <Qualified mini />}
-        </View>
-        <Text style={{ fontSize: 13, color: C.ink, marginTop: 1 }} numberOfLines={1}>
-          {t.name}
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: C.ink }} numberOfLines={1}>
+          {name}
         </Text>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 }}>
-          <Ionicons name="star" size={13} color={C.gold} />
-          <Text style={{ fontSize: 12, color: C.muted }} numberOfLines={1}>
-            {t.stats.rating} · {t.subject} · {t.loc}
+        {!!sub && (
+          <Text style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }} numberOfLines={1}>
+            {sub}
           </Text>
-        </View>
+        )}
       </View>
-      {recent ? (
-        <Pressable onPress={onRemove} hitSlop={8} style={styles.removeBtn}>
-          <Ionicons name="close" size={18} color={C.unselIc} />
-        </Pressable>
-      ) : (
-        <FollowBtn following={connected} onToggle={onConnect} size="sm" />
-      )}
+      <FollowBtn following={connected} onToggle={onConnect} size="sm" />
     </Pressable>
   );
 }
@@ -76,25 +79,35 @@ export function SearchScreen({
   const [q, setQ] = useState("");
   const [filters, setFilters] = useState<Filters>(DEF_FILTERS());
   const [sheet, setSheet] = useState(false);
-  const [recents, setRecents] = useState<string[]>(["chloe", "rachel", "jason"]);
+  const [tutors, setTutors] = useState<BrowseTutorCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  const load = useCallback((f: Filters) => {
+    setLoading(true);
+    setError(false);
+    searchTutors(filtersToSearchParams(f))
+      .then((res) => setTutors(res.tutors))
+      .catch((e) => {
+        setError(e instanceof ApiError);
+        setTutors([]);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    load(DEF_FILTERS());
+  }, [load]);
 
   const fcount = activeCount(filters);
-  const active = q.trim() !== "" || fcount > 0;
 
-  const byQuery = (t: FullTutor) => {
+  const results = useMemo(() => {
     const k = q.trim().toLowerCase();
-    return !k || [t.name, t.username, t.subject, t.school, t.loc].some((field) => field.toLowerCase().includes(k));
-  };
-  const results = useMemo(() => DIRECTORY.filter((t) => byQuery(t) && passFilters(t, filters)), [q, filters]);
-  const sheetCount = (fl: Filters) => DIRECTORY.filter((t) => byQuery(t) && passFilters(t, fl)).length;
-
-  const recentRecs = recents.map((id) => DIRECTORY.find((t) => t.id === id)).filter(Boolean) as FullTutor[];
-  const removeRecent = (id: string) => setRecents((r) => r.filter((x) => x !== id));
-  const pushRecent = (id: string) => setRecents((r) => [id, ...r.filter((x) => x !== id)].slice(0, 6));
-  const openProfile = (id: string) => {
-    pushRecent(id);
-    onOpenProfile(id);
-  };
+    if (!k) return tutors;
+    return tutors.filter((t) =>
+      [cardName(t), t.slug, ...(t.categories ?? []).map((c) => c.name_en)].some((field) => field.toLowerCase().includes(k)),
+    );
+  }, [q, tutors]);
 
   return (
     <>
@@ -104,7 +117,7 @@ export function SearchScreen({
           <TextInput
             value={q}
             onChangeText={setQ}
-            placeholder="Search tutors, subjects, schools…"
+            placeholder="Search tutors, subjects…"
             placeholderTextColor={C.unselIc}
             style={styles.searchInput}
           />
@@ -122,7 +135,7 @@ export function SearchScreen({
           <Ionicons name="options-outline" size={21} color={fcount ? C.greenD : C.ink} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14.5, fontWeight: "700", color: fcount ? C.greenD : C.ink }}>Advanced search filters</Text>
-            <Text style={{ fontSize: 11.5, color: C.muted, marginTop: 1 }}>Price, age, location, rating & more</Text>
+            <Text style={{ fontSize: 11.5, color: C.muted, marginTop: 1 }}>Price, age, location, lesson mode & gender</Text>
           </View>
           {fcount > 0 && (
             <View style={styles.filterCount}>
@@ -134,46 +147,18 @@ export function SearchScreen({
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
-        {!active ? (
-          <>
-            <View style={{ marginTop: 4, marginBottom: 18 }}>
-              <Text style={styles.label}>Trending with tutors</Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 9 }}>
-                {TRENDING.map((tag) => (
-                  <Pressable key={tag} onPress={() => setQ(tag.replace("#", ""))} style={styles.trendChip}>
-                    <Text style={{ color: C.greenD, fontSize: 13, fontWeight: "700" }}>{tag}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-              <Text style={styles.label}>Recently searched</Text>
-              {recentRecs.length > 0 && (
-                <Pressable onPress={() => setRecents([])} hitSlop={8}>
-                  <Text style={{ color: C.green, fontSize: 13, fontWeight: "700" }}>Clear</Text>
-                </Pressable>
-              )}
-            </View>
-            {recentRecs.length > 0 ? (
-              recentRecs.map((t) => (
-                <ResultRow
-                  key={t.id}
-                  t={t}
-                  recent
-                  connected={connected.has(t.id)}
-                  onConnect={() => onConnect(t.id)}
-                  onOpen={() => openProfile(t.id)}
-                  onRemove={() => removeRecent(t.id)}
-                />
-              ))
-            ) : (
-              <View style={styles.empty}>
-                <Ionicons name="time-outline" size={34} color={C.unselIc} />
-                <Text style={{ fontSize: 13.5, marginTop: 8, color: C.muted }}>Tutors you search for will appear here.</Text>
-              </View>
-            )}
-          </>
+        {loading ? (
+          <View style={styles.stateWrap}>
+            <ActivityIndicator color={C.green} />
+          </View>
+        ) : error ? (
+          <View style={styles.empty}>
+            <Ionicons name="cloud-offline-outline" size={38} color={C.unselIc} />
+            <Text style={{ fontSize: 15, fontWeight: "600", marginTop: 10, color: C.muted }}>Couldn&apos;t load tutors</Text>
+            <Pressable onPress={() => load(filters)} style={styles.resetBtn}>
+              <Text style={{ fontSize: 13.5, fontWeight: "700", color: C.ink }}>Try again</Text>
+            </Pressable>
+          </View>
         ) : (
           <>
             <Text style={[styles.label, { marginTop: 4, marginBottom: 6 }]}>
@@ -184,19 +169,28 @@ export function SearchScreen({
               <View style={styles.empty}>
                 <Ionicons name="search" size={40} color={C.unselIc} />
                 <Text style={{ fontSize: 15, fontWeight: "600", marginTop: 10, color: C.muted }}>No tutors match</Text>
-                <Text style={{ fontSize: 13, marginTop: 4, color: C.muted }}>Try widening your filters.</Text>
-                <Pressable onPress={() => setFilters(DEF_FILTERS())} style={styles.resetBtn}>
-                  <Text style={{ fontSize: 13.5, fontWeight: "700", color: C.ink }}>Reset filters</Text>
-                </Pressable>
+                <Text style={{ fontSize: 13, marginTop: 4, color: C.muted }}>Try a different search or widen your filters.</Text>
+                {fcount > 0 && (
+                  <Pressable
+                    onPress={() => {
+                      const d = DEF_FILTERS();
+                      setFilters(d);
+                      load(d);
+                    }}
+                    style={styles.resetBtn}
+                  >
+                    <Text style={{ fontSize: 13.5, fontWeight: "700", color: C.ink }}>Reset filters</Text>
+                  </Pressable>
+                )}
               </View>
             ) : (
               results.map((t) => (
                 <ResultRow
-                  key={t.id}
+                  key={t.slug}
                   t={t}
-                  connected={connected.has(t.id)}
-                  onConnect={() => onConnect(t.id)}
-                  onOpen={() => openProfile(t.id)}
+                  connected={connected.has(t.slug)}
+                  onConnect={() => onConnect(t.slug)}
+                  onOpen={() => onOpenProfile(t.slug)}
                 />
               ))
             )}
@@ -207,11 +201,13 @@ export function SearchScreen({
       <FilterSheet
         visible={sheet}
         init={filters}
-        count={sheetCount}
+        hideUnsupported
+        count={() => results.length}
         onClose={() => setSheet(false)}
         onApply={(fl) => {
           setFilters(fl);
           setSheet(false);
+          load(fl);
         }}
       />
     </>
@@ -243,9 +239,8 @@ const styles = StyleSheet.create({
   },
   filterCount: { minWidth: 22, height: 22, paddingHorizontal: 6, borderRadius: 11, backgroundColor: C.green, alignItems: "center", justifyContent: "center" },
   label: { fontSize: 13, fontWeight: "600", letterSpacing: 0.3, color: C.muted, textTransform: "uppercase" },
-  trendChip: { height: 34, paddingHorizontal: 13, borderRadius: 17, backgroundColor: C.greenTint, alignItems: "center", justifyContent: "center" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.hairline },
-  removeBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
+  stateWrap: { paddingVertical: 48, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingVertical: 40, paddingHorizontal: 20 },
   resetBtn: { marginTop: 14, height: 38, paddingHorizontal: 18, borderRadius: 19, borderWidth: 1.5, borderColor: C.hairline, alignItems: "center", justifyContent: "center" },
 });

@@ -35,6 +35,8 @@ interface RawSubject {
   achievements?: unknown;
   qualifications?: unknown;
   experience?: unknown;
+  teaching_levels?: string[] | null;
+  levels?: string[] | null;
   subcategories?: {
     name_en?: string | null;
     slug?: string | null;
@@ -55,6 +57,7 @@ interface RawTutorDetail {
 }
 
 const isFormat = (v: unknown): v is FormatId => v === "in_person" || v === "online" || v === "both";
+const VALID_LEVELS = new Set(["kindergarten", "primary", "middle", "high", "university", "adult"]);
 
 // Onboarding stores achievements as { en: "a; b", zh: "" }; edits may store an
 // array. Accept both → string[].
@@ -79,7 +82,15 @@ function normEdu(education: unknown): EduByLevel {
   };
 }
 
-function subjectToInterestDetail(sub: RawSubject): { interest: Interest; detail: Detail } | null {
+function normLevels(value: unknown, fallback: string[] = []): string[] {
+  if (!Array.isArray(value)) return fallback;
+  return [...new Set(value.filter((x): x is string => typeof x === "string" && VALID_LEVELS.has(x)))];
+}
+
+function subjectToInterestDetail(
+  sub: RawSubject,
+  fallbackLevels: string[],
+): { interest: Interest; detail: Detail } | null {
   const sc = sub.subcategories;
   const subId = sc?.slug ?? "";
   if (!subId) return null;
@@ -94,6 +105,7 @@ function subjectToInterestDetail(sub: RawSubject): { interest: Interest; detail:
     years: String(sub.years_experience ?? "0"),
     pay: sub.hourly_rate_min ?? 0,
     format: isFormat(sub.format) ? sub.format : "both",
+    levels: normLevels(sub.teaching_levels ?? sub.levels, fallbackLevels),
     districts: Array.isArray(sub.districts) ? sub.districts.map((c) => DISTRICT_LABELS[c] ?? c) : [],
     achievements: parseAchievements(sub.achievements),
     experiences: (Array.isArray(sub.experience) ? sub.experience : []) as Experience[],
@@ -110,10 +122,11 @@ export function buildProfileBody(
   avatarUrl?: string | null,
 ): ProfileBodyData {
   const tp = detail.tutor_profile ?? {};
+  const fallbackLevels = normLevels(tp.teaching_levels);
   const interests: Interest[] = [];
   const details: Record<string, Detail> = {};
   for (const sub of detail.subjects ?? []) {
-    const mapped = subjectToInterestDetail(sub);
+    const mapped = subjectToInterestDetail(sub, fallbackLevels);
     if (!mapped) continue;
     interests.push(mapped.interest);
     details[`${mapped.interest.catId}:${mapped.interest.subId}`] = mapped.detail;
@@ -127,7 +140,7 @@ export function buildProfileBody(
     gender,
     avatarUrl: avatarUrl ?? undefined,
     bio: tp.bio ?? "",
-    levels: Array.isArray(tp.teaching_levels) ? tp.teaching_levels : [],
+    levels: fallbackLevels,
     interests,
     details,
     langLevels,

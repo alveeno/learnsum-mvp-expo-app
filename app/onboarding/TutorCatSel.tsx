@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 
 import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useT } from "../../components/i18n/LanguageProvider";
@@ -8,20 +8,16 @@ import { CategorySelect, type Interest } from "./StudentCatSel";
  * Tutor onboarding — subject selection.
  *
  * Same screen as the student category selection (the shared CategorySelect
- * core), with tutor copy. The tutor's teaching levels arrive from the previous
- * step and are carried forward alongside the chosen subjects — no backend.
+ * core), with tutor copy. Teaching levels are now chosen per subject on the
+ * Strengths & Details screen.
  */
 export default function TutorCatSel() {
   const t = useT();
-  const { levels } = useLocalSearchParams<{ levels?: string }>();
 
   const firstTimeNext = (interests: Interest[]) =>
     router.push({
       pathname: "/onboarding/TutorSD",
-      params: {
-        ...(levels ? { levels } : {}),
-        interests: JSON.stringify(interests),
-      },
+      params: { interests: JSON.stringify(interests) },
     });
 
   return (

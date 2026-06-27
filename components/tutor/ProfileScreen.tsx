@@ -38,8 +38,7 @@ import { ApiError, getAvailability, getMe, logout } from "../../lib/api";
 // The "Change preferences" sheet — one option per onboarding screen.
 const EDIT_SECTIONS: { key: string; label: string; hint?: string; route: string }[] = [
   { key: "subjects", label: "Subjects", route: "/onboarding/TutorCatSel" },
-  { key: "details", label: "Strengths & details", hint: "Pay, format, location, qualifications", route: "/onboarding/TutorSD" },
-  { key: "levels", label: "Teaching levels", route: "/onboarding/TutorTeachLevels" },
+  { key: "details", label: "Strengths & details", hint: "Levels, pay, format, location, qualifications", route: "/onboarding/TutorSD" },
   { key: "prefs", label: "Availability & languages", route: "/onboarding/TutorPrefs" },
   { key: "about", label: "About you", hint: "Name, photo, bio, education", route: "/onboarding/TutorAbout" },
 ];
@@ -55,8 +54,8 @@ const MOCK_BODY: ProfileBodyData = {
     { catId: "academics", subId: "physics", label: "Physics", category: "Academics" },
   ],
   details: {
-    "academics:mathematics": { years: "4", pay: 350, format: "both", districts: ["Causeway Bay"], achievements: [], experiences: [], quals: [] },
-    "academics:physics": { years: "3", pay: 350, format: "online", districts: [], achievements: [], experiences: [], quals: [] },
+    "academics:mathematics": { years: "4", pay: 350, format: "both", levels: ["high", "university"], districts: ["Causeway Bay"], achievements: [], experiences: [], quals: [] },
+    "academics:physics": { years: "3", pay: 350, format: "online", levels: ["high"], districts: [], achievements: [], experiences: [], quals: [] },
   },
   langLevels: { english: 4, cantonese: 3 },
   eduByLevel: EMPTY_EDU,

@@ -21,7 +21,6 @@ import { getStored, setStored } from "./onboardingStore";
 export type TutorStep = "teachLevels" | "catSel" | "sd" | "prefs" | "about";
 
 const FLOW: { id: TutorStep; route: string }[] = [
-  { id: "teachLevels", route: "/onboarding/TutorTeachLevels" },
   { id: "catSel", route: "/onboarding/TutorCatSel" },
   { id: "sd", route: "/onboarding/TutorSD" },
   { id: "prefs", route: "/onboarding/TutorPrefs" },
@@ -180,6 +179,6 @@ export function startTutorSetup(): void {
 export function goAfterSignUp(): void {
   markRegistered();
   setResuming(false);
-  const next = firstIncomplete() ?? "/onboarding/TutorTeachLevels";
+  const next = firstIncomplete() ?? "/onboarding/TutorCatSel";
   router.push(next as Href);
 }

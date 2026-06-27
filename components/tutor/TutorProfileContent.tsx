@@ -41,6 +41,7 @@ function sampleToBody(t: FullTutor): ProfileBodyData {
         years: String(t.stats.years),
         pay: t.price,
         format,
+        levels: [],
         districts: t.loc ? [t.loc] : [],
         achievements: [],
         experiences: [],
