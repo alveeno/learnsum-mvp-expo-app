@@ -9,6 +9,7 @@ import { LanguageProvider } from "../components/i18n/LanguageProvider";
 import { loadLang } from "../components/i18n/langStorage";
 import { type Lang } from "../components/i18n/translations";
 import { hasToken, restoreToken } from "../lib/api";
+import { initSounds } from "../components/ui/sound";
 
 export default function RootLayout() {
   // Bootstrap on-device state before the first screen renders: restore the saved
@@ -18,6 +19,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     let cancelled = false;
+    initSounds(); // warm the native sound pool so the first onboarding pop is in sync
     (async () => {
       const [, lang] = await Promise.all([restoreToken(), loadLang()]);
       if (cancelled) return;

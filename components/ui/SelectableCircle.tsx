@@ -1,4 +1,5 @@
 import {
+  InteractionManager,
   Pressable,
   StyleSheet,
   Text,
@@ -8,9 +9,9 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useEffect, type ReactNode } from "react";
-import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
+import Animated, { cancelAnimation, runOnJS, useAnimatedStyle, useSharedValue, withDelay, withSpring, withTiming } from "react-native-reanimated";
 
-import { playTap, schedulePop } from "./sound";
+import { playTap, playPop, primePops } from "./sound";
 
 /**
  * Reusable "grey circle that fills with a colour when selected" used by the
@@ -62,6 +63,10 @@ const SELECTED_ICON = "#FFFFFF"; // white glyph once filled
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 const ENTRANCE_SPRING = { damping: 13, stiffness: 200, mass: 0.6 };
 const PRESS_SPRING = { damping: 16, stiffness: 360, mass: 0.45 };
+// When (after a circle's stagger delay) the pop should sound: the moment the
+// ENTRANCE_SPRING first reaches full size — its visual "land", ~150ms in. Tuned
+// to ENTRANCE_SPRING above; bump it if you make the entrance bouncier/slower.
+const POP_LAND_LEAD_MS = 150;
 
 export function SelectableCircle({
   label,
@@ -81,10 +86,12 @@ export function SelectableCircle({
   const glyphSize = iconSize ?? Math.round(size * 0.43);
   const glyphColor = selected ? SELECTED_ICON : RESTING_ICON;
 
-  // Staggered entrance: start small + transparent, spring to full, and tick a
-  // queued pop sound at the same delay. Hooks run unconditionally.
+  // Staggered entrance: start small + transparent, then spring to full once the
+  // screen has finished opening; the pop sound fires as each circle lands. Hooks
+  // run unconditionally.
   const animate = typeof entranceDelay === "number" && entranceDelay >= 0;
   const progress = useSharedValue(animate ? 0 : 1);
+  const soundCue = useSharedValue(0);
   const pressScale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => {
     const entranceScale = 0.6 + 0.4 * progress.value;
@@ -95,14 +102,38 @@ export function SelectableCircle({
   });
   useEffect(() => {
     cancelAnimation(progress);
+    cancelAnimation(soundCue);
     if (!animate) {
       progress.value = 1;
       return;
     }
+    // Stay hidden until the screen-open transition finishes (runAfterInteractions)
+    // so route/mount work can't stutter the cascade, then spring in on the stagger
+    // delay. The pop is driven by a UI-clock timer at the spring's visual land
+    // (stagger + POP_LAND_LEAD_MS), not a JS timer — so pops stay evenly spaced
+    // and synced to each icon even while the JS thread is busy, instead of the old
+    // JS-timer behaviour where they bunched up and played at once.
     progress.value = 0;
-    progress.value = withDelay(entranceDelay as number, withSpring(1, ENTRANCE_SPRING));
-    return schedulePop(entranceDelay as number);
-  }, [animate, entranceDelay, progress]);
+    soundCue.value = 0;
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      primePops(); // create the pop players up front so the first pop doesn't hitch
+      progress.value = withDelay(entranceDelay as number, withSpring(1, ENTRANCE_SPRING));
+      soundCue.value = withDelay(
+        (entranceDelay as number) + POP_LAND_LEAD_MS,
+        withTiming(1, { duration: 1 }, (finished) => {
+          if (finished) runOnJS(playPop)();
+        }),
+      );
+    });
+    return () => {
+      cancelled = true;
+      handle.cancel();
+      cancelAnimation(progress);
+      cancelAnimation(soundCue);
+    };
+  }, [animate, entranceDelay, progress, soundCue]);
 
   // Flatten to a plain object: this app routes JSX through NativeWind's runtime
   // (jsxImportSource), which drops the function form of `style` on Pressable.

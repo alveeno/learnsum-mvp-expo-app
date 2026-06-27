@@ -1,19 +1,34 @@
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
+import { Asset } from "expo-asset";
+
+import {
+  isSoundPoolAvailable,
+  loadPoolSound,
+  playPoolSound,
+  primePool,
+} from "../../modules/expo-sound-pool";
 
 /**
- * Sound effects — short UI blips, played imperatively with expo-audio.
+ * Sound effects — short UI blips.
  *
  * Pairs with the haptics in `feedback.ts`: a sound rides alongside the buzz on
- * button taps, the like pop, and success/error. A separate "pop" drives the
- * onboarding category/subject grid cascade (each icon that lands plays one).
+ * button taps, the like pop, and success/error. A separate "pop" rides the
+ * onboarding category/subject grid cascade — `SelectableCircle` fires one as each
+ * icon lands, so it must play with near-zero, consistent latency to stay in sync.
  *
- * expo-audio is ALREADY in the installed dev build (it shipped unused in the
- * native batch — see CLAUDE.md), so this is JS-only: no EAS rebuild.
+ * Two backends, picked at runtime:
+ *  1. The native low-latency pool (modules/expo-sound-pool, iOS) — clips are
+ *     pre-decoded into PCM buffers and scheduled on an always-running AVAudioEngine,
+ *     so `play` is effectively instant. Preferred when present. **Needs an EAS
+ *     rebuild** to ship (it's native code).
+ *  2. expo-audio — the previous backend. Higher, variable playback latency (fine
+ *     for one-off taps, not for animation-synced pops). Used as a FALLBACK when the
+ *     native pool isn't in the binary (old dev build, Simulator, Android, Expo Go),
+ *     so sounds keep working before/without the rebuild.
  *
  * The clips live in `assets/sounds/` (tap/like/success/error/pop.mp3) and are
  * wired in SOURCES below. To swap one, replace the file (keep the name) or point
- * its require at the new path; to disable one, comment its line out (every play()
- * for a missing entry is a safe no-op).
+ * its require at the new path; to disable one, comment its line out.
  *
  * Best-effort throughout: a missing clip, a simulator without audio, or a load
  * failure never throws into UI code.
@@ -36,8 +51,59 @@ const SOURCES: Partial<Record<SoundName, number>> = {
   pop: require("../../assets/sounds/pop.mp3"),
 };
 
-// Play these even when the ringer is on silent, and mix with other audio rather
-// than pausing it. Configured lazily on first play (no native call at import).
+let muted = false;
+export function setSoundMuted(value: boolean): void {
+  muted = value;
+}
+export function isSoundMuted(): boolean {
+  return muted;
+}
+
+// ---------------------------------------------------------------------------
+// Native low-latency pool (preferred)
+// ---------------------------------------------------------------------------
+
+let poolReady = false;
+let poolLoading: Promise<void> | null = null;
+
+// Resolve each bundled clip to a local file:// uri (expo-asset downloads it from
+// Metro in dev / reads the embedded copy in production) and hand it to native to
+// decode into a PCM buffer. Runs once; safe to call repeatedly.
+async function ensurePoolLoaded(): Promise<void> {
+  if (!isSoundPoolAvailable || poolReady) return;
+  if (poolLoading) return poolLoading;
+  poolLoading = (async () => {
+    const names = Object.keys(SOURCES) as SoundName[];
+    await Promise.all(
+      names.map(async (name) => {
+        const mod = SOURCES[name];
+        if (mod == null) return;
+        try {
+          const asset = Asset.fromModule(mod);
+          await asset.downloadAsync();
+          const uri = asset.localUri ?? asset.uri;
+          if (uri) await loadPoolSound(name, uri);
+        } catch {
+          /* best-effort */
+        }
+      }),
+    );
+    await primePool();
+    poolReady = true;
+  })();
+  return poolLoading;
+}
+
+/** Warm the native sound pool at app start (best-effort). Safe to call anytime. */
+export function initSounds(): void {
+  void ensurePoolLoaded();
+}
+
+// ---------------------------------------------------------------------------
+// expo-audio fallback
+// ---------------------------------------------------------------------------
+
+// Play even on silent + mix with other audio. Configured lazily on first use.
 let configured = false;
 function ensureConfigured() {
   if (configured) return;
@@ -49,23 +115,12 @@ function ensureConfigured() {
   }).catch(() => {});
 }
 
-let muted = false;
-export function setSoundMuted(value: boolean): void {
-  muted = value;
-}
-export function isSoundMuted(): boolean {
-  return muted;
-}
-
 // One player per sound, created lazily. The rapid cascade "pop" gets a small
-// round-robin pool so back-to-back ticks can overlap instead of cutting off.
+// round-robin pool so back-to-back pops can overlap instead of cutting off.
 const players: Partial<Record<SoundName, Player>> = {};
 const POP_POOL_SIZE = 4;
 let popPool: Player[] = [];
 let popIndex = 0;
-const POP_SEQUENCE_GAP_MS = 65;
-let popQueue: number[] = [];
-let popTimer: ReturnType<typeof setTimeout> | null = null;
 
 function fire(p: Player): void {
   try {
@@ -89,56 +144,53 @@ function playerFor(name: SoundName): Player | null {
   return players[name] ?? null;
 }
 
-function playPopPooled(): void {
+function ensureExpoPopPool(): void {
+  ensureConfigured();
+  if (popPool.length > 0) return;
   const src = SOURCES.pop;
   if (src == null) return;
-  if (popPool.length === 0) {
-    try {
-      popPool = Array.from({ length: POP_POOL_SIZE }, () => createAudioPlayer(src));
-    } catch {
-      return;
-    }
+  try {
+    popPool = Array.from({ length: POP_POOL_SIZE }, () => createAudioPlayer(src));
+  } catch {
+    /* best-effort */
   }
+}
+
+function playPopPooled(): void {
+  ensureExpoPopPool();
+  if (popPool.length === 0) return;
   const p = popPool[popIndex];
   popIndex = (popIndex + 1) % popPool.length;
   if (p) fire(p);
 }
 
-function pumpPopQueue(): void {
-  if (popTimer || popQueue.length === 0) return;
-  const targetAt = popQueue[0];
-  const wait = Math.max(0, targetAt - Date.now());
-  popTimer = setTimeout(() => {
-    popTimer = null;
-    popQueue.shift();
-    playSound("pop");
-    if (popQueue.length > 0) {
-      const nextEarliest = Date.now() + POP_SEQUENCE_GAP_MS;
-      popQueue[0] = Math.max(popQueue[0], nextEarliest);
-      pumpPopQueue();
-    }
-  }, wait);
-}
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 /**
- * Queue one cascade pop after a relative delay. Unlike one timer per icon, this
- * keeps a minimum gap between pops even if route transition work delays JS and
- * multiple timers would otherwise wake up in the same frame.
+ * Warm up the cascade pop before a grid animates so the first pop doesn't hitch:
+ * load the native pool if available, else pre-create the expo-audio fallback pool.
  */
-export function schedulePop(delayMs: number): () => void {
-  const targetAt = Date.now() + Math.max(0, delayMs);
-  popQueue.push(targetAt);
-  popQueue.sort((a, b) => a - b);
-  pumpPopQueue();
-  return () => {
-    const idx = popQueue.indexOf(targetAt);
-    if (idx >= 0) popQueue.splice(idx, 1);
-  };
+export function primePops(): void {
+  if (isSoundPoolAvailable) {
+    void ensurePoolLoaded();
+    return;
+  }
+  ensureExpoPopPool();
 }
 
 /** Play a named sound (no-op when muted or the clip isn't wired yet). */
 export function playSound(name: SoundName): void {
   if (muted) return;
+  if (isSoundPoolAvailable) {
+    void ensurePoolLoaded();
+    if (poolReady) {
+      playPoolSound(name, 1);
+      return;
+    }
+    // Pool still loading — fall back to expo-audio for this early call.
+  }
   ensureConfigured();
   if (name === "pop") return playPopPooled();
   const p = playerFor(name);

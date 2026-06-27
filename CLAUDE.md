@@ -33,8 +33,10 @@ There are three user types:
   `expo-secure-store` (session persistence), `@react-native-async-storage/async-storage`
   (language persistence), `expo-image-picker` + `expo-file-system` (media pick/upload),
   `expo-blur`, `expo-linear-gradient`, `expo-clipboard`, `expo-haptics`, `lottie-react-native`
-  (deferred — needs assets), `expo-audio` (**wired + live** in `components/ui/sound.ts`; clips in
-  `assets/sounds/`).
+  (deferred — needs assets), `expo-audio` (the sound-effects **fallback** in `components/ui/sound.ts`;
+  clips in `assets/sounds/`). Later additions (**each needs an EAS rebuild**): `expo-asset` (loads
+  the sound clips into the native pool) and a **local Expo module `modules/expo-sound-pool/`** (iOS
+  `AVAudioEngine` low-latency SFX pool — the preferred sound backend; see "Tutor app shell" caveats).
 
 ## Backend connection
 
@@ -385,11 +387,17 @@ into i18n — unlike the rest of the app). The **blur/paywall and
 gate now use real `expo-blur`**, and accent surfaces (setup banner/card, story rings, paywall
 button) use **real `expo-linear-gradient`** — these were flat-colour/opacity approximations before
 the native batch. Story items + the setup banner use a Reanimated **`PressableScale`** (press
-spring + haptic), and every shared `Button` fires a light haptic. **Sound effects are now wired**
-(`components/ui/sound.ts` via `expo-audio` — already in the build): a sound rides with the button
-tap, the like pop, and success/error, plus a per-icon "pop" on the onboarding category/subject grid
-cascade. The clips live in `assets/sounds/` (`tap/like/success/error/pop.mp3`) and are wired in
-`sound.ts`. Lottie is still deferred pending assets. The **Premium/payments** tab (Analytics) is
+spring + haptic), and every shared `Button` fires a light haptic. **Sound effects are wired**
+(`components/ui/sound.ts`): a sound rides with the button tap, the like pop, and success/error, plus
+a per-icon "pop" on the onboarding category/subject grid cascade (fired as each `SelectableCircle`
+lands — see "Onboarding shared pieces"). The clips live in `assets/sounds/`
+(`tap/like/success/error/pop.mp3`). `sound.ts` has **two backends, chosen at runtime**: a **native
+low-latency pool** (`modules/expo-sound-pool/`, a local iOS Expo module — `AVAudioEngine` with a
+player-node pool playing clips pre-decoded into PCM buffers, so playback is near-instant + in sync
+with animation; **needs an EAS rebuild** as it's native code), with **`expo-audio` as the fallback**
+when the native module isn't in the binary (old build, Simulator, Expo Go). Clips are loaded into the
+pool at startup via `expo-asset` (`initSounds()` in `app/_layout.tsx`). Lottie is still deferred
+pending assets. The **Premium/payments** tab (Analytics) is
 still UI-only — **not wired to a backend** (see the Todo list); the Chat tab **is** wired now.
 
 ## Seeker app shell (`/tutor-home`'s student/parent counterpart — `/feed`)
