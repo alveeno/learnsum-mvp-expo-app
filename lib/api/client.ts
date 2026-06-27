@@ -70,7 +70,13 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {})
 
   const url = `${API_BASE_URL}${path}${buildQuery(query)}`;
 
-  const finalHeaders: Record<string, string> = { Accept: "application/json", ...headers };
+  const finalHeaders: Record<string, string> = {
+    Accept: "application/json",
+    // Bypass ngrok-free's browser-warning interstitial so dev tunnels return JSON
+    // (not the warning HTML). Harmless on non-ngrok hosts — they ignore it.
+    "ngrok-skip-browser-warning": "true",
+    ...headers,
+  };
 
   // Serialise plain-object bodies as JSON; leave FormData / strings untouched.
   let payload: BodyInit | undefined;

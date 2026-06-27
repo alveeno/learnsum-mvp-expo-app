@@ -8,9 +8,9 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useEffect, type ReactNode } from "react";
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withDelay, withSpring } from "react-native-reanimated";
 
-import { playPop, playTap } from "./sound";
+import { playTap, schedulePop } from "./sound";
 
 /**
  * Reusable "grey circle that fills with a colour when selected" used by the
@@ -82,25 +82,27 @@ export function SelectableCircle({
   const glyphColor = selected ? SELECTED_ICON : RESTING_ICON;
 
   // Staggered entrance: start small + transparent, spring to full, and tick a
-  // pop sound at the same delay. Hooks run unconditionally; the animated style
-  // is only applied (and the timer only set) when entranceDelay is given.
+  // queued pop sound at the same delay. Hooks run unconditionally.
   const animate = typeof entranceDelay === "number" && entranceDelay >= 0;
   const progress = useSharedValue(animate ? 0 : 1);
   const pressScale = useSharedValue(1);
-  const enterStyle = useAnimatedStyle(() => ({
-    opacity: progress.value,
-    transform: [{ scale: 0.6 + 0.4 * progress.value }],
-  }));
-  const pressStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: pressScale.value }],
-  }));
+  const animatedStyle = useAnimatedStyle(() => {
+    const entranceScale = 0.6 + 0.4 * progress.value;
+    return {
+      opacity: progress.value,
+      transform: [{ scale: entranceScale * pressScale.value }],
+    };
+  });
   useEffect(() => {
-    if (!animate) return;
+    cancelAnimation(progress);
+    if (!animate) {
+      progress.value = 1;
+      return;
+    }
+    progress.value = 0;
     progress.value = withDelay(entranceDelay as number, withSpring(1, ENTRANCE_SPRING));
-    const id = setTimeout(() => playPop(), entranceDelay as number);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return schedulePop(entranceDelay as number);
+  }, [animate, entranceDelay, progress]);
 
   // Flatten to a plain object: this app routes JSX through NativeWind's runtime
   // (jsxImportSource), which drops the function form of `style` on Pressable.
@@ -117,7 +119,7 @@ export function SelectableCircle({
 
   return (
     <AnimatedPressable
-      style={animate ? [wrapperStyle, enterStyle, pressStyle] : [wrapperStyle, pressStyle]}
+      style={[wrapperStyle, animatedStyle]}
       onPressIn={() => {
         pressScale.value = withSpring(0.92, PRESS_SPRING);
       }}

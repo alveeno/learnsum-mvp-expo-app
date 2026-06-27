@@ -18,7 +18,9 @@ import {
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { KeyboardAvoider } from "../ui/KeyboardAvoider";
+import { PressableScale } from "../ui/PressableScale";
 import { SelectableCircle } from "../ui/SelectableCircle";
+import { playTap } from "../ui/sound";
 import { useT } from "../i18n/LanguageProvider";
 import { type TranslationKey } from "../i18n/translations";
 import { DistrictPicker } from "./DistrictPicker";
@@ -218,9 +220,12 @@ function LangFillCircle({
   const letterColor =
     level === 0 ? "#9CA3AF" : level >= 3 ? "#FFFFFF" : "#1A1A1A";
   return (
-    <Pressable
+    <PressableScale
       style={[styles.langItem, style]}
-      onPress={onPress}
+      onPress={() => {
+        playTap();
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityLabel={`${label}${level > 0 ? `, ${word}` : ""}`}
     >
@@ -242,7 +247,7 @@ function LangFillCircle({
       <Text style={[styles.levelWord, { color: level > 0 ? lv.color : "transparent" }]}>
         {level > 0 ? word : "•"}
       </Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 
@@ -250,9 +255,12 @@ function LangFillCircle({
 function OthersOpener({ count, onPress }: { count: number; onPress: () => void }) {
   const t = useT();
   return (
-    <Pressable
+    <PressableScale
       style={styles.langItem}
-      onPress={onPress}
+      onPress={() => {
+        playTap();
+        onPress();
+      }}
       accessibilityRole="button"
       accessibilityLabel="Add other languages"
     >
@@ -276,7 +284,7 @@ function OthersOpener({ count, onPress }: { count: number; onPress: () => void }
         ) : null}
       </View>
       <Text style={styles.circleLabel}>{t("common.others")}</Text>
-    </Pressable>
+    </PressableScale>
   );
 }
 

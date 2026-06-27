@@ -63,6 +63,7 @@ export interface TutorOnboardingBody {
       years: string;
       pay: number;
       format: FormatId;
+      levels: string[];
       districts: string[];
       achievements: string[];
       qualifications: unknown[];
@@ -137,6 +138,7 @@ export function buildTutorPayload(slug: string): TutorOnboardingBody {
       years: d.years,
       pay: d.pay,
       format: d.format,
+      levels: d.levels ?? [], // per-subject teaching levels (0020)
       districts: d.format === "online" ? [] : d.districts,
       achievements: d.achievements.filter((a) => a.trim().length > 0),
       qualifications: d.quals,

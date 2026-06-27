@@ -143,6 +143,8 @@ export interface TutorSubjectInput {
   experience?: unknown[] | null;
   format?: "in_person" | "online" | "both" | null;
   districts?: string[];
+  /** Per-subject teaching levels (school_level codes) — backend migration 0020. */
+  levels?: string[];
 }
 
 /** Full-replace the tutor's subjects (send [] to clear). */

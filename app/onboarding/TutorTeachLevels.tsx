@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
@@ -38,6 +39,7 @@ const LEVELS: Level[] = [
 
 const SELECTED_COLOR = "#2D6A4F"; // uniform glow for every chosen level
 const PROGRESS = 0.5;
+const CASCADE_STAGGER = 55;
 
 export default function TutorTeachLevels() {
   const t = useT();
@@ -97,32 +99,22 @@ export default function TutorTeachLevels() {
         <Text style={styles.subtitle}>{t("tutor.levels.subtitle")}</Text>
 
         <View style={styles.grid}>
-          {LEVELS.map((level) => {
+          {LEVELS.map((level, i) => {
             const isSelected = selected.has(level.key);
-            const circleStyle = StyleSheet.flatten([
-              styles.iconCircle,
-              isSelected
-                ? { backgroundColor: SELECTED_COLOR }
-                : styles.iconCircleResting,
-            ]);
             return (
-              <Pressable
+              <SelectableCircle
                 key={level.key}
                 style={styles.gridItem}
-                accessibilityRole="button"
+                label={t(level.labelKey)}
+                selected={isSelected}
+                color={SELECTED_COLOR}
+                entranceDelay={i * CASCADE_STAGGER}
                 accessibilityLabel={t(level.labelKey)}
-                accessibilityState={{ selected: isSelected }}
                 onPress={() => toggle(level.key)}
-              >
-                <View style={circleStyle}>
-                  <Ionicons
-                    name={level.icon}
-                    size={30}
-                    color={isSelected ? "#FFFFFF" : "#9CA3AF"}
-                  />
-                </View>
-                <Text style={styles.itemLabel}>{t(level.labelKey)}</Text>
-              </Pressable>
+                renderIcon={({ size, color }) => (
+                  <Ionicons name={level.icon} size={size} color={color} />
+                )}
+              />
             );
           })}
         </View>
@@ -169,20 +161,5 @@ const styles = StyleSheet.create({
     marginTop: 32,
   },
   gridItem: { width: "30%", alignItems: "center" },
-  iconCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconCircleResting: { backgroundColor: "#F0F1F3" },
-  itemLabel: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    textAlign: "center",
-  },
   continue: { marginTop: 40 },
 });

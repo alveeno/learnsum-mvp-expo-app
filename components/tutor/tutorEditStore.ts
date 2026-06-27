@@ -391,6 +391,7 @@ export async function saveTutorEdits(): Promise<void> {
       exam_results: null,
       experience: d.experiences,
       format: d.format,
+      levels: d.levels ?? [], // per-subject teaching levels (0020)
       districts:
         d.format === "online"
           ? []

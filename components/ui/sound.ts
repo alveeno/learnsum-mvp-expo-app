@@ -63,6 +63,9 @@ const players: Partial<Record<SoundName, Player>> = {};
 const POP_POOL_SIZE = 4;
 let popPool: Player[] = [];
 let popIndex = 0;
+const POP_SEQUENCE_GAP_MS = 65;
+let popQueue: number[] = [];
+let popTimer: ReturnType<typeof setTimeout> | null = null;
 
 function fire(p: Player): void {
   try {
@@ -99,6 +102,38 @@ function playPopPooled(): void {
   const p = popPool[popIndex];
   popIndex = (popIndex + 1) % popPool.length;
   if (p) fire(p);
+}
+
+function pumpPopQueue(): void {
+  if (popTimer || popQueue.length === 0) return;
+  const targetAt = popQueue[0];
+  const wait = Math.max(0, targetAt - Date.now());
+  popTimer = setTimeout(() => {
+    popTimer = null;
+    popQueue.shift();
+    playSound("pop");
+    if (popQueue.length > 0) {
+      const nextEarliest = Date.now() + POP_SEQUENCE_GAP_MS;
+      popQueue[0] = Math.max(popQueue[0], nextEarliest);
+      pumpPopQueue();
+    }
+  }, wait);
+}
+
+/**
+ * Queue one cascade pop after a relative delay. Unlike one timer per icon, this
+ * keeps a minimum gap between pops even if route transition work delays JS and
+ * multiple timers would otherwise wake up in the same frame.
+ */
+export function schedulePop(delayMs: number): () => void {
+  const targetAt = Date.now() + Math.max(0, delayMs);
+  popQueue.push(targetAt);
+  popQueue.sort((a, b) => a - b);
+  pumpPopQueue();
+  return () => {
+    const idx = popQueue.indexOf(targetAt);
+    if (idx >= 0) popQueue.splice(idx, 1);
+  };
 }
 
 /** Play a named sound (no-op when muted or the clip isn't wired yet). */

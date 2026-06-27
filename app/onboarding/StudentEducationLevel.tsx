@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import { Button } from "../../components/ui/Button";
+import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { usePersistentState } from "../../components/onboarding/onboardingStore";
 import { useSkipGuard } from "../../components/onboarding/useSkipGuard";
 import { useT } from "../../components/i18n/LanguageProvider";
@@ -52,6 +53,7 @@ const LEVELS: Level[] = [
 
 // This screen is step 1; advancing lands on the category screen further along.
 const PROGRESS = 0.33;
+const CASCADE_STAGGER = 55;
 
 export default function StudentEducationLevel() {
   const t = useT();
@@ -97,33 +99,22 @@ export default function StudentEducationLevel() {
 
         {/* 3 x 2 grid of selectable levels */}
         <View style={styles.grid}>
-          {LEVELS.map((level) => {
+          {LEVELS.map((level, i) => {
             const isSelected = level.key === selectedKey;
-            const circleStyle = StyleSheet.flatten([
-              styles.iconCircle,
-              isSelected
-                ? { backgroundColor: level.color }
-                : styles.iconCircleResting,
-            ]);
-
             return (
-              <Pressable
+              <SelectableCircle
                 key={level.key}
                 style={styles.gridItem}
-                accessibilityRole="button"
+                label={t(level.labelKey)}
+                selected={isSelected}
+                color={level.color}
+                entranceDelay={i * CASCADE_STAGGER}
                 accessibilityLabel={t(level.labelKey)}
-                accessibilityState={{ selected: isSelected }}
                 onPress={() => setSelectedKey(level.key)}
-              >
-                <View style={circleStyle}>
-                  <Ionicons
-                    name={level.icon}
-                    size={30}
-                    color={isSelected ? "#FFFFFF" : "#9CA3AF"}
-                  />
-                </View>
-                <Text style={styles.itemLabel}>{t(level.labelKey)}</Text>
-              </Pressable>
+                renderIcon={({ size, color }) => (
+                  <Ionicons name={level.icon} size={size} color={color} />
+                )}
+              />
             );
           })}
         </View>
@@ -185,24 +176,6 @@ const styles = StyleSheet.create({
     // Three per row with even gutters.
     width: "30%",
     alignItems: "center",
-  },
-  iconCircle: {
-    width: 84,
-    height: 84,
-    borderRadius: 999, // circular avatar
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconCircleResting: {
-    // Greyed out until selected.
-    backgroundColor: "#F0F1F3",
-  },
-  itemLabel: {
-    marginTop: 10,
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#111827",
-    textAlign: "center",
   },
   continue: {
     marginTop: 40,
