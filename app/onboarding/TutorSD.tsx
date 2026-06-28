@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Modal,
-  PanResponder,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -17,7 +16,15 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Reanimated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 
+import { selectionTick } from "../../components/ui/feedback";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
@@ -54,10 +61,11 @@ import { subIconFor, type Interest } from "./StudentCatSel";
  * local state, handed FORWARD on Continue — no backend (CLAUDE.md).
  *
  * Web-spec adaptations (no web `<select>`, no Material Symbols font): dropdowns
- * are custom pop-up sheets; the years wheel and pay slider are rebuilt with
- * React Native's built-in scroll + PanResponder; icons use @expo/vector-icons.
- * The pay slider is non-linear (small $10 steps near the bottom, bigger $100
- * steps near the top) so the common $200–$500 range is easy to land on.
+ * are custom pop-up sheets; the years wheel uses RN scroll; the pay slider is a
+ * Reanimated + gesture-handler slider (UI-thread thumb — see ValueSlider); icons
+ * use @expo/vector-icons. The pay slider is non-linear (small $10 steps near the
+ * bottom, bigger $100 steps near the top) so the common $200–$500 range is easy
+ * to land on.
  */
 
 type Subject = { id: string; label: string; catId: string; color: string };
@@ -435,12 +443,20 @@ function ScrollWheel({
 }
 
 const THUMB = 26;
+const TIP_W = 72; // pay tooltip width (matches styles.tip)
+const SNAP_SPRING = { damping: 20, stiffness: 260, mass: 0.5 };
 
 /**
- * Drag slider with a tooltip above the thumb (pay). The slider walks a fixed
- * list of allowed `values` by INDEX (each gets equal pixel width), so the scale
- * can be non-linear: tiers built with smaller money-steps contribute more
- * entries and therefore claim more of the track. See PAY_VALUES.
+ * Drag slider with a tooltip above the thumb (pay). Walks a fixed list of allowed
+ * `values` by INDEX (each gets equal pixel width), so the scale can be non-linear:
+ * tiers with smaller money-steps contribute more entries and claim more track.
+ * See PAY_VALUES.
+ *
+ * Built on Reanimated + gesture-handler: the thumb / fill / tooltip are driven by
+ * a shared value on the UI THREAD, so the thumb stays glued to the finger at full
+ * frame rate even when JS is busy (the old PanResponder version updated React
+ * state per move and lagged ~0.5s behind a fast drag). The discrete value is only
+ * pushed to React — with a subtle haptic tick — when the step actually changes.
  */
 function ValueSlider({
   values,
@@ -456,11 +472,11 @@ function ValueSlider({
   topStop: string;
 }) {
   const [w, setW] = useState(0);
-  const usable = Math.max(1, w - THUMB);
   const last = values.length - 1;
-  // Map the current value to its slider stop (snap to nearest if it isn't an
-  // exact entry, e.g. a default carried over from an older scale).
-  const idx = (() => {
+
+  // Current value → its stop index (snap to nearest if not an exact entry, e.g. a
+  // default carried over from an older scale).
+  const idx = useMemo(() => {
     const exact = values.indexOf(value);
     if (exact !== -1) return exact;
     let best = 0;
@@ -473,77 +489,108 @@ function ValueSlider({
       }
     });
     return best;
-  })();
-  const ratio = last > 0 ? idx / last : 0;
-  const thumbX = ratio * usable;
+  }, [values, value]);
 
-  // The track's left edge in screen coordinates. We map the finger's ABSOLUTE x
-  // (pageX) against this — NOT the per-touch locationX, which React Native
-  // reports relative to whichever child the finger is over (the thumb). That
-  // relative reading was the cause of the price jumping to a low value and back
-  // as the thumb caught up under the finger.
-  const trackRef = useRef<View>(null);
-  const trackLeftRef = useRef(0);
-  const measureTrack = () =>
-    trackRef.current?.measureInWindow((x) => {
-      trackLeftRef.current = x;
-    });
+  // UI-thread state, so the thumb never waits on a React render.
+  const pos = useSharedValue(0); // thumb x in px (0..usable)
+  const usable = useSharedValue(1); // track width minus the thumb
+  const trackW = useSharedValue(0); // full track width (tooltip clamp)
+  const dragging = useSharedValue(false);
+  const liveIdx = useSharedValue(idx); // last index the UI thread pushed
 
-  // Reassigned every render so the (once-created) PanResponder always reads the
-  // latest layout/value rather than a stale closure.
-  const onXRef = useRef((_pageX: number) => {});
-  onXRef.current = (pageX: number) => {
-    const rel = pageX - trackLeftRef.current - THUMB / 2;
-    const clamped = Math.max(0, Math.min(usable, rel));
-    const i = Math.max(0, Math.min(last, Math.round((clamped / usable) * last)));
+  const posForIdx = (i: number, u: number) => (last > 0 ? (i / last) * u : 0);
+
+  // Push a step to React + a subtle haptic tick (JS thread). Behind a stable
+  // wrapper so the memoized gesture never captures a stale value/onChange.
+  const commitRef = useRef<(i: number) => void>(() => {});
+  commitRef.current = (i: number) => {
+    selectionTick();
     const v = values[i];
     if (v !== value) onChange(v);
   };
+  const commitStable = useRef((i: number) => commitRef.current(i)).current;
 
-  const pan = useRef(
-    PanResponder.create({
-      // Claim the touch (including at the capture phase) so neither a child nor
-      // a parent scroll view can steal the horizontal drag.
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      // Once dragging, never hand the gesture off mid-drag.
-      onPanResponderTerminationRequest: () => false,
-      onPanResponderGrant: (e) => {
-        measureTrack();
-        onXRef.current(e.nativeEvent.pageX);
-      },
-      onPanResponderMove: (e) => onXRef.current(e.nativeEvent.pageX),
-    }),
-  ).current;
+  // Sync the thumb when the value changes from OUTSIDE a drag (mount, hydrate,
+  // "Same as previous"); skipped while the finger owns it.
+  useEffect(() => {
+    if (dragging.value) return;
+    liveIdx.value = idx;
+    pos.value = withSpring(posForIdx(idx, usable.value), SNAP_SPRING);
+  }, [idx, w]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const TIP_W = 72;
+  const pan = useMemo(
+    () =>
+      Gesture.Pan()
+        .minDistance(0)
+        .onBegin((e) => {
+          "worklet";
+          dragging.value = true;
+          const u = usable.value;
+          const p = Math.max(0, Math.min(u, e.x - THUMB / 2));
+          pos.value = p;
+          const i = u > 0 ? Math.round((p / u) * last) : 0;
+          if (i !== liveIdx.value) {
+            liveIdx.value = i;
+            runOnJS(commitStable)(i);
+          }
+        })
+        .onUpdate((e) => {
+          "worklet";
+          const u = usable.value;
+          const p = Math.max(0, Math.min(u, e.x - THUMB / 2));
+          pos.value = p;
+          const i = u > 0 ? Math.round((p / u) * last) : 0;
+          if (i !== liveIdx.value) {
+            liveIdx.value = i;
+            runOnJS(commitStable)(i);
+          }
+        })
+        .onFinalize(() => {
+          "worklet";
+          dragging.value = false;
+          const u = usable.value;
+          // Settle exactly onto the chosen stop.
+          pos.value = withSpring(last > 0 ? (liveIdx.value / last) * u : 0, SNAP_SPRING);
+        }),
+    [last], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
+  const thumbStyle = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value }] }));
+  const fillStyle = useAnimatedStyle(() => ({ width: pos.value + THUMB / 2 }));
+  const tipStyle = useAnimatedStyle(() => {
+    const maxLeft = Math.max(0, trackW.value - TIP_W);
+    const left = Math.max(0, Math.min(maxLeft, pos.value + THUMB / 2 - TIP_W / 2));
+    return { transform: [{ translateX: left }] };
+  });
+
   const tipText = value >= values[last] ? topStop : format(value);
-  const tipLeft = Math.max(0, Math.min(Math.max(0, w - TIP_W), thumbX + THUMB / 2 - TIP_W / 2));
 
   return (
     <View>
       <View style={styles.tipRow}>
         {w > 0 ? (
-          <View style={[styles.tip, { left: tipLeft }]}>
+          <Reanimated.View style={[styles.tip, tipStyle]}>
             <Text style={styles.tipText}>{tipText}</Text>
-          </View>
+          </Reanimated.View>
         ) : null}
       </View>
-      <View
-        ref={trackRef}
-        style={styles.track}
-        onLayout={(e: LayoutChangeEvent) => {
-          setW(e.nativeEvent.layout.width);
-          measureTrack();
-        }}
-        {...pan.panHandlers}
-      >
-        <View style={styles.trackBg} />
-        <View style={[styles.trackFill, { width: thumbX + THUMB / 2 }]} />
-        <View style={[styles.thumb, { left: thumbX }]} />
-      </View>
+      <GestureDetector gesture={pan}>
+        <View
+          style={styles.track}
+          onLayout={(e: LayoutChangeEvent) => {
+            const width = e.nativeEvent.layout.width;
+            setW(width);
+            trackW.value = width;
+            const u = Math.max(1, width - THUMB);
+            usable.value = u;
+            if (!dragging.value) pos.value = posForIdx(liveIdx.value, u);
+          }}
+        >
+          <View style={styles.trackBg} />
+          <Reanimated.View style={[styles.trackFill, fillStyle]} />
+          <Reanimated.View style={[styles.thumb, thumbStyle]} />
+        </View>
+      </GestureDetector>
       <View style={styles.sliderLabels}>
         <Text style={styles.sliderLabel}>{format(values[0])}</Text>
         <Text style={styles.sliderLabel}>{topStop}</Text>

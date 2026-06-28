@@ -203,7 +203,10 @@ one flow per role:
   subjects get a **"Same as previous"** chip that copies the districts from the nearest earlier
   in-person subject), achievements, experience and
   qualifications; the **pay slider is non-linear** — small $10 steps near the bottom growing to
-  $100 near the top, so the common $200–$500 range is easy to land on) → `TutorPrefs` →
+  $100 near the top, so the common $200–$500 range is easy to land on. It's a **Reanimated +
+  gesture-handler** slider whose thumb runs on the **UI thread** (zero-lag, with a per-step haptic
+  tick) — `ValueSlider` in `TutorSD.tsx`; the old PanResponder version lagged behind a fast drag) →
+  `TutorPrefs` →
   `TutorAbout` (a **profile
   photo** — a **real** picker now (`expo-image-picker`, library/camera, square crop) that uploads to
   Storage and saves to `profiles.avatar_url` on finish/edit; **WhatsApp + WeChat** contact (see

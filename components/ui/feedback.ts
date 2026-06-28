@@ -23,6 +23,11 @@ export function tapMedium(): void {
   void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 }
 
+/** Subtle selection tick — e.g. each step as a slider value changes. */
+export function selectionTick(): void {
+  void Haptics.selectionAsync().catch(() => {});
+}
+
 /** Success buzz + chime — a save/post/publish succeeded. */
 export function notifySuccess(): void {
   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
