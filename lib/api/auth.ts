@@ -38,6 +38,10 @@ export interface Profile {
   display_name?: string | null;
   full_name?: string | null;
   avatar_url?: string | null;
+  gender?: string | null;
+  /** Backend support pending (see CLAUDE.md backend-gap notes). */
+  bio?: string | null;
+  phone?: string | null;
   [key: string]: unknown;
 }
 

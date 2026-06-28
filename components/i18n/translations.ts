@@ -570,6 +570,24 @@ export const translations = {
   "about.status.ongoing": { en: "Currently studying", "zh-Hant": "現正就讀", "zh-Hans": "现正就读" },
   "about.status.finished": { en: "Finished", "zh-Hant": "已畢業", "zh-Hans": "已毕业" },
 
+  // ---- seeker "About you" (student / parent profile) ----
+  "seekerAbout.title": { en: "About you", "zh-Hant": "關於你", "zh-Hans": "关于你" },
+  "seekerAbout.subtitle": {
+    en: "Add a few details so tutors know who they're teaching.",
+    "zh-Hant": "填寫一些資料，讓導師了解你。",
+    "zh-Hans": "填写一些资料，让导师了解你。",
+  },
+  "seekerAbout.editTitle": { en: "Edit profile", "zh-Hant": "編輯個人檔案", "zh-Hans": "编辑个人资料" },
+  "seekerAbout.phone.label": { en: "Phone number", "zh-Hant": "電話號碼", "zh-Hans": "电话号码" },
+  "seekerAbout.phone.placeholder": { en: "e.g. 852 1234 5678", "zh-Hant": "例如 852 1234 5678", "zh-Hans": "例如 852 1234 5678" },
+  "seekerAbout.edu.label": { en: "Education level", "zh-Hant": "教育程度", "zh-Hans": "教育程度" },
+  "seekerAbout.save": { en: "Save", "zh-Hant": "儲存", "zh-Hans": "保存" },
+  "seekerAbout.saveFailed": {
+    en: "Couldn't save your changes. Check your connection and try again.",
+    "zh-Hant": "無法儲存變更，請檢查網絡後再試。",
+    "zh-Hans": "无法保存更改，请检查网络后再试。",
+  },
+
   // ---- auth gate (shown when an unregistered tutor likes / comments / filters) ----
   "authGate.title": { en: "Join LearnSum", "zh-Hant": "加入 LearnSum", "zh-Hans": "加入 LearnSum" },
   "authGate.subtitle": {

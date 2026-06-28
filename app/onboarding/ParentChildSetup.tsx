@@ -199,10 +199,11 @@ export default function ParentChildSetup() {
   };
 
   // Stash the roster so the one-shot save (seekerOnboardingPayload) can read the
-  // children's names + levels — they live in a route param, not the store.
+  // children's names + levels — they live in a route param, not the store. Then
+  // collect the parent's own profile (SeekerAbout) before CreateAccount.
   const confirm = () => {
     setStored("parent:roster", roster);
-    router.push({ pathname: "/onboarding/CreateAccount", params: { role: "parent", next: "/feed" } });
+    router.push({ pathname: "/onboarding/SeekerAbout", params: { role: "parent", next: "/feed" } });
   };
 
   // ---- per-child category step ----

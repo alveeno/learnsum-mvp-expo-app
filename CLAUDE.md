@@ -190,18 +190,38 @@ File-based routes (Expo Router). Route map:
 | `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
 | `/post-new`      | Tutor **post composer** (text + a post_type + optional photo/video) → `POST /api/tutors/[slug]/posts` (+ `POST /api/upload`) — **built**; opened from the Home feed "+" and the Profile Posts section |
 | `/onboarding/CreateAccount` | **Student/parent final credential step** (email + password / social) → `POST /api/auth/signup` then the **best-effort** one-shot save → `Welcome` → `/feed` — **built** (Option A: credentials on the last step; reuses the trilingual `signup.*` copy) |
+| `/onboarding/SeekerAbout` | **Seeker "About you"** (name / bio / gender / photo / phone / education — a current level + a full school history for students) — the `TutorAbout` analogue for student/parent. Used as an onboarding step (before `CreateAccount`) **and** as the Account-tab **Edit profile** screen (`mode=edit` → `PATCH /api/profiles/me`) — **built + persisted + verified e2e** (migrations 0022/0023 applied) |
 
 > **No `/notifications` route — notifications aren't built (see the Todo list).**
 
 Onboarding is **built** and lives under `app/onboarding/` (PascalCase route files),
 one flow per role:
 
-- **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs` → `CreateAccount`
-  (final credential step; Skip on Prefs bypasses straight to `/feed`)
+- **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs` → `SeekerAbout`
+  → `CreateAccount` (final credential step; Skip on Prefs bypasses straight to `/feed`)
 - **Parent:** `ParentNumChild` (per-child name + education level + an **optional age** field —
   age isn't required to Continue; sent best-effort in `seekerOnboardingPayload.ts`, backend column
   pending — see backend gaps) → `ParentChildSetup` (per-child categories +
-  preferences, one child at a time, then a review) → `CreateAccount`
+  preferences, one child at a time, then a review) → `SeekerAbout` → `CreateAccount`
+- **`SeekerAbout` (`app/onboarding/SeekerAbout.tsx`, both seeker flows):** the seeker analogue of
+  `TutorAbout` — collects the seeker's **name, bio, gender, profile photo, phone number** and (students
+  only — hidden for parents, whose level belongs to their child) **education**. Field order is photo →
+  name → **bio** → gender → education → phone. Name + gender are required; the rest optional. Same
+  building blocks as `TutorAbout` (the `expo-image-picker` + `uploadFile("avatar")` photo flow, the
+  4-option gender grid, the in-memory store under `seeker:about:*`). **Education = a current level
+  (`student:eduLevel` pills, kept for seeker→tutor matching/search) PLUS a full per-level school
+  history** — the **shared `EducationSection`** (`components/onboarding/EducationSection.tsx`, extracted
+  from `TutorAbout` so the two are identical: school name / qualification / score searchable dropdowns +
+  "Currently studying / Finished"), stored at `seeker:about:eduByLevel` and persisted to
+  `student_profiles.education` (jsonb). It runs in **two modes** (`mode` param): in onboarding it's the
+  last data step before `CreateAccount`; in **edit** mode it's opened from the Account tab (store
+  pre-seeded from `GET /api/auth/me` via `hydrateSeekerAboutFromMe`) and **saves** on its own via
+  `saveSeekerProfile` → `PATCH /api/profiles/me` (helpers in `components/onboarding/seekerProfile.ts`;
+  the shared gender maps were extracted here, also used by `tutorEditStore.ts`). The collected profile
+  is also sent in the one-shot onboarding save — the previously-empty `profile: {}` block in
+  `seekerOnboardingPayload.ts` is filled by `buildSeekerProfileBlock()`, and the student section now
+  carries `education`. **Name/gender/avatar/bio/phone + school_level + education history all persist and
+  round-trip (backend migrations 0022/0023 applied; verified end-to-end).**
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting **student
   slots** (per-subject capacity — two compact scroll wheels reading "currently teaching / capacity"
@@ -461,8 +481,12 @@ tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wi
 - **Saved** (`SeekerSavedScreen`) — bookmarked tutors, **now backend-backed** (`savedTutors.ts` →
   `/api/saved`). Still a shared store (`useSyncExternalStore`) so the tab, search, and the public
   profile route stay in sync, with optimistic writes; `hydrateSaved()` loads bookmarks after sign-in.
-- **Account** (`SeekerAccountScreen`) — a **Messages** row (→ `/messages`, the in-app chat),
-  language switch (the real `LanguagePicker`), a "Become a tutor" link to `/tutor-home`, and log out.
+- **Account** (`SeekerAccountScreen`) — now shows the seeker's **real profile** (`GET /api/auth/me`):
+  avatar, name, role, and — when set — their bio, phone, education level and gender (from `SeekerAbout`).
+  An **"Edit profile"** row pre-seeds the store from `me` and opens `SeekerAbout` in **edit mode**; the
+  tab refetches on return (`consumeSeekerProfileDirty`). No session / load error falls back to a neutral
+  "Your account" card (no fake data). Plus a **Messages** row (→ `/messages`, the in-app chat), language
+  switch (the real `LanguagePicker`), a "Become a tutor" link to `/tutor-home`, and log out.
 
 Tapping any tutor pushes the **public `/tutors/[slug]` route** (the tab bar hides while viewing,
 returns on back). Home-feed likes are local session state; Save is the seeker's primary action (no
@@ -518,6 +542,12 @@ screen re-seed itself so **input is never lost while the app is open**.
   `app/onboarding/StudentCatSel.tsx`). Role wrappers (Student/Parent/Tutor) pass copy +
   callbacks; both take a `persistKey` and auto-save. The parent flow (`ParentChildSetup`)
   reuses them per child.
+- **Education history is shared:** `components/onboarding/EducationSection.tsx` is the controlled
+  per-level school-history UI (Kindergarten / Primary / Secondary / University — searchable school /
+  qualification / score dropdowns via `SearchSelect` + a "Currently studying / Finished" toggle),
+  used by **both** `TutorAbout` and the seeker `SeekerAbout` so they stay identical. Its `EduByLevel`
+  shape + `EMPTY_EDU` live in the dependency-free `components/onboarding/educationTypes.ts` (so data
+  modules like `seekerProfile.ts` / payloads can import them without pulling in React Native).
 - **`PreferencesScreen` section order is deliberate:** **availability ("When are you
   available?") is the first question**, above format / location / language. Parents kept
   tapping a day, missing the timeline that expands below the day row, and pressing Continue
@@ -681,6 +711,18 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   `tutor_subcategories` slots column (+ the onboarding RPC / subjects route + `me`/`tutors/[slug]`
   reads), then send + read them (mirrors how per-subject `levels` were wired in 0020). Until then
   server-sourced profiles show the default `0/1`.
+- **Seeker profile fields → backend — DONE + verified e2e.** The `SeekerAbout` screen collects the
+  seeker's name, bio, gender, photo, phone and (student) education (a current level + a full school
+  history). Wired end-to-end against the live backend (`learnsum-mvp-back`):
+  - **Migration 0022** (`profiles += bio, phone` + `complete_onboarding` writes `avatar_url`/`bio`/`phone`)
+    — **applied/live**, verified e2e (name/gender/avatar + bio/phone round-trip on onboarding + edit).
+  - **Migration 0023** (`student_profiles += education jsonb` + `complete_onboarding` writes the student
+    `education`) — **applied/live**, verified e2e (school history round-trips on onboarding + edit).
+  - Routes: `POST /api/onboarding` reads `avatar_url`/`bio`/`phone` from the `profile` block **and**
+    `student.education`; `PATCH /api/profiles/me` accepts `bio`/`phone` + `student.education` (it already
+    handled `student.school_level` + gender). **`GET /api/auth/me` needs no change** — `select('*')`
+    returns the new profile columns + `gender`, and the student detail (incl. `school_level` + `education`)
+    under **`detail.student_profile`** (the frontend reads via `schoolLevelFromMe` / `eduHistoryFromMe`).
 - **Profile viewers + contact quota + tutor-saved-people + child age → backend** — the tutor
   Saved/Analytics/seeker-profile batch (the Saved tab, the `/analytics` "who viewed your profile"
   list, `/seekers/[id]`, and the 3-per-day contact unlock) is **frontend-only with mock/sample +

@@ -12,6 +12,7 @@ import {
 } from "../../lib/api";
 import { subColorFor, type Interest } from "../../app/onboarding/StudentCatSel";
 import { getStored, setStored } from "../onboarding/onboardingStore";
+import { GENDER_TO_APP, GENDER_TO_BACKEND } from "../onboarding/seekerProfile";
 
 /**
  * Pre-fill the in-memory onboarding store from a tutor's REAL saved profile, so
@@ -100,14 +101,8 @@ const isFormat = (v: unknown): v is Detail["format"] =>
 
 const VALID_LEVELS = new Set(["kindergarten", "primary", "middle", "high", "university", "adult"]);
 
-// Backend gender_type → the app's TutorAbout gender keys.
-const GENDER_TO_APP: Record<string, string> = {
-  male: "male",
-  female: "female",
-  lgbt: "lgbtq",
-  prefer_not_to_say: "na",
-  other: "na",
-};
+// Gender maps (app <-> backend gender_type) are shared with the seeker profile
+// — see GENDER_TO_APP / GENDER_TO_BACKEND in ../onboarding/seekerProfile.
 
 // Onboarding stores achievements as { en: "a; b", zh: "" } → back to a string[].
 function parseAchievements(a: unknown): string[] {
@@ -257,13 +252,6 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
 // In __DEV__ a network failure is swallowed (offline demo), matching the rest of
 // the app; any other error propagates so the save screen can show it.
 // ---------------------------------------------------------------------------
-
-const GENDER_TO_BACKEND: Record<string, string> = {
-  male: "male",
-  female: "female",
-  lgbtq: "lgbt",
-  na: "prefer_not_to_say",
-};
 
 const DIRTY_KEY = "tutor:profile:dirty";
 

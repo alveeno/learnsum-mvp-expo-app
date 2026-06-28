@@ -1,5 +1,7 @@
 import { ApiError, postOnboarding, type OnboardingResult } from "../../lib/api";
 import { getStored } from "./onboardingStore";
+import { buildSeekerProfileBlock, SEEKER_EDU_HISTORY_KEY } from "./seekerProfile";
+import { EMPTY_EDU, type EduByLevel } from "./educationTypes";
 import { type Prefs } from "./PreferencesScreen";
 import { type Interest } from "../../app/onboarding/StudentCatSel";
 
@@ -45,12 +47,18 @@ function seekerSection(level: string | null, interests: Interest[], pf: Prefs | 
 export function buildStudentPayload() {
   return {
     role: "student",
-    profile: {},
-    student: seekerSection(
-      getStored<string | null>("student:eduLevel", null),
-      getStored<Interest[]>("student:interests", []),
-      getStored<Prefs | null>("student:prefs", null),
-    ),
+    // Name / gender / photo / bio / phone collected on SeekerAbout. Sends the
+    // app's own gender value (the backend maps aliases, like the tutor payload).
+    profile: buildSeekerProfileBlock(),
+    student: {
+      ...seekerSection(
+        getStored<string | null>("student:eduLevel", null),
+        getStored<Interest[]>("student:interests", []),
+        getStored<Prefs | null>("student:prefs", null),
+      ),
+      // Full per-level school history (students only) → student_profiles.education.
+      education: getStored<EduByLevel>(SEEKER_EDU_HISTORY_KEY, EMPTY_EDU),
+    },
   };
 }
 
@@ -58,7 +66,8 @@ export function buildParentPayload() {
   const roster = getStored<ChildInput[]>("parent:roster", []);
   return {
     role: "parent",
-    profile: {},
+    // The parent's own name / gender / photo / bio / phone (SeekerAbout).
+    profile: buildSeekerProfileBlock(),
     parent: {
       searching_for_self: false,
       children: roster.map((child, i) => {
