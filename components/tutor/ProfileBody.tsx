@@ -54,6 +54,10 @@ export type Detail = {
   levels: string[];
   /** District DISPLAY names (already resolved by the caller). */
   districts: string[];
+  /** Student slots — currently teaching / capacity (e.g. 0/1). Optional: only
+   *  the in-app store carries it today (the backend doesn't return it yet, so
+   *  server-sourced surfaces fall back to the default). */
+  slots?: { current: number; capacity: number };
   achievements: string[];
   experiences: Experience[];
   quals: Qualification[];
@@ -81,6 +85,7 @@ export const DEFAULT_DETAIL: Detail = {
   format: "both",
   levels: [],
   districts: [],
+  slots: { current: 0, capacity: 1 },
   achievements: [],
   experiences: [],
   quals: [],
@@ -339,6 +344,7 @@ function SubjectCard({
   onToggle: () => void;
 }) {
   const grade = ownGrade(detail);
+  const slots = detail.slots ?? { current: 0, capacity: 1 };
   const subtitle = subjectSubtitle(detail, interest.category);
   const quals = detail.quals.filter((q) => !!q.type);
   const achievements = detail.achievements.filter((a) => a.trim().length > 0);
@@ -413,6 +419,7 @@ function SubjectCard({
           <View style={styles.statRow}>
             <StatTile value={detail.years} label="YEARS EXP" />
             <StatTile value={priceText(detail.pay)} label="PER HOUR" />
+            <StatTile value={`${slots.current}/${slots.capacity}`} label="STUDENTS" />
           </View>
 
           {quals.length > 0 ? (

@@ -196,7 +196,13 @@ one flow per role:
 - **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
   preferences, one child at a time, then a review) → `CreateAccount`
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
-  `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting years of
+  `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting **student
+  slots** (per-subject capacity — two compact scroll wheels reading "currently teaching / capacity"
+  like `0/1`, with handwritten guide text under each via the bundled **Patrick Hand** font in
+  `assets/fonts/`, loaded at runtime in `app/_layout.tsx`; the "currently teaching" wheel is bounded
+  by the chosen capacity; **frontend-only for now** — kept in the onboarding store and shown on the
+  review + own-profile surfaces, but **not yet persisted to the backend**, so the server-sourced own
+  Profile tab shows the default `0/1`), years of
   **teaching** experience, preferred pay, **lesson format** (In person / Online / Both,
   default Both), **location** (only for In person / Both — region tabs + district grid via the
   shared `DistrictPicker`; later subjects get a **"Same as previous"** chip that copies the
@@ -260,8 +266,9 @@ subscription) and renders it as the tutor's public profile would look. Sections:
 when ≥1 subject has a real qualification), **About** (the optional bio), an **Education** accordion,
 a **Subjects-taught** single-open accordion (collapsed row keeps an at-a-glance grade chip + price
 per subject; expanded = the subject's own **lesson-format pill** + its **districts** (in-person
-subjects only), **Years exp / Per hour** stat
-tiles, then **Qualifications**,
+subjects only), **Years exp / Per hour / Students** stat
+tiles (the **Students** tile shows the per-subject slots `current/capacity` — `0/1` for
+server-sourced profiles until the slots feature is wired to the backend), then **Qualifications**,
 **Achievements** and **Experience** each in their own card with a big icon-led heading —
 Qualifications render as **grade-tiles** (big result on top, short "type + subject" label, e.g.
 `7` / "IB Mathematics: AA HL"; results with no exam-style grade fall back to a line)), **Languages**

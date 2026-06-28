@@ -77,6 +77,9 @@ type Experience = {
   ongoing: boolean;
   year: string;
 };
+/** Per-subject student capacity: how many the tutor teaches now vs the most
+ *  they want to take on (rendered as "current / capacity", e.g. 0/1). */
+type Slots = { current: number; capacity: number };
 type Detail = {
   years: string;
   pay: number;
@@ -84,6 +87,8 @@ type Detail = {
   levels: string[];
   /** Chosen districts ("<regionId>:<District Name>"); only used for in-person / both. */
   districts: string[];
+  /** Student slots — how many students the tutor currently has vs wants. */
+  slots: Slots;
   achievements: string[];
   experiences: Experience[];
   quals: Qualification[];
@@ -119,12 +124,22 @@ const PAY_VALUES: number[] = (() => {
   return out;
 })();
 
+// Student-slots picker: the most students a tutor can take on (the right-hand
+// number). The left-hand "currently teaching" number is bounded by whatever
+// capacity is chosen, so its value list is built per-card.
+const SLOT_CAPACITY_MAX = 20;
+const SLOT_CAPACITY_VALUES = Array.from({ length: SLOT_CAPACITY_MAX }, (_, i) => String(i + 1));
+
+// Handwriting display font (loaded in app/_layout.tsx); used for the slot guide text.
+const HAND_FONT = "PatrickHand";
+
 const DEFAULT_DETAIL: Detail = {
   years: "0",
   pay: 300,
   format: "both",
   levels: [],
   districts: [],
+  slots: { current: 0, capacity: 1 },
   achievements: [],
   experiences: [],
   quals: [],
@@ -384,19 +399,23 @@ function LevelPicker({
 const ROW_H = 46;
 const WHEEL_VISIBLE = 5;
 
-/** iOS-style snap scroll picker (years). */
+/** iOS-style snap scroll picker (years + student slots). `visible` is the number
+ *  of rows shown (odd); the slots picker uses a shorter wheel than years. */
 function ScrollWheel({
   values,
   value,
   onChange,
   width = 120,
+  visible = WHEEL_VISIBLE,
 }: {
   values: string[];
   value: string;
   onChange: (v: string) => void;
   width?: number;
+  visible?: number;
 }) {
   const ref = useRef<ScrollView>(null);
+  const pad = ROW_H * Math.floor(visible / 2);
   const mountIdx = useRef(Math.max(0, values.indexOf(value))).current;
   useEffect(() => {
     const t = setTimeout(
@@ -413,8 +432,8 @@ function ScrollWheel({
     if (values[i] !== value) onChange(values[i]);
   };
   return (
-    <View style={[styles.wheelWrap, { width, height: ROW_H * WHEEL_VISIBLE }]}>
-      <View pointerEvents="none" style={styles.wheelSelBox} />
+    <View style={[styles.wheelWrap, { width, height: ROW_H * visible }]}>
+      <View pointerEvents="none" style={[styles.wheelSelBox, { top: (ROW_H * visible - ROW_H) / 2 }]} />
       <ScrollView
         ref={ref}
         showsVerticalScrollIndicator={false}
@@ -422,7 +441,7 @@ function ScrollWheel({
         decelerationRate="fast"
         onMomentumScrollEnd={settle}
         onScrollEndDrag={settle}
-        contentContainerStyle={{ paddingVertical: ROW_H * 2 }}
+        contentContainerStyle={{ paddingVertical: pad }}
       >
         {values.map((v) => (
           <View key={v} style={styles.wheelRow}>
@@ -665,6 +684,55 @@ function QualResult({
   );
 }
 
+/**
+ * Student-slots picker: two short scroll wheels reading "current / capacity"
+ * (e.g. 0/1) with a big slash between them, and a handwritten guide line under
+ * each. The left wheel ("currently teaching") can never exceed the right wheel
+ * ("capacity") — its value list is rebuilt (and the wheel remounted via `key`)
+ * whenever the capacity changes, and it's clamped down if capacity shrinks.
+ */
+function SlotPicker({ slots, onChange }: { slots: Slots; onChange: (next: Slots) => void }) {
+  const capacity = Math.max(1, slots.capacity || 1);
+  const current = Math.min(Math.max(0, slots.current || 0), capacity);
+  const currentValues = useMemo(
+    () => Array.from({ length: capacity + 1 }, (_, i) => String(i)),
+    [capacity],
+  );
+  return (
+    <View style={styles.slotCard}>
+      <View style={styles.slotRow}>
+        <View style={styles.slotCol}>
+          <ScrollWheel
+            key={`cur-${capacity}`}
+            values={currentValues}
+            value={String(current)}
+            onChange={(v) => onChange({ current: Math.min(Number(v) || 0, capacity), capacity })}
+            width={84}
+            visible={3}
+          />
+          <Text style={styles.slotHand}>number of students{"\n"}currently teaching</Text>
+        </View>
+        <View style={styles.slotSlashBox}>
+          <Text style={styles.slotSlash}>/</Text>
+        </View>
+        <View style={styles.slotCol}>
+          <ScrollWheel
+            values={SLOT_CAPACITY_VALUES}
+            value={String(capacity)}
+            onChange={(v) => {
+              const cap = Math.max(1, Number(v) || 1);
+              onChange({ current: Math.min(current, cap), capacity: cap });
+            }}
+            width={84}
+            visible={3}
+          />
+          <Text style={styles.slotHand}>number of students{"\n"}you want to teach</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ---- subject card -----------------------------------------------------------
 
 function DetailCard({
@@ -734,6 +802,12 @@ function DetailCard({
             },
           ]}
         >
+          {/* Student slots — how many students the tutor takes for THIS subject
+              (currently teaching / capacity). Per subject, like everything else
+              on this card. */}
+          <FieldLabel icon="groups">Student slots</FieldLabel>
+          <SlotPicker slots={detail.slots} onChange={(slots) => onPatch({ slots })} />
+
           {/* Teaching levels are per subject: a tutor might teach primary
               Maths but only senior-secondary Physics. */}
           <FieldLabel icon="school">Teaching levels for this subject</FieldLabel>
@@ -1087,6 +1161,10 @@ export default function TutorSD() {
                       ]}
                     />
                     <RevSection label={t("sd.field.pay")} lines={[payText]} />
+                    <RevSection
+                      label="Student slots"
+                      lines={[`${d.slots.current}/${d.slots.capacity}`]}
+                    />
                     <RevSection label={t("sd.field.format")} lines={[t(FORMAT_KEYS[d.format])]} />
                     {needsLocation(d.format) ? (
                       <RevSection
@@ -1381,6 +1459,29 @@ const styles = StyleSheet.create({
   wheelRow: { height: ROW_H, alignItems: "center", justifyContent: "center" },
   wheelText: { fontSize: 22, color: "#9CA3AF" },
   wheelTextOn: { color: "#16201C", fontWeight: "700" },
+
+  // Student-slots picker (two short wheels with a slash + handwritten guides).
+  slotCard: {
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+  },
+  slotRow: { flexDirection: "row", alignItems: "flex-start", justifyContent: "center" },
+  slotCol: { flex: 1, alignItems: "center" },
+  slotSlashBox: { height: ROW_H * 3, justifyContent: "center", paddingHorizontal: 2 },
+  slotSlash: { fontSize: 36, fontWeight: "300", color: "#C4C4C4" },
+  slotHand: {
+    fontFamily: HAND_FONT,
+    fontSize: 16,
+    lineHeight: 18,
+    color: "#2D6A4F",
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 2,
+  },
 
   tipRow: { height: 30 },
   tip: {

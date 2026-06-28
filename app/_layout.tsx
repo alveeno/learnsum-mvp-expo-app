@@ -1,5 +1,6 @@
 import "../global.css";
 
+import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -17,6 +18,13 @@ export default function RootLayout() {
   // start reopens logged-in and in the user's language instead of resetting.
   const [bootLang, setBootLang] = useState<Lang | null>(null);
 
+  // Handwriting display font (Patrick Hand, OFL). Loaded at runtime via
+  // expo-font — its native module ships with @expo/vector-icons, so this needs
+  // no EAS rebuild. Used for the guide text on the tutor "student slots" picker.
+  const [fontsLoaded, fontError] = useFonts({
+    PatrickHand: require("../assets/fonts/PatrickHand-Regular.ttf"),
+  });
+
   useEffect(() => {
     let cancelled = false;
     initSounds(); // warm the native sound pool so the first onboarding pop is in sync
@@ -32,8 +40,9 @@ export default function RootLayout() {
   }, []);
 
   // Hold the UI until bootstrap resolves (a frame or two) to avoid a flash of the
-  // default language / logged-out state.
-  if (bootLang === null) return null;
+  // default language / logged-out state. Also wait for the handwriting font, but
+  // never block on a font error (fall back to the system font).
+  if (bootLang === null || (!fontsLoaded && !fontError)) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
