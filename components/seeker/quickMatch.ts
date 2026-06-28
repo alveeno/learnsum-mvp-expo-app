@@ -13,6 +13,7 @@
 import { getStored } from "../onboarding/onboardingStore";
 import { type Interest } from "../../app/onboarding/StudentCatSel";
 import { type Prefs } from "../onboarding/PreferencesScreen";
+import { districtNameOfSub, subName } from "../onboarding/hkDistricts";
 import { DIRECTORY, type FullTutor } from "../tutor/tutorData";
 
 export type QuickMatch = {
@@ -23,12 +24,6 @@ export type QuickMatch = {
   personalized: boolean;
 };
 
-/** District keys are stored as "<regionId>:<District Name>" — take the name. */
-function districtName(key: string): string {
-  const i = key.indexOf(":");
-  return i >= 0 ? key.slice(i + 1) : key;
-}
-
 export function getQuickMatch(): QuickMatch {
   const interests = getStored<Interest[]>("student:interests", []);
   const prefs = getStored<Prefs | null>("student:prefs", null);
@@ -36,7 +31,14 @@ export function getQuickMatch(): QuickMatch {
   const wantedSubjects = interests
     .map((it) => (it.label ?? it.subId ?? "").toLowerCase().trim())
     .filter(Boolean);
-  const wantedDistricts = (prefs?.districts ?? []).map((d) => districtName(d).toLowerCase().trim());
+  // prefs.districts are subdistrict slugs; the sample tutors carry a district-level
+  // `loc`, so match against both the subdistrict name and its parent district name.
+  const wantedDistricts = (prefs?.districts ?? []).flatMap((slug) => {
+    const names = [subName(slug)];
+    const parent = districtNameOfSub(slug);
+    if (parent) names.push(parent);
+    return names.map((n) => n.toLowerCase().trim()).filter(Boolean);
+  });
 
   const subjectHit = (t: FullTutor) => {
     const subj = t.subject.toLowerCase();

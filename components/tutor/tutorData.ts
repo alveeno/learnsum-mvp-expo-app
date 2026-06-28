@@ -325,34 +325,10 @@ export function tutorById(id: string): Tutor | undefined {
   return TUTORS.find((t) => t.id === id);
 }
 
-/* ===== HK regions / districts (matches the onboarding location picker) ===== */
-export const REGIONS = [
-  { id: "hki", label: "HK Island", districts: ["Central & Western", "Eastern", "Southern", "Wan Chai"] },
-  { id: "kln", label: "Kowloon", districts: ["Yau Tsim Mong", "Sham Shui Po", "Kowloon City", "Wong Tai Sin", "Kwun Tong"] },
-  { id: "nt", label: "New Terr.", districts: ["Kwai Tsing", "Tsuen Wan", "Tuen Mun", "Yuen Long", "North", "Tai Po", "Sha Tin", "Sai Kung", "Islands"] },
-];
-
-/** First Chinese character per district (same glyphs as onboarding). */
-export const DISTRICT_ZH: Record<string, string> = {
-  "Central & Western": "中",
-  Eastern: "東",
-  Southern: "南",
-  "Wan Chai": "灣",
-  "Yau Tsim Mong": "油",
-  "Sham Shui Po": "深",
-  "Kowloon City": "九",
-  "Wong Tai Sin": "黃",
-  "Kwun Tong": "觀",
-  "Kwai Tsing": "葵",
-  "Tsuen Wan": "荃",
-  "Tuen Mun": "屯",
-  "Yuen Long": "元",
-  North: "北",
-  "Tai Po": "大",
-  "Sha Tin": "沙",
-  "Sai Kung": "西",
-  Islands: "離",
-};
+/* HK regions/districts now live in components/onboarding/hkDistricts.ts (the
+ * subdistrict source of truth); the duplicate district list that used to be here
+ * was removed when the FilterSheet adopted the shared DistrictPicker. Sample
+ * tutors keep a free-text `loc` for the sample feed only. */
 
 export const GENDERS: { v: Gender; label: string }[] = [
   { v: "boy", label: "Male" },

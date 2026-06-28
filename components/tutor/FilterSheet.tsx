@@ -3,14 +3,15 @@
  *
  * Ported from `tutor/tutor-filters.jsx`. The web source uses pointer events for
  * the draggable sliders; here they're rebuilt with React Native's PanResponder
- * (no extra native dependency). Filter logic (DEF_FILTERS / activeCount /
- * passFilters) is exported for the Search screen.
+ * (no extra native dependency). The sheet builds a `Filters` object; the Search
+ * screens map it to the backend query (see seeker/searchFilters.ts) — there's no
+ * client-side filtering of sample data anymore.
  */
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { BOUNDS, C, GENDERS, parseK, type FullTutor, type Gender } from "./tutorData";
+import { BOUNDS, C, GENDERS, type Gender } from "./tutorData";
 import { DistrictPicker } from "../onboarding/DistrictPicker";
 
 export type Filters = {
@@ -51,20 +52,6 @@ export function activeCount(f: Filters): number {
   if (f.locations.length) n++;
   if (f.genders.length) n++;
   return n;
-}
-
-/** Does a directory record pass the filter set? */
-export function passFilters(t: FullTutor, f: Filters): boolean {
-  if (t.price < f.price[0] || t.price > f.price[1]) return false;
-  if (t.age < f.age[0] || t.age > f.age[1]) return false;
-  if (t.stats.rating < f.rating) return false;
-  if (t.stats.years < f.years) return false;
-  if (t.stats.sessions < f.sessions) return false;
-  if (parseK(t.stats.followers) < f.followers) return false;
-  if (f.genders.length && !f.genders.includes(t.gender)) return false;
-  if (f.locations.length && !f.locations.includes(t.loc)) return false;
-  if (f.mode !== "either" && t.mode !== "both" && t.mode !== f.mode) return false;
-  return true;
 }
 
 /* ===== draggable slider (single or dual thumb) ===== */
