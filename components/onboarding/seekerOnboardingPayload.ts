@@ -16,8 +16,8 @@ import { type Interest } from "../../app/onboarding/StudentCatSel";
  *   - parent  → `{ role, profile, parent: { searching_for_self, children: [{
  *       name, school_level, format, districts, languages, interests, availability }] } }`
  * `interests` are subject **slugs** (== the app's `subId`; the backend re-maps
- * them to UUIDs), and districts stay `"<region>:<Label>"` (the backend maps the
- * labels). `submitSeekerOnboarding` stays BEST-EFFORT (swallows errors →
+ * them to UUIDs), and `districts` are **subdistrict slugs** (e.g. "causeway_bay",
+ * stored as text[]). `submitSeekerOnboarding` stays BEST-EFFORT (swallows errors →
  * `saved:false`) so a network blip can't block onboarding completion — but with
  * the correct shape it now genuinely PERSISTS on success.
  */

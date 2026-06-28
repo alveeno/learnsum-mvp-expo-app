@@ -10,7 +10,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { BOUNDS, C, DISTRICT_ZH, GENDERS, parseK, REGIONS, type FullTutor, type Gender } from "./tutorData";
+import { BOUNDS, C, GENDERS, parseK, type FullTutor, type Gender } from "./tutorData";
+import { DistrictPicker } from "../onboarding/DistrictPicker";
 
 export type Filters = {
   price: [number, number];
@@ -192,24 +193,6 @@ function Chip({ on, onPress, children }: { on: boolean; onPress: () => void; chi
   );
 }
 
-function LocDisc({ d, on, onPress }: { d: string; on: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.locDisc}>
-      <View
-        style={[
-          styles.locCircle,
-          { borderColor: on ? C.green : C.hairline, backgroundColor: on ? C.green : "#fff" },
-        ]}
-      >
-        <Text style={{ fontSize: 21, fontWeight: "700", color: on ? "#fff" : C.ink }}>{DISTRICT_ZH[d] || d[0]}</Text>
-      </View>
-      <Text style={{ fontSize: 10, fontWeight: "500", textAlign: "center", color: on ? C.greenD : C.muted, maxWidth: 64 }}>
-        {d}
-      </Text>
-    </Pressable>
-  );
-}
-
 const MODE_OPTS: { v: Filters["mode"]; l: string; ic: keyof typeof Ionicons.glyphMap }[] = [
   { v: "either", l: "Any", ic: "options-outline" },
   { v: "f2f", l: "In person", ic: "people-outline" },
@@ -235,7 +218,6 @@ export function FilterSheet({
   hideUnsupported?: boolean;
 }) {
   const [f, setF] = useState<Filters>(init);
-  const [region, setRegion] = useState(REGIONS[0].id);
   useEffect(() => {
     if (visible) setF(init);
   }, [visible]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -247,7 +229,6 @@ export function FilterSheet({
       [k]: (p[k] as string[]).includes(v) ? (p[k] as string[]).filter((x) => x !== v) : [...(p[k] as string[]), v],
     }));
 
-  const regionObj = REGIONS.find((r) => r.id === region)!;
   const n = count(f);
   const modeLabel = { either: "Any", f2f: "In person", online: "Online" }[f.mode];
 
@@ -297,31 +278,7 @@ export function FilterSheet({
             </FRow>
 
             <FRow label="Location" value={f.locations.length ? `${f.locations.length} selected` : "Anywhere"}>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 4 }}>
-                {REGIONS.map((r) => {
-                  const on = region === r.id;
-                  const picked = f.locations.filter((d) => r.districts.includes(d)).length;
-                  return (
-                    <Pressable
-                      key={r.id}
-                      onPress={() => setRegion(r.id)}
-                      style={[styles.regionBtn, { borderColor: on ? C.green : C.hairline, backgroundColor: on ? C.green : "#fff" }]}
-                    >
-                      <Text style={{ fontSize: 12.5, fontWeight: "700", color: on ? "#fff" : C.ink }}>{r.label}</Text>
-                      {picked > 0 && (
-                        <View style={styles.regionBadge}>
-                          <Text style={{ fontSize: 10, fontWeight: "800", color: "#3a2c06" }}>{picked}</Text>
-                        </View>
-                      )}
-                    </Pressable>
-                  );
-                })}
-              </View>
-              <View style={styles.locGrid}>
-                {regionObj.districts.map((d) => (
-                  <LocDisc key={d} d={d} on={f.locations.includes(d)} onPress={() => toggleArr("locations", d)} />
-                ))}
-              </View>
+              <DistrictPicker value={f.locations} onChange={(next) => set("locations", next)} />
             </FRow>
 
             <FRow label="Tutor gender" value={f.genders.length ? `${f.genders.length} selected` : "Any"}>

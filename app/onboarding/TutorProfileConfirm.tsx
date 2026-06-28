@@ -11,7 +11,7 @@ import {
   type EduByLevel,
   type ProfileBodyData,
 } from "../../components/tutor/ProfileBody";
-import { districtName } from "../../components/onboarding/hkDistricts";
+import { subName } from "../../components/onboarding/hkDistricts";
 import { getStored, setStored } from "../../components/onboarding/onboardingStore";
 import { submitTutorOnboarding } from "../../components/onboarding/tutorOnboardingPayload";
 import { type Prefs } from "../../components/onboarding/PreferencesScreen";
@@ -93,7 +93,7 @@ export default function TutorProfileConfirm() {
       levels: store.levels,
       interests: store.interests,
       details: Object.fromEntries(
-        Object.entries(store.details).map(([k, d]) => [k, { ...d, districts: d.districts.map(districtName) }]),
+        Object.entries(store.details).map(([k, d]) => [k, { ...d, districts: d.districts.map(subName) }]),
       ),
       langLevels: store.prefs?.langLevels ?? {},
       eduByLevel: store.eduByLevel,

@@ -198,9 +198,10 @@ one flow per role:
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting years of
   **teaching** experience, preferred pay, **lesson format** (In person / Online / Both,
-  default Both), **location** (only for In person / Both — region tabs + district grid via the
-  shared `DistrictPicker`; later subjects get a **"Same as previous"** chip that copies the
-  districts from the nearest earlier in-person subject), achievements, experience and
+  default Both), **location** (only for In person / Both — region tabs + an expandable
+  district→subdistrict picker via the shared `DistrictPicker`, stored as subdistrict slugs; later
+  subjects get a **"Same as previous"** chip that copies the districts from the nearest earlier
+  in-person subject), achievements, experience and
   qualifications; the **pay slider is non-linear** — small $10 steps near the bottom growing to
   $100 near the top, so the common $200–$500 range is easy to land on) → `TutorPrefs` →
   `TutorAbout` (a **profile
@@ -353,8 +354,9 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   unregistered ones hit the auth gate. (Adding a **story** is still a stub — stories aren't backed.)
 - **Search** (`SearchScreen` + `FilterSheet`) — **now queries `GET /api/tutors`** (real results),
   with trending tags, recent searches, and the advanced filter sheet (gesture-driven dual sliders,
-  HK district discs, gender; the rating/years/sessions/followers sliders are hidden via
-  `hideUnsupported` — no backend filter). See "Wired so far".
+  the shared **subdistrict `DistrictPicker`** for location → `subdistrict` slugs, gender; the
+  rating/years/sessions/followers sliders are hidden via `hideUnsupported` — no backend filter). See
+  "Wired so far".
 - **Chat** (`ChatList`) — **now backend-wired** (REST-polling): the conversation list, opening a
   thread at `/messages/[id]` (`ChatThread`). See "Wired so far".
 - **Analytics** (`AnalyticsScreen`) — Premium paywall over a dimmed dashboard; "Upgrade"
@@ -490,11 +492,18 @@ screen re-seed itself so **input is never lost while the app is open**.
   screen is just availability + languages. Student/parent flows are unchanged (format shown;
   location follows the chosen format and is required when in-person/both).
 - **Location picker is shared** (`components/onboarding/DistrictPicker.tsx` + the HK
-  regions/districts data in `components/onboarding/hkDistricts.ts`): a controlled region-tabs +
-  district-grid component used by both `PreferencesScreen` (student/parent) and the per-subject
-  cards on `TutorSD`. Districts are stored as `"<regionId>:<District Name>"` keys and can span
-  regions; `districtName()` turns a key back into its display name. (Extracting this made the
-  district grid show its first region immediately, rather than only after a region tab is tapped.)
+  region → district → **subdistrict** data in `components/onboarding/hkDistricts.ts`): a controlled
+  component used by `PreferencesScreen` (student/parent), the per-subject cards on `TutorSD`, **and
+  the search `FilterSheet`**. It has 3 region tabs → **larger district circles** that **expand** on
+  tap into **smaller subdistrict circles**, each showing the first character of its Chinese name; a
+  **"Select all"** toggle picks every subdistrict in the open district. Selection is **subdistrict
+  only** — a chosen location is a **subdistrict slug** (e.g. `"causeway_bay"`), the value stored in
+  the onboarding store and sent to the backend (stored as `text[]`; the **frontend is the source of
+  truth** for the list). Helpers: `subName(slug)` / `subZh(slug)` / `subSlugsOfDistrict()` /
+  `subdistrictsLabel()`. The circles reuse `SelectableCircle`, so they get the same cascade entrance
+  + **"pop" on appear / "tap" on select** through the low-latency native sound pool — zero-lag by the
+  same mechanism as the other onboarding grids. (Old model: 18 coarse `hk_district` enum keys
+  `"<regionId>:<District Name>"` — replaced.)
 - **Skip confirmation:** every onboarding "Skip" routes through `useSkipGuard()`
   (`components/onboarding/useSkipGuard.tsx`), which shows a one-time "Skip this step?"
   warning (`components/ui/ConfirmModal.tsx`) the first time per app session, then skips
@@ -527,7 +536,8 @@ Rules:
   AsyncStorage; `app/_layout.tsx` seeds `LanguageProvider`'s `initialLang` on cold start and every
   `setLang` saves). (The onboarding draft store is still in-memory by design.)
 - **Deferred (still English on purpose):** content-list *names* — subjects/categories,
-  HK districts + regions, language names, and qualification/exam option values
+  HK regions / districts / subdistricts (the Chinese **character** on each location circle is shown,
+  but the English names aren't translated yet), language names, and qualification/exam option values
   (`tutorQuals.ts`). These are a later "content pass"; the UI chrome is already translated.
 
 ## Development workflow
@@ -654,6 +664,6 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 **Content pass (i18n)**
 
-- Translate the deferred content lists — subjects / categories, HK districts + regions, language
+- Translate the deferred content lists — subjects / categories, HK regions / districts / subdistricts, language
   names, qualification / exam option values. UI chrome is already in English / Traditional /
   Simplified Chinese.

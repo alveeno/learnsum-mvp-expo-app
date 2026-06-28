@@ -11,7 +11,6 @@ import {
   type TutorSubjectInput,
 } from "../../lib/api";
 import { subColorFor, type Interest } from "../../app/onboarding/StudentCatSel";
-import { districtEnumFromKey, districtKeyFromEnum } from "../onboarding/hkDistricts";
 import { getStored, setStored } from "../onboarding/onboardingStore";
 
 /**
@@ -209,7 +208,7 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
       format: isFormat(sub.format) ? sub.format : "both",
       levels: normLevels(sub.teaching_levels ?? sub.levels, levels),
       districts: Array.isArray(sub.districts)
-        ? sub.districts.map(districtKeyFromEnum).filter((k): k is string => !!k)
+        ? sub.districts.filter((d): d is string => typeof d === "string")
         : [],
       achievements: parseAchievements(sub.achievements),
       experiences: Array.isArray(sub.experience) ? sub.experience : [],
@@ -392,10 +391,8 @@ export async function saveTutorEdits(): Promise<void> {
       experience: d.experiences,
       format: d.format,
       levels: d.levels ?? [], // per-subject teaching levels (0020)
-      districts:
-        d.format === "online"
-          ? []
-          : d.districts.map(districtEnumFromKey).filter((c): c is string => !!c),
+      // Subdistrict slugs; online subjects carry none (mirrors the onboarding write).
+      districts: d.format === "online" ? [] : d.districts,
     });
   }
   await tolerant(() => putTutorSubjects(subjects));

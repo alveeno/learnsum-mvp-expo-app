@@ -23,7 +23,7 @@ import { Button } from "../../components/ui/Button";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { DistrictPicker } from "../../components/onboarding/DistrictPicker";
-import { districtName } from "../../components/onboarding/hkDistricts";
+import { subName } from "../../components/onboarding/hkDistricts";
 import { getStored, usePersistentState } from "../../components/onboarding/onboardingStore";
 import { type FormatId } from "../../components/onboarding/PreferencesScreen";
 import { onStepContinue, onStepSkip } from "../../components/onboarding/tutorOnboarding";
@@ -82,7 +82,7 @@ type Detail = {
   pay: number;
   format: FormatId;
   levels: string[];
-  /** Chosen districts ("<regionId>:<District Name>"); only used for in-person / both. */
+  /** Chosen subdistrict slugs (e.g. "causeway_bay"); only used for in-person / both. */
   districts: string[];
   achievements: string[];
   experiences: Experience[];
@@ -1091,7 +1091,7 @@ export default function TutorSD() {
                     {needsLocation(d.format) ? (
                       <RevSection
                         label={t("sd.field.location")}
-                        lines={d.districts.map(districtName)}
+                        lines={d.districts.map(subName)}
                       />
                     ) : null}
                     <RevSection label={t("sd.field.achievements")} lines={achievements} />

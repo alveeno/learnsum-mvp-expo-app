@@ -1,17 +1,16 @@
 import { BOUNDS } from "../tutor/tutorData";
 import type { Filters } from "../tutor/FilterSheet";
-import { districtEnumFromName } from "../onboarding/hkDistricts";
 import type { TutorSearchParams } from "../../lib/api";
 
 /**
  * Map the shared FilterSheet `Filters` → the backend's GET /api/tutors query.
  *
  * Only the dimensions the backend supports are sent: price→rate range, age, lesson
- * mode→tutoring_format, districts (names → hk_district enum codes) and gender (app
- * codes → backend enum). The rating/years/sessions/followers sliders are hidden in
- * the seeker sheet (hideUnsupported) and ignored here — they have no backend filter.
- * Range filters are only sent when narrowed from the full bounds, so an untouched
- * slider never excludes tutors who simply haven't set that value.
+ * mode→tutoring_format, locations (subdistrict slugs, sent as `subdistrict`) and
+ * gender (app codes → backend enum). The rating/years/sessions/followers sliders are
+ * hidden in the seeker sheet (hideUnsupported) and ignored here. Range filters are
+ * only sent when narrowed from the full bounds, so an untouched slider never
+ * excludes tutors who simply haven't set that value.
  */
 const GENDER_CODE: Record<string, string> = { boy: "male", girl: "female", lgbt: "lgbt" };
 
@@ -27,10 +26,8 @@ export function filtersToSearchParams(f: Filters): TutorSearchParams {
   if (f.mode === "f2f") params.tutoring_format = "in_person";
   else if (f.mode === "online") params.tutoring_format = "online";
 
-  const districts = f.locations
-    .map(districtEnumFromName)
-    .filter((c): c is string => c !== null);
-  if (districts.length) params.district = districts;
+  // f.locations are subdistrict slugs (the FilterSheet now uses DistrictPicker).
+  if (f.locations.length) params.subdistrict = f.locations;
 
   const genders = f.genders.map((g) => GENDER_CODE[g]).filter(Boolean);
   if (genders.length) params.gender = genders;

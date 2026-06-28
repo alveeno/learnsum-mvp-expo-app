@@ -14,7 +14,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { SaveButton } from "./SaveButton";
 import { Avatar } from "../tutor/feedUi";
 import { C } from "../tutor/tutorData";
-import { districtKeyFromEnum, districtName } from "../onboarding/hkDistricts";
+import { subdistrictsLabel } from "../onboarding/hkDistricts";
 import { getSavedTutors, type SavedTutor } from "../../lib/api";
 
 function slugToName(slug: string): string {
@@ -25,8 +25,7 @@ function cardName(t: SavedTutor): string {
 }
 function subtitle(t: SavedTutor): string {
   const subject = t.categories[0]?.name_en;
-  const key = t.district ? districtKeyFromEnum(t.district) : null;
-  const loc = key ? districtName(key) : t.district ?? "";
+  const loc = subdistrictsLabel(t.subdistricts);
   return [subject, loc].filter(Boolean).join(" · ");
 }
 

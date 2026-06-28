@@ -20,7 +20,7 @@ import { SaveButton } from "./SaveButton";
 import { Avatar } from "../tutor/feedUi";
 import { activeCount, DEF_FILTERS, FilterSheet, type Filters } from "../tutor/FilterSheet";
 import { C } from "../tutor/tutorData";
-import { districtKeyFromEnum, districtName } from "../onboarding/hkDistricts";
+import { subdistrictsLabel } from "../onboarding/hkDistricts";
 import { ApiError, searchTutors, type BrowseTutorCard } from "../../lib/api";
 
 // "jane-doe" → "Jane Doe" when a card has no display_name (guest / unnamed).
@@ -34,15 +34,9 @@ function slugToName(slug: string): string {
 function cardName(t: BrowseTutorCard): string {
   return t.display_name?.trim() || slugToName(t.slug);
 }
-// Readable district ("ShaTin" → "Sha Tin"); empty when unset/unknown.
-function districtLabel(code: string | null): string {
-  if (!code) return "";
-  const key = districtKeyFromEnum(code);
-  return key ? districtName(key) : code;
-}
 function subtitle(t: BrowseTutorCard): string {
   const subject = t.categories[0]?.name_en;
-  const loc = districtLabel(t.district);
+  const loc = subdistrictsLabel(t.subdistricts);
   return [subject, loc].filter(Boolean).join(" · ");
 }
 

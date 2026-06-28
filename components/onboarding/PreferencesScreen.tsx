@@ -51,7 +51,7 @@ type Avail = Record<DayKey, Slot[]>;
 /** Everything this screen collects for one person / child. */
 export type Prefs = {
   format: FormatId | null;
-  /** Chosen districts, each keyed "<regionId>:<District Name>". May span regions. */
+  /** Chosen subdistrict slugs (e.g. "causeway_bay"). May span regions. */
   districts: string[];
   /** "select" mode: chosen main-language ids. */
   langs: string[];
@@ -352,8 +352,8 @@ export function PreferencesScreen({
 
   // Section 1
   const [format, setFormat] = useState<FormatId | null>(seed?.format ?? null);
-  // Section 2 — districts may span regions (keyed "<regionId>:<District>"); the
-  // region-tab UI lives inside DistrictPicker.
+  // Section 2 — subdistrict slugs, may span regions; the region tabs + expandable
+  // district→subdistrict UI live inside DistrictPicker.
   const [districts, setDistricts] = useState<string[]>(seed?.districts ?? []);
   // Section 3
   const [langs, setLangs] = useState<string[]>(seed?.langs ?? []);

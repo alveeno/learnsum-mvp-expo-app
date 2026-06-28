@@ -16,7 +16,7 @@ import { Avatar, FollowBtn } from "./feedUi";
 import { activeCount, DEF_FILTERS, FilterSheet, type Filters } from "./FilterSheet";
 import { C } from "./tutorData";
 import { filtersToSearchParams } from "../seeker/searchFilters";
-import { districtKeyFromEnum, districtName } from "../onboarding/hkDistricts";
+import { subdistrictsLabel } from "../onboarding/hkDistricts";
 import { ApiError, searchTutors, type BrowseTutorCard } from "../../lib/api";
 
 function slugToName(slug: string): string {
@@ -27,8 +27,7 @@ function cardName(t: BrowseTutorCard): string {
 }
 function subtitle(t: BrowseTutorCard): string {
   const subject = t.categories[0]?.name_en;
-  const key = t.district ? districtKeyFromEnum(t.district) : null;
-  const loc = key ? districtName(key) : t.district ?? "";
+  const loc = subdistrictsLabel(t.subdistricts);
   return [subject, loc].filter(Boolean).join(" · ");
 }
 

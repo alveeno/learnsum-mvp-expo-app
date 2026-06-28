@@ -1,4 +1,5 @@
 import { type FormatId } from "../onboarding/PreferencesScreen";
+import { subName } from "../onboarding/hkDistricts";
 import { type Interest } from "../../app/onboarding/StudentCatSel";
 import { type MeResponse } from "../../lib/api";
 import {
@@ -16,15 +17,6 @@ import {
  * "view another tutor" overlay (GET /api/tutors/[slug]) — both return the same
  * per-subject shape.
  */
-
-// hk_district enum code → display name (the backend returns enum codes).
-const DISTRICT_LABELS: Record<string, string> = {
-  CentralWestern: "Central & Western", WanChai: "Wan Chai", Eastern: "Eastern", Southern: "Southern",
-  YauTsimMong: "Yau Tsim Mong", ShamshuiPo: "Sham Shui Po", KowloonCity: "Kowloon City",
-  WongTaiSin: "Wong Tai Sin", KwunTong: "Kwun Tong", KwaiTsing: "Kwai Tsing", TsuenWan: "Tsuen Wan",
-  TuenMun: "Tuen Mun", YuenLong: "Yuen Long", North: "North", TaiPo: "Tai Po", SaiKung: "Sai Kung",
-  ShaTin: "Sha Tin", Islands: "Islands",
-};
 
 // Backend per-subject shape (tutor_subcategories row, as returned by me/[slug]).
 interface RawSubject {
@@ -106,7 +98,7 @@ function subjectToInterestDetail(
     pay: sub.hourly_rate_min ?? 0,
     format: isFormat(sub.format) ? sub.format : "both",
     levels: normLevels(sub.teaching_levels ?? sub.levels, fallbackLevels),
-    districts: Array.isArray(sub.districts) ? sub.districts.map((c) => DISTRICT_LABELS[c] ?? c) : [],
+    districts: Array.isArray(sub.districts) ? sub.districts.map(subName) : [],
     achievements: parseAchievements(sub.achievements),
     experiences: (Array.isArray(sub.experience) ? sub.experience : []) as Experience[],
     quals: (Array.isArray(sub.qualifications) ? sub.qualifications : []) as Qualification[],

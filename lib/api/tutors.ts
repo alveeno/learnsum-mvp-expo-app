@@ -59,19 +59,22 @@ export interface BrowseTutorCard {
   display_name: string | null;
   avatar_url: string | null;
   district: string | null;
+  /** Distinct subdistrict slugs the tutor teaches in (across subjects), e.g.
+   *  ["causeway_bay","mong_kok"]. The card's location is shown from these. */
+  subdistricts: string[];
   categories: { id: string; name_en: string; name_zh: string; slug: string }[];
 }
 
 /**
  * Structured browse filters for GET /api/tutors. Arrays are sent comma-separated
- * (the backend matches ANY). `district`/`gender`/`language` are the multi-value
- * sets; districts must be hk_district ENUM CODES (e.g. "CentralWestern"), not the
- * "Central & Western" display label — map first (see hkDistricts.districtEnumFromName).
- * Omit a field to leave that dimension unfiltered. There is no free-text search on
- * the backend, so the Search screen narrows the returned cards by text client-side.
+ * (the backend matches ANY). `subdistrict`/`gender`/`language` are the multi-value
+ * sets; subdistricts are slugs (e.g. "causeway_bay") — the backend matches a tutor
+ * whose per-subject districts overlap any of them. Omit a field to leave that
+ * dimension unfiltered. There is no free-text search on the backend, so the Search
+ * screen narrows the returned cards by text client-side.
  */
 export interface TutorSearchParams {
-  district?: string[];
+  subdistrict?: string[];
   gender?: string[];
   language?: string[];
   subcategory_id?: string;
@@ -93,7 +96,7 @@ export interface TutorSearchResult {
 export async function searchTutors(params: TutorSearchParams = {}): Promise<TutorSearchResult> {
   return apiFetch<TutorSearchResult>("/api/tutors", {
     query: {
-      district: params.district?.length ? params.district.join(",") : undefined,
+      subdistrict: params.subdistrict?.length ? params.subdistrict.join(",") : undefined,
       gender: params.gender?.length ? params.gender.join(",") : undefined,
       language: params.language?.length ? params.language.join(",") : undefined,
       subcategory_id: params.subcategory_id,
@@ -128,9 +131,8 @@ export async function setTutorPublished(slug: string, isPublished: boolean): Pro
 /**
  * One subject the tutor teaches, for PUT /api/tutor/subjects (full replace).
  * `subcategory_id` is the backend UUID (resolve from the slug via the categories
- * index). `format`/`districts` are persisted by the endpoint (extended to match
- * what onboarding stores — see backend migration 0016); districts are hk_district
- * enum codes and only apply to in-person/both.
+ * index). `format`/`districts` are persisted by the endpoint; `districts` are
+ * **subdistrict slugs** (e.g. "causeway_bay") and only apply to in-person/both.
  */
 export interface TutorSubjectInput {
   subcategory_id: string;
