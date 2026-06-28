@@ -37,6 +37,9 @@ There are three user types:
   clips in `assets/sounds/`). Later additions (**each needs an EAS rebuild**): `expo-asset` (loads
   the sound clips into the native pool) and a **local Expo module `modules/expo-sound-pool/`** (iOS
   `AVAudioEngine` low-latency SFX pool — the preferred sound backend; see "Tutor app shell" caveats).
+  **`expo-font`** loads a bundled **Patrick Hand** handwriting font (`assets/fonts/` + OFL license;
+  runtime `useFonts` in `app/_layout.tsx`, **no rebuild** — `expo-font` already ships in the build)
+  for the tutor **student-slots** guide text on `TutorSD`.
 
 ## Backend connection
 
@@ -644,6 +647,13 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   alongside backend migrations 0017–0020). Both Search tabs query `GET /api/tutors`; Saved is backed
   by `/api/saved`; tutor-profile post likes use `/api/posts/[id]/likes`; chat (`/messages`) polls
   `/api/conversations*`. See "Wired so far" for the full breakdown.
+- **Tutor student slots → backend** — the per-subject **student slots** (`current/capacity`, collected
+  on `TutorSD`, the `slots` field on `Detail`) are **frontend-only**: held in the onboarding store and
+  shown on the review + own-profile surfaces, but **not** sent in `tutorOnboardingPayload.ts` / the
+  `PUT /api/tutor/subjects` edit, and there's **no column** for them yet. Todo: add a
+  `tutor_subcategories` slots column (+ the onboarding RPC / subjects route + `me`/`tutors/[slug]`
+  reads), then send + read them (mirrors how per-subject `levels` were wired in 0020). Until then
+  server-sourced profiles show the default `0/1`.
 
 **`/tutor-home` shell — front-end only today, needs backend**
 
