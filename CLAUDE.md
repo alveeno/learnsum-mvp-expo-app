@@ -179,7 +179,9 @@ File-based routes (Expo Router). Route map:
 | Route            | Purpose |
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
-| `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / Analytics / Profile). **Built**; **Search + Chat are now backend-wired**, Home stays sample data, Analytics is a paywall mock — see "Tutor app shell" below |
+| `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / **Saved** / Profile). **Built**; **Search + Chat are now backend-wired**, Home stays sample data. **Analytics moved off the tab bar** to the Home **heart icon** (`/analytics`); its old slot is the **Saved** tab — see "Tutor app shell" below |
+| `/analytics`     | Tutor **Analytics**, opened from the Home feed **heart icon** — headline is a **free, tappable "who viewed your profile"** list (profile viewers → tap to open a seeker); the reach/post dashboard below stays a premium mock. **Built** (viewers + quota are mock/`__DEV__` fallback pending backend) |
+| `/seekers/[id]`  | **Seeker (parent/student) profile**, viewed by a tutor from the viewers list or Saved tab — shows preferences, category, child level + age, **never the phone**; contact (phone/WhatsApp/WeChat/chat) is **locked behind a 3-per-day contact quota** (`components/tutor/contactQuota.ts`). **Built** (sample-data fallback; backend gaps below) |
 | `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Account). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
 | `/messages`, `/messages/[id]` | **In-app chat** — conversation list + thread, REST-polling (`lib/api/chat.ts` → `/api/conversations*`). **Built** (real backend). Reached from the tutor Chat tab, the seeker Account → Messages row, and the "Message" button on a tutor profile |
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat) — **built** (real shareable route; reuses the shared `TutorProfileContent`; the seeker shell pushes into it; sample-data fallback when the slug isn't a real tutor) |
@@ -196,7 +198,9 @@ one flow per role:
 
 - **Student:** `StudentEducationLevel` → `StudentCatSel` → `StudentPrefs` → `CreateAccount`
   (final credential step; Skip on Prefs bypasses straight to `/feed`)
-- **Parent:** `ParentNumChild` → `ParentChildSetup` (per-child categories +
+- **Parent:** `ParentNumChild` (per-child name + education level + an **optional age** field —
+  age isn't required to Continue; sent best-effort in `seekerOnboardingPayload.ts`, backend column
+  pending — see backend gaps) → `ParentChildSetup` (per-child categories +
   preferences, one child at a time, then a review) → `CreateAccount`
 - **Tutor:** `SignUp` (email + password / social — account gate) → `TutorTeachLevels` →
   `TutorCatSel` → `TutorSD` (Strengths & Details — a per-subject accordion collecting **student
@@ -364,7 +368,20 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   tutor's **university** (matched against `ME.school`). **No comments** — the comment sheet,
   count and "view all comments" were removed; likes stay. The feed cards are **sample data**, but
   the header **"+"** is now live: registered tutors open the **post composer** (`app/post-new.tsx`);
-  unregistered ones hit the auth gate. (Adding a **story** is still a stub — stories aren't backed.)
+  unregistered ones hit the auth gate. The header **heart icon** opens **Analytics** (`/analytics`,
+  the "who viewed your profile" list — see below); it was inert before. (Adding a **story** is still
+  a stub — stories aren't backed.)
+
+**Contact quota (`components/tutor/contactQuota.ts`):** a tutor may **unlock** a parent/student's
+contact (phone / WhatsApp / WeChat / in-app chat) at most **3 per day**. An unlock is **permanent**
+(re-contacting that seeker is free forever); the 3-a-day allowance **resets daily**. This replaces
+the premium paywall as the monetization lever. The store is `useSyncExternalStore` + an AsyncStorage
+mirror (so the daily reset + permanent unlocks survive a reload in the mock) over
+`lib/api/contacts.ts` (`/api/tutor/contact-quota` + `/api/tutor/contact-unlocks`, mock until built).
+On a seeker profile (`/seekers/[id]`, `components/seeker-profile/SeekerProfileContent.tsx`) the phone
+and contact buttons are **hidden behind an "Unlock contact (N of 3 left)" CTA** (a `ConfirmModal`
+spends one unlock; 0 left → "resets tomorrow" alert). **Seeker data is mock** (`sampleSeekers.ts` →
+`getSeeker`, `lib/api/seekers.ts`) and **English-only** like the rest of the shell.
 - **Search** (`SearchScreen` + `FilterSheet`) — **now queries `GET /api/tutors`** (real results),
   with trending tags, recent searches, and the advanced filter sheet (gesture-driven dual sliders,
   the shared **subdistrict `DistrictPicker`** for location → `subdistrict` slugs, gender; the
@@ -372,8 +389,18 @@ bottom tab bar that switches five tabs, plus a shared "view another tutor" overl
   "Wired so far".
 - **Chat** (`ChatList`) — **now backend-wired** (REST-polling): the conversation list, opening a
   thread at `/messages/[id]` (`ChatThread`). See "Wired so far".
-- **Analytics** (`AnalyticsScreen`) — Premium paywall over a dimmed dashboard; "Upgrade"
-  reveals it locally.
+- **Saved** (`TutorSavedScreen`) — **replaces the old Analytics tab.** A **mixed** bookmarks list:
+  the other **tutors AND parents/students** the tutor saved, backed by the shared
+  `components/tutor/savedPeople.ts` store (`useSyncExternalStore` + optimistic writes +
+  AsyncStorage mirror; `lib/api/savedPeople.ts` → `/api/saved/people`, mock until built). A tutor
+  saves from the **Search** results (a `SaveButton` added alongside the existing **Follow**), the
+  **profile-viewers** list, or a **seeker profile**. Tapping a tutor opens the in-shell tutor
+  overlay; tapping a seeker opens `/seekers/[id]`.
+- **Analytics is no longer a tab** — it moved to the Home feed **heart icon** (`AnalyticsScreen`
+  via the `/analytics` route). Its headline is now a **free** "who viewed your profile" list
+  (`getProfileViewers`, `lib/api/profileViews.ts`, sample fallback) — tappable rows → `/seekers/[id]`,
+  each with a `SaveButton`. The reach/post charts below stay a **premium paywall mock** ("Upgrade"
+  reveals locally). The monetization lever is now the **contact quota** (below), not the paywall.
 - **Profile** (`ProfileScreen`) — own profile, **dimmed behind a "Set up your profile" gate**
   (→ onboarding) until setup is done. Once set up it shows the tutor's **real** profile via the
   shared **`ProfileBody`** layout (`GET /api/auth/me`), with a settings button (inert) and a
@@ -654,6 +681,25 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   `tutor_subcategories` slots column (+ the onboarding RPC / subjects route + `me`/`tutors/[slug]`
   reads), then send + read them (mirrors how per-subject `levels` were wired in 0020). Until then
   server-sourced profiles show the default `0/1`.
+- **Profile viewers + contact quota + tutor-saved-people + child age → backend** — the tutor
+  Saved/Analytics/seeker-profile batch (the Saved tab, the `/analytics` "who viewed your profile"
+  list, `/seekers/[id]`, and the 3-per-day contact unlock) is **frontend-only with mock/sample +
+  AsyncStorage fallbacks**; the API clients exist (`lib/api/profileViews.ts`, `contacts.ts`,
+  `seekers.ts`, `savedPeople.ts`) but the endpoints don't. Todo (backend repo):
+  - **Profile views:** a `profile_views` table + `POST /api/tutors/[slug]/views` (record, fired by
+    `recordProfileView` in `TutorProfileContent`) + `GET /api/tutor/profile-views` (the viewers list,
+    seeker preferences joined, **phone omitted**).
+  - **Seeker read for tutors:** `GET /api/seekers/[id]` (preferences/category/child level+age;
+    **contact fields null unless the tutor has unlocked this seeker**).
+  - **Contact quota:** a per-tutor daily counter + a `tutor_contact_unlocks` table;
+    `GET /api/tutor/contact-quota` + `POST /api/tutor/contact-unlocks { seeker_id }` (decrement
+    remaining, **permanent** unlock, daily reset). Gate the seeker's contact fields + chat
+    `startConversation` server-side on an unlock.
+  - **Tutor saved (mixed):** `GET/POST/DELETE /api/saved/people` (tutors **and** seekers, keyed by
+    slug/id) — distinct from the seeker-side `/api/saved`.
+  - **Child age:** add an `age` column to the child/onboarding RPC + reads (sent best-effort by
+    `seekerOnboardingPayload.ts`). Until these exist, the surfaces run on `sampleSeekers.ts` +
+    AsyncStorage and server-sourced seekers would show no age.
 
 **`/tutor-home` shell — front-end only today, needs backend**
 

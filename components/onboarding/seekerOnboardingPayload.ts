@@ -22,7 +22,7 @@ import { type Interest } from "../../app/onboarding/StudentCatSel";
  * the correct shape it now genuinely PERSISTS on success.
  */
 
-type ChildInput = { name: string; level: string | null };
+type ChildInput = { name: string; level: string | null; age?: string | null };
 export type SeekerRole = "student" | "parent";
 
 // One seeker section (a student, or one parent child) in the exact shape the
@@ -61,14 +61,21 @@ export function buildParentPayload() {
     profile: {},
     parent: {
       searching_for_self: false,
-      children: roster.map((child, i) => ({
-        name: child.name,
-        ...seekerSection(
-          child.level,
-          getStored<Interest[]>(`parent:child:${i}:interests`, []),
-          getStored<Prefs | null>(`parent:child:${i}:prefs`, null),
-        ),
-      })),
+      children: roster.map((child, i) => {
+        // Optional child age (collected on ParentNumChild) → int or null. The
+        // backend column is pending (see CLAUDE.md backend-gap notes); sent
+        // best-effort so it persists once the column exists.
+        const parsedAge = child.age ? parseInt(child.age, 10) : NaN;
+        return {
+          name: child.name,
+          age: Number.isFinite(parsedAge) ? parsedAge : null,
+          ...seekerSection(
+            child.level,
+            getStored<Interest[]>(`parent:child:${i}:interests`, []),
+            getStored<Prefs | null>(`parent:child:${i}:prefs`, null),
+          ),
+        };
+      }),
     },
   };
 }

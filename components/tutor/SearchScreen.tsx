@@ -14,7 +14,9 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { Avatar, FollowBtn } from "./feedUi";
 import { activeCount, DEF_FILTERS, FilterSheet, type Filters } from "./FilterSheet";
+import { useSavedPeople } from "./savedPeople";
 import { C } from "./tutorData";
+import { SaveButton } from "../seeker/SaveButton";
 import { filtersToSearchParams } from "../seeker/searchFilters";
 import { subdistrictsLabel } from "../onboarding/hkDistricts";
 import { ApiError, searchTutors, type BrowseTutorCard } from "../../lib/api";
@@ -36,11 +38,15 @@ function ResultRow({
   connected,
   onConnect,
   onOpen,
+  saved,
+  onToggleSave,
 }: {
   t: BrowseTutorCard;
   connected: boolean;
   onConnect: () => void;
   onOpen: () => void;
+  saved: boolean;
+  onToggleSave: () => void;
 }) {
   const name = cardName(t);
   const sub = subtitle(t);
@@ -57,6 +63,7 @@ function ResultRow({
           </Text>
         )}
       </View>
+      <SaveButton saved={saved} onToggle={onToggleSave} />
       <FollowBtn following={connected} onToggle={onConnect} size="sm" />
     </Pressable>
   );
@@ -81,6 +88,7 @@ export function SearchScreen({
   const [tutors, setTutors] = useState<BrowseTutorCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const { isSaved, toggle: toggleSaved } = useSavedPeople();
 
   const load = useCallback((f: Filters) => {
     setLoading(true);
@@ -190,6 +198,16 @@ export function SearchScreen({
                   connected={connected.has(t.slug)}
                   onConnect={() => onConnect(t.slug)}
                   onOpen={() => onOpenProfile(t.slug)}
+                  saved={isSaved(t.slug)}
+                  onToggleSave={() =>
+                    toggleSaved({
+                      id: t.slug,
+                      kind: "tutor",
+                      name: cardName(t),
+                      subtitle: subtitle(t),
+                      avatar_url: t.avatar_url,
+                    })
+                  }
                 />
               ))
             )}

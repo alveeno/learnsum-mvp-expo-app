@@ -30,7 +30,7 @@ import { type TranslationKey } from "../../components/i18n/translations";
  * glows gold (Accent) when selected — single-select per child.
  */
 
-type Child = { name: string; level: string | null };
+type Child = { name: string; level: string | null; age?: string | null };
 
 const LEVELS: { key: string; labelKey: TranslationKey; icon: keyof typeof Ionicons.glyphMap }[] = [
   { key: "kindergarten", labelKey: "level.kindergarten", icon: "happy" },
@@ -76,6 +76,11 @@ export default function ParentNumChild() {
     setChildren((prev) => prev.map((ch, idx) => (idx === i ? { ...ch, name } : ch)));
   const setLevel = (i: number, level: string) =>
     setChildren((prev) => prev.map((ch, idx) => (idx === i ? { ...ch, level } : ch)));
+  // Age is optional — strip to digits and cap at 2 chars so it stays sensible.
+  const setAge = (i: number, raw: string) =>
+    setChildren((prev) =>
+      prev.map((ch, idx) => (idx === i ? { ...ch, age: raw.replace(/\D/g, "").slice(0, 2) } : ch)),
+    );
 
   const isComplete = (ch: Child) => ch.name.trim().length > 0 && ch.level !== null;
   const allComplete = children.every(isComplete);
@@ -247,6 +252,30 @@ export default function ParentNumChild() {
                   />
                 ))}
               </ScrollView>
+
+              {/* Age — optional; not required to Continue. */}
+              <View style={styles.ageBlock}>
+                <View style={styles.nameLabelRow}>
+                  <Text style={styles.nameLabel}>{t("parent.child.ageLabel")}</Text>
+                  <View style={styles.optionalTag}>
+                    <Text style={styles.optionalTagText}>{t("parent.child.optional")}</Text>
+                  </View>
+                </View>
+                <View style={styles.ageBox}>
+                  <Ionicons name="calendar-outline" size={18} color="#6B7280" />
+                  <TextInput
+                    style={styles.ageInput}
+                    value={child.age ?? ""}
+                    onChangeText={(text) => setAge(i, text)}
+                    placeholder={t("parent.child.agePlaceholder")}
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="number-pad"
+                    maxLength={2}
+                    returnKeyType="done"
+                    accessibilityLabel={`Age for child ${i + 1}`}
+                  />
+                </View>
+              </View>
             </View>
           );
         })}
@@ -388,6 +417,35 @@ const styles = StyleSheet.create({
   eduScroll: { paddingVertical: 2, paddingRight: 8 },
   eduItem: { width: 88 },
   eduLabel: { fontSize: 12, lineHeight: 15 },
+
+  ageBlock: { marginTop: 16 },
+  optionalTag: {
+    backgroundColor: "#EEF1F4",
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  optionalTagText: { fontSize: 11, fontWeight: "800", color: "#6B7280" },
+  ageBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    height: 54,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    borderWidth: 1.5,
+    borderColor: "#E5E7EB",
+    backgroundColor: "#FFFFFF",
+    alignSelf: "flex-start",
+    minWidth: 140,
+  },
+  ageInput: {
+    flex: 1,
+    fontSize: 17,
+    fontWeight: "600",
+    color: "#111827",
+    paddingVertical: 0,
+  },
 
   continue: { marginTop: 32 },
 });

@@ -11,20 +11,22 @@
  * (profile) start — or resume — onboarding, and hide once every step is done.
  */
 import { router, useFocusEffect, type Href } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { isRegistered } from "../components/auth/authState";
 import { isOnboardingComplete, markAllStepsDone, startTutorSetup } from "../components/onboarding/tutorOnboarding";
 import { getMe } from "../lib/api";
-import { AnalyticsScreen } from "../components/tutor/AnalyticsScreen";
 import { ChatList } from "../components/chat/ChatList";
+import { hydrateContactQuota } from "../components/tutor/contactQuota";
 import { FeedScreen } from "../components/tutor/FeedScreen";
+import { hydrateSavedPeople } from "../components/tutor/savedPeople";
 import { ProfileScreen } from "../components/tutor/ProfileScreen";
 import { SearchScreen } from "../components/tutor/SearchScreen";
 import { TabBar, type TabId } from "../components/tutor/TabBar";
 import { TutorProfileView } from "../components/tutor/TutorProfileView";
+import { TutorSavedScreen } from "../components/tutor/TutorSavedScreen";
 import { C, TH, TUTORS } from "../components/tutor/tutorData";
 
 function toggle(set: Set<string>, id: string): Set<string> {
@@ -42,7 +44,17 @@ function TutorShell() {
   const [connected, setConnected] = useState<Set<string>>(
     () => new Set(TUTORS.filter((t) => t.following).map((t) => t.id)),
   );
-  const [premium, setPremium] = useState(false);
+  // Analytics now lives behind the Home heart (its own `/analytics` route holds
+  // the premium-upgrade mock). The shell keeps a static `premium` only for the
+  // Profile tab's badge.
+  const [premium] = useState(false);
+
+  // Load the tutor's saved people (tutors + seekers) and contact-unlock quota
+  // once when the shell mounts, so the Saved tab + seeker profiles are in sync.
+  useEffect(() => {
+    void hydrateSavedPeople();
+    void hydrateContactQuota();
+  }, []);
 
   // Whether the "set up your profile" banner + gate should show, and whether the
   // user is registered. Both re-checked when /tutor-home regains focus (e.g.
@@ -134,6 +146,7 @@ function TutorShell() {
         onConnect={onConnect}
         onOpenProfile={openProfile}
         onCreatePost={() => (registered ? router.push("/post-new" as Href) : requireAuth())}
+        onOpenInsights={() => (registered ? router.push("/analytics" as Href) : requireAuth())}
         showSetup={showSetup}
         onSetup={startTutorSetup}
         registered={registered}
@@ -167,8 +180,8 @@ function TutorShell() {
         />
       </View>
     );
-  } else if (tab === "analytics") {
-    screen = <AnalyticsScreen premium={premium} onUpgrade={() => setPremium(true)} />;
+  } else if (tab === "saved") {
+    screen = <TutorSavedScreen onOpenTutor={openProfile} />;
   } else {
     screen = <ProfileScreen premium={premium} showSetup={showSetup} onSetup={startTutorSetup} />;
   }
@@ -190,7 +203,7 @@ function TutorShell() {
           </View>
         )}
       </View>
-      <TabBar tab={tab} onSelect={goTab} unread={unread} premium={premium} bottomInset={insets.bottom} />
+      <TabBar tab={tab} onSelect={goTab} unread={unread} bottomInset={insets.bottom} />
     </View>
   );
 }

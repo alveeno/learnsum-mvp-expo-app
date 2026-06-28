@@ -132,6 +132,17 @@ export const translations = {
     "zh-Hant": "輸入孩子的名字",
     "zh-Hans": "输入孩子的名字",
   },
+  "parent.child.ageLabel": {
+    en: "CHILD'S AGE",
+    "zh-Hant": "孩子的年齡",
+    "zh-Hans": "孩子的年龄",
+  },
+  "parent.child.agePlaceholder": {
+    en: "e.g. 9",
+    "zh-Hant": "例如 9",
+    "zh-Hans": "例如 9",
+  },
+  "parent.child.optional": { en: "Optional", "zh-Hant": "可選", "zh-Hans": "可选" },
 
   // ---- skip confirmation ----
   "skip.title": { en: "Skip this step?", "zh-Hant": "略過此步驟？", "zh-Hans": "跳过此步骤？" },

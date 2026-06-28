@@ -24,7 +24,7 @@ const SAME_SCHOOL: FullTutor[] = DIRECTORY.filter(
 );
 
 /* top app bar */
-function FeedBar({ onCreate }: { onCreate: () => void }) {
+function FeedBar({ onCreate, onOpenInsights }: { onCreate: () => void; onOpenInsights: () => void }) {
   return (
     <View style={styles.feedBar}>
       <Logo size={23} />
@@ -32,7 +32,14 @@ function FeedBar({ onCreate }: { onCreate: () => void }) {
         <Pressable style={styles.iconBtn} onPress={onCreate}>
           <Ionicons name="add-circle-outline" size={27} color={C.ink} />
         </Pressable>
-        <Pressable style={styles.iconBtn}>
+        {/* The heart opens Analytics — its headline is "who viewed your profile".
+            The dot signals new viewers. */}
+        <Pressable
+          style={styles.iconBtn}
+          onPress={onOpenInsights}
+          accessibilityRole="button"
+          accessibilityLabel="Who viewed your profile"
+        >
           <Ionicons name="heart-outline" size={24} color={C.ink} />
           <View style={styles.activityDot} />
         </Pressable>
@@ -213,6 +220,7 @@ export function FeedScreen({
   onConnect,
   onOpenProfile,
   onCreatePost,
+  onOpenInsights,
   showSetup,
   onSetup,
   registered,
@@ -224,6 +232,7 @@ export function FeedScreen({
   onConnect: (id: string) => void;
   onOpenProfile: (id: string) => void;
   onCreatePost: () => void;
+  onOpenInsights: () => void;
   showSetup: boolean;
   onSetup: () => void;
   registered: boolean;
@@ -239,7 +248,7 @@ export function FeedScreen({
   };
   return (
     <>
-      <FeedBar onCreate={onCreatePost} />
+      <FeedBar onCreate={onCreatePost} onOpenInsights={onOpenInsights} />
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ gap: TH.cardGap, paddingBottom: 24 }}>
         {showSetup && <SetupBanner onPress={onSetup} />}
         <StoryRow onOpen={onOpenProfile} onAddStory={gatedAction} />

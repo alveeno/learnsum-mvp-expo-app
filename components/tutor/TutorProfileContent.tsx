@@ -23,7 +23,7 @@ import { TutorPostFeed } from "./TutorPostFeed";
 import { C, lookupTutor, type FullTutor } from "./tutorData";
 import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
 import { type FormatId } from "../onboarding/PreferencesScreen";
-import { getTutor, startConversation } from "../../lib/api";
+import { getTutor, recordProfileView, startConversation } from "../../lib/api";
 
 // Sample tutor (FullTutor) → a thin ProfileBodyData for the offline / sample-id
 // fallback. Real tutors (a real slug) get the full profile from the backend.
@@ -88,6 +88,9 @@ export function TutorProfileContent({
         setPostsSlug(tutor.slug ?? id);
         setChatTarget(tutor.id ? { id: tutor.id, name: tutor.slug ?? id } : null);
         setContact({ whatsapp: tutor.whatsapp_number ?? null, wechat: tutor.wechat_id ?? null });
+        // Record this view so the tutor's "who viewed your profile" list fills up
+        // (best-effort, no-op offline / for sample tutors).
+        void recordProfileView(tutor.slug ?? id);
       })
       .catch(() => {
         if (cancelled) return;
