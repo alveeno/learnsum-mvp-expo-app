@@ -3,8 +3,8 @@
  * onboarding (and where the welcome-screen / login routes them).
  *
  * Mirrors the tutor shell (`app/tutor-home.tsx`): one stateful controller with a
- * custom bottom tab bar switching four tabs — Home (Instagram-style post feed) /
- * Search (+ Quick Match) / Saved / Account. Tapping any tutor opens the public
+ * custom bottom tab bar switching five tabs — Home (Instagram-style post feed) /
+ * Search (+ Quick Match) / Chat / Saved / Account. Tapping any tutor opens the public
  * profile route `app/tutors/[slug].tsx` (a real, shareable URL), so the tab bar
  * hides while viewing a profile and returns on back.
  *
@@ -14,16 +14,17 @@
  */
 import { router, type Href } from "expo-router";
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ChatList } from "../components/chat/ChatList";
 import { hydrateSaved, useSavedTutors } from "../components/seeker/savedTutors";
 import { SeekerAccountScreen } from "../components/seeker/SeekerAccountScreen";
 import { SeekerFeedScreen } from "../components/seeker/SeekerFeedScreen";
 import { SeekerSavedScreen } from "../components/seeker/SeekerSavedScreen";
 import { SeekerSearchScreen } from "../components/seeker/SeekerSearchScreen";
 import { SeekerTabBar, type SeekerTabId } from "../components/seeker/SeekerTabBar";
-import { TH } from "../components/tutor/tutorData";
+import { C, TH } from "../components/tutor/tutorData";
 
 function toggle(set: Set<string>, id: string): Set<string> {
   const n = new Set(set);
@@ -65,6 +66,23 @@ function SeekerShell() {
     );
   } else if (tab === "search") {
     screen = <SeekerSearchScreen saved={saved} onToggleSave={toggleSaved} onOpenProfile={openProfile} />;
+  } else if (tab === "chat") {
+    screen = (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 16, paddingTop: 2, paddingBottom: 10 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", letterSpacing: -0.6, color: C.ink }}>Messages</Text>
+          <Text style={{ fontSize: 13.5, color: C.muted, marginTop: 2 }}>Your conversations with tutors</Text>
+        </View>
+        <ChatList
+          onOpen={(c) =>
+            router.push({
+              pathname: "/messages/[id]",
+              params: { id: c.id, name: c.other_participant?.display_name ?? "LearnSum user" },
+            })
+          }
+        />
+      </View>
+    );
   } else if (tab === "saved") {
     screen = <SeekerSavedScreen saved={saved} onToggleSave={toggleSaved} onOpenProfile={openProfile} />;
   } else {

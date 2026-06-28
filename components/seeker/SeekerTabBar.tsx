@@ -1,20 +1,21 @@
 /**
- * Seeker (student/parent) bottom tab bar — Home / Search / Saved / Account.
+ * Seeker (student/parent) bottom tab bar — Home / Search / Chat / Saved / Account.
  *
  * Same visual language as the tutor `TabBar` (filled green glyph when active,
  * grey outline when not) but a seeker-appropriate tab set: no Analytics/Premium
- * lock, no Chat unread — Saved shows a small count badge instead.
+ * lock; Saved shows a small count badge.
  */
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { C } from "../tutor/tutorData";
 
-export type SeekerTabId = "home" | "search" | "saved" | "account";
+export type SeekerTabId = "home" | "search" | "chat" | "saved" | "account";
 
 const TABS: { id: SeekerTabId; icon: keyof typeof Ionicons.glyphMap; label: string }[] = [
   { id: "home", icon: "home", label: "Home" },
   { id: "search", icon: "search", label: "Search" },
+  { id: "chat", icon: "chatbubble-ellipses", label: "Chat" },
   { id: "saved", icon: "bookmark", label: "Saved" },
   { id: "account", icon: "person", label: "Account" },
 ];
