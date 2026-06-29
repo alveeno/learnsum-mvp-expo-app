@@ -12,7 +12,7 @@
  * English-only (mirrors the tutor shell), sample-data fallback (see CLAUDE.md).
  */
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -99,11 +99,7 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
     // Already used a quota on this seeker (or just unlocked) → buttons are live.
     if (quotaIsUnlocked(seeker.id)) return;
     if (allowance === 0) {
-      Alert.alert(
-        "Upgrade to contact students",
-        "Free tutors can't contact students. Upgrade to Premium (1/day) or Deluxe (3/day). Use the tier switcher on your Profile tab to test.",
-        [{ text: "OK" }],
-      );
+      router.push("/subscribe" as Href);
       return;
     }
     if (remaining <= 0) {

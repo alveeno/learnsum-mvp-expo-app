@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
 import { useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -30,11 +30,7 @@ export function TutorReplyGate({ seekerId, seekerName }: { seekerId: string; see
 
   const onReply = () => {
     if (allowance === 0) {
-      Alert.alert(
-        "Upgrade to reply",
-        "Free tutors can't reply to students. Upgrade to Premium (1 reply/day) or Deluxe (3/day). Use the tier switcher on your Profile tab to test.",
-        [{ text: "OK" }],
-      );
+      router.push("/subscribe" as Href);
       return;
     }
     if (remaining <= 0) {

@@ -147,8 +147,12 @@ export function unlockSeeker(id: string): boolean {
   emit();
 
   unlockContact(id).catch((e) => {
-    // A real rejection (not just offline) means we shouldn't have charged — revert.
-    if (e instanceof ApiError && !e.isNetworkError) {
+    // Only undo the optimistic spend when the server *explicitly denies* it
+    // (out of quota / payment / forbidden). A missing endpoint (404 — these
+    // unlock routes aren't built yet), an auth blip (401), a 5xx, or an offline
+    // network error must NOT revert, or the local mock unlock would snap back.
+    const denied = e instanceof ApiError && [402, 403, 409, 429].includes(e.status);
+    if (denied) {
       state.unlocked.delete(id);
       state.usedToday = Math.max(0, state.usedToday - 1);
       void persist();
