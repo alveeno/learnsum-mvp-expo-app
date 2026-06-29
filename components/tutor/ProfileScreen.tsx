@@ -29,6 +29,7 @@ import { mapMeToProfileBody } from "./profileMapping";
 import { TutorPosts } from "./TutorPosts";
 import { consumeProfileDirty, hydrateTutorStoreFromMe } from "./tutorEditStore";
 import { C, ME } from "./tutorData";
+import { TierSwitcher } from "../subscription/TierSwitcher";
 import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { resetStore } from "../onboarding/onboardingStore";
@@ -215,6 +216,7 @@ export function ProfileScreen({
                   onPress={() => setSheetOpen(true)}
                   style={styles.changeBtn}
                 />
+                <TierSwitcher />
                 <Button
                   label="Log out"
                   variant="destructive"

@@ -30,6 +30,7 @@ export default function PublicTutorProfile() {
       <TutorProfileContent
         id={id}
         onBack={() => router.back()}
+        contactMode="seeker"
         actions={
           <Pressable
             onPress={() => {

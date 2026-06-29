@@ -1,14 +1,16 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSyncExternalStore } from "react";
 
-import { ApiError, DAILY_CONTACT_QUOTA, getContactQuota, unlockContact } from "../../lib/api";
+import { ApiError, getContactQuota, unlockContact } from "../../lib/api";
+import { getTier, quotaForTier, subscribeTier } from "../subscription/tierStore";
 
 /**
  * Contact quota — a tutor unlocks a parent/student's contact details
- * (phone / WhatsApp / WeChat / in-app chat) at most **3 per day**. An unlock is
- * **permanent** (re-contacting that seeker is free forever); the 3-a-day
- * allowance **resets daily**. This is the gate that replaces the old premium
- * paywall as the monetization lever.
+ * (phone / WhatsApp / WeChat / in-app chat reply) a limited number of times per
+ * day, set by their **subscription tier**: free = 0, premium = 1, deluxe = 3
+ * (see `subscription/tierStore.ts`). An unlock is **permanent** (re-contacting
+ * that seeker is free forever); the daily allowance **resets daily**. This is
+ * the monetization lever.
  *
  * Shared module-level store (the `/seekers/[id]` route is a separate Expo Router
  * screen, so it can't read shell state) — read through `useContactQuota`. Backed
@@ -21,12 +23,17 @@ const KEY = "tutor:contactQuota";
 
 type QuotaState = {
   unlocked: Set<string>; // seeker ids — permanent
-  usedToday: number; // 0..DAILY_CONTACT_QUOTA
+  usedToday: number; // 0..allowance
   dateKey: string; // YYYY-MM-DD the count belongs to
 };
 
 function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
+}
+
+/** Today's unlock allowance, driven by the current subscription tier. */
+function allowance(): number {
+  return quotaForTier(getTier());
 }
 
 let state: QuotaState = { unlocked: new Set(), usedToday: 0, dateKey: todayKey() };
@@ -36,10 +43,13 @@ const listeners = new Set<() => void>();
 // (useSyncExternalStore compares by identity and would loop on a fresh object).
 let snapshot = computeSnapshot();
 
+// Tier changes the allowance, so recompute + notify when it flips.
+subscribeTier(() => emit());
+
 function computeSnapshot() {
   rolloverIfNewDay();
   return {
-    remaining: Math.max(0, DAILY_CONTACT_QUOTA - state.usedToday),
+    remaining: Math.max(0, allowance() - state.usedToday),
     unlocked: state.unlocked,
   };
 }
@@ -96,7 +106,7 @@ export async function hydrateContactQuota(): Promise<void> {
     const q = await getContactQuota();
     state = {
       unlocked: new Set(q.unlocked),
-      usedToday: Math.max(0, DAILY_CONTACT_QUOTA - q.remaining),
+      usedToday: Math.max(0, allowance() - q.remaining),
       dateKey: todayKey(),
     };
     void persist();
@@ -114,7 +124,7 @@ export function isUnlocked(id: string): boolean {
 
 export function quotaRemaining(): number {
   rolloverIfNewDay();
-  return Math.max(0, DAILY_CONTACT_QUOTA - state.usedToday);
+  return Math.max(0, allowance() - state.usedToday);
 }
 
 /**
@@ -128,7 +138,7 @@ export function unlockSeeker(id: string): boolean {
   if (!id) return false;
   rolloverIfNewDay();
   if (state.unlocked.has(id)) return true;
-  if (state.usedToday >= DAILY_CONTACT_QUOTA) return false;
+  if (state.usedToday >= allowance()) return false;
 
   // Optimistic spend.
   state.unlocked.add(id);

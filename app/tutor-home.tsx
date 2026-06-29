@@ -19,6 +19,8 @@ import { isRegistered } from "../components/auth/authState";
 import { isOnboardingComplete, markAllStepsDone, startTutorSetup } from "../components/onboarding/tutorOnboarding";
 import { getMe } from "../lib/api";
 import { ChatList } from "../components/chat/ChatList";
+import { MatchBanner } from "../components/match/MatchBanner";
+import { hydrateTutorMatch, resolveOldestTutorMatch, useTutorMatch } from "../components/match/tutorMatch";
 import { hydrateContactQuota } from "../components/tutor/contactQuota";
 import { FeedScreen } from "../components/tutor/FeedScreen";
 import { hydrateSavedPeople } from "../components/tutor/savedPeople";
@@ -48,12 +50,14 @@ function TutorShell() {
   // the premium-upgrade mock). The shell keeps a static `premium` only for the
   // Profile tab's badge.
   const [premium] = useState(false);
+  const tutorMatch = useTutorMatch();
 
-  // Load the tutor's saved people (tutors + seekers) and contact-unlock quota
-  // once when the shell mounts, so the Saved tab + seeker profiles are in sync.
+  // Load the tutor's saved people (tutors + seekers), contact-unlock quota, and
+  // any pending match questions once when the shell mounts.
   useEffect(() => {
     void hydrateSavedPeople();
     void hydrateContactQuota();
+    void hydrateTutorMatch();
   }, []);
 
   // Whether the "set up your profile" banner + gate should show, and whether the
@@ -174,7 +178,11 @@ function TutorShell() {
           onOpen={(c) =>
             router.push({
               pathname: "/messages/[id]",
-              params: { id: c.id, name: c.other_participant?.display_name ?? "LearnSum user" },
+              params: {
+                id: c.id,
+                name: c.other_participant?.display_name ?? "LearnSum user",
+                otherId: c.other_participant?.id ?? "",
+              },
             })
           }
         />
@@ -191,6 +199,13 @@ function TutorShell() {
       {/* Content area: home uses the tinted canvas, other tabs are white. The
           tutor-profile overlay covers the active tab while the tab bar stays. */}
       <View style={{ flex: 1, backgroundColor: tab === "home" ? TH.pageBg : "#fff", paddingTop: insets.top }}>
+        {(tab === "home" || tab === "chat") && tutorMatch && !overlay ? (
+          <MatchBanner
+            name={tutorMatch.seekerName}
+            onYes={() => resolveOldestTutorMatch(true)}
+            onNo={() => resolveOldestTutorMatch(false)}
+          />
+        ) : null}
         {screen}
         {overlay && (
           <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#fff" }}>

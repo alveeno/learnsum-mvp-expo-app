@@ -21,11 +21,13 @@ import { findSampleSeeker } from "../tutor/sampleSeekers";
 import { isUnlocked as quotaIsUnlocked, unlockSeeker, useContactQuota } from "../tutor/contactQuota";
 import { useSavedPeople, type SavedPerson } from "../tutor/savedPeople";
 import { C } from "../tutor/tutorData";
+import { addTutorMatch } from "../match/tutorMatch";
+import { quotaForTier, useTier } from "../subscription/tierStore";
 import { subdistrictsLabel } from "../onboarding/hkDistricts";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { SaveButton } from "../seeker/SaveButton";
 import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
-import { getSeeker, startConversation, DAILY_CONTACT_QUOTA, type Seeker } from "../../lib/api";
+import { getSeeker, startConversation, type Seeker } from "../../lib/api";
 
 const FORMAT_LABEL: Record<string, string> = {
   in_person: "In person",
@@ -67,6 +69,8 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
   const [loading, setLoading] = useState(true);
   const [confirm, setConfirm] = useState(false);
   const { remaining, isUnlocked } = useContactQuota();
+  const tier = useTier();
+  const allowance = quotaForTier(tier);
   const { isSaved, toggle } = useSavedPeople();
 
   useEffect(() => {
@@ -94,10 +98,18 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
     if (!seeker) return;
     // Already used a quota on this seeker (or just unlocked) → buttons are live.
     if (quotaIsUnlocked(seeker.id)) return;
+    if (allowance === 0) {
+      Alert.alert(
+        "Upgrade to contact students",
+        "Free tutors can't contact students. Upgrade to Premium (1/day) or Deluxe (3/day). Use the tier switcher on your Profile tab to test.",
+        [{ text: "OK" }],
+      );
+      return;
+    }
     if (remaining <= 0) {
       Alert.alert(
         "No contacts left today",
-        `You've used all ${DAILY_CONTACT_QUOTA} of today's contacts. Your allowance resets tomorrow.`,
+        `You've used all ${allowance} of today's contacts. Your allowance resets tomorrow.`,
         [{ text: "OK" }],
       );
       return;
@@ -108,13 +120,15 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
   const doUnlock = () => {
     if (!seeker) return;
     setConfirm(false);
+    const wasUnlocked = quotaIsUnlocked(seeker.id);
     const ok = unlockSeeker(seeker.id);
     if (ok) {
+      if (!wasUnlocked) addTutorMatch(seeker.id, seeker.name); // start the tutor's match question
       notifySuccess();
     } else {
       Alert.alert(
         "No contacts left today",
-        `You've used all ${DAILY_CONTACT_QUOTA} of today's contacts. Your allowance resets tomorrow.`,
+        `You've used all ${allowance} of today's contacts. Your allowance resets tomorrow.`,
         [{ text: "OK" }],
       );
     }
@@ -155,7 +169,7 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
     }
     try {
       const { id: convId } = await startConversation(accountId);
-      router.push({ pathname: "/messages/[id]", params: { id: convId, name: seeker?.name ?? "LearnSum user" } });
+      router.push({ pathname: "/messages/[id]", params: { id: convId, name: seeker?.name ?? "LearnSum user", otherId: accountId } });
     } catch {
       Alert.alert("Messaging", "Couldn't open the chat. Please try again.");
     }
@@ -282,22 +296,23 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
               ) : (
                 <View style={styles.lockCard}>
                   <View style={styles.lockIcon}>
-                    <Ionicons name="lock-closed" size={22} color={C.goldD} />
+                    <Ionicons name={allowance === 0 ? "rocket" : "lock-closed"} size={22} color={C.goldD} />
                   </View>
-                  <Text style={styles.lockTitle}>Contact is locked</Text>
+                  <Text style={styles.lockTitle}>{allowance === 0 ? "Replying needs Premium" : "Contact is locked"}</Text>
                   <Text style={styles.lockBody}>
-                    Unlock {seeker.name}&apos;s phone, WhatsApp, WeChat and in-app chat. You can contact{" "}
-                    {DAILY_CONTACT_QUOTA} new parents/students a day.
+                    {allowance === 0
+                      ? `Free tutors can't contact students. Upgrade to Premium (1/day) or Deluxe (3/day) to message ${seeker.name} and see their number.`
+                      : `Unlock ${seeker.name}'s phone, WhatsApp, WeChat and in-app chat. You can contact ${allowance} new ${allowance === 1 ? "student" : "students"} a day.`}
                   </Text>
                   <Pressable
-                    style={[styles.unlockBtn, remaining <= 0 && styles.unlockBtnOff]}
+                    style={[styles.unlockBtn, allowance > 0 && remaining <= 0 && styles.unlockBtnOff]}
                     onPress={onUnlockPress}
                   >
-                    <Ionicons name="lock-open-outline" size={18} color="#3a2c06" />
-                    <Text style={styles.unlockText}>Unlock contact</Text>
+                    <Ionicons name={allowance === 0 ? "rocket-outline" : "lock-open-outline"} size={18} color="#3a2c06" />
+                    <Text style={styles.unlockText}>{allowance === 0 ? "Upgrade" : "Unlock contact"}</Text>
                   </Pressable>
                   <Text style={styles.remainText}>
-                    {remaining} of {DAILY_CONTACT_QUOTA} daily unlocks left
+                    {allowance === 0 ? "Use the tier switcher on your Profile tab to test" : `${remaining} of ${allowance} daily unlocks left`}
                   </Text>
                 </View>
               )}
@@ -309,7 +324,7 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
       <ConfirmModal
         visible={confirm}
         title="Unlock contact?"
-        message={`Use 1 of your ${DAILY_CONTACT_QUOTA} daily contacts to unlock ${seeker?.name ?? "this person"}? This stays unlocked — re-contacting them later is free.`}
+        message={`Use 1 of your ${allowance} daily contacts to unlock ${seeker?.name ?? "this person"}? This stays unlocked — re-contacting them later is free.`}
         confirmLabel="Unlock"
         cancelLabel="Not now"
         onConfirm={doUnlock}

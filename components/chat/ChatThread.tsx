@@ -8,7 +8,7 @@
  * are the ones whose sender_id matches the signed-in user (getMyId).
  */
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { KeyboardAvoider } from "../ui/KeyboardAvoider";
@@ -26,10 +26,13 @@ export function ChatThread({
   conversationId,
   title,
   onBack,
+  composerSlot,
 }: {
   conversationId: string;
   title: string;
   onBack: () => void;
+  /** When set, replaces the message composer (e.g. a tutor's locked reply gate). */
+  composerSlot?: ReactNode;
 }) {
   const [messages, setMessages] = useState<ChatMessage[] | null>(null);
   const [val, setVal] = useState("");
@@ -160,21 +163,25 @@ export function ChatThread({
         </ScrollView>
       )}
 
-      <View style={styles.composer}>
-        <TextInput
-          value={val}
-          onChangeText={setVal}
-          placeholder="Message…"
-          placeholderTextColor={C.unselIc}
-          style={styles.composerInput}
-          onSubmitEditing={send}
-          returnKeyType="send"
-          editable={!sending}
-        />
-        <Pressable onPress={send} disabled={!val.trim() || sending} style={[styles.sendBtn, { backgroundColor: val.trim() && !sending ? C.green : C.unselBg }]}>
-          <Ionicons name="arrow-up" size={22} color="#fff" />
-        </Pressable>
-      </View>
+      {composerSlot ? (
+        composerSlot
+      ) : (
+        <View style={styles.composer}>
+          <TextInput
+            value={val}
+            onChangeText={setVal}
+            placeholder="Message…"
+            placeholderTextColor={C.unselIc}
+            style={styles.composerInput}
+            onSubmitEditing={send}
+            returnKeyType="send"
+            editable={!sending}
+          />
+          <Pressable onPress={send} disabled={!val.trim() || sending} style={[styles.sendBtn, { backgroundColor: val.trim() && !sending ? C.green : C.unselBg }]}>
+            <Ionicons name="arrow-up" size={22} color="#fff" />
+          </Pressable>
+        </View>
+      )}
     </KeyboardAvoider>
   );
 }

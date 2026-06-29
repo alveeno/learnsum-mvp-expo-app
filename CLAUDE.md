@@ -493,6 +493,55 @@ returns on back). Home-feed likes are local session state; Save is the seeker's 
 tutor-style "Connect"). i18n for this shell is a later pass; the **Home feed** stays sample data (the
 `getFeed` endpoint returns tutor *cards*, not a post stream).
 
+## Subscription tiers & seeker↔tutor contact flow
+
+Monetization is **tutor-side only** (seekers are never charged). Three tutor tiers —
+**free / premium / deluxe** — gate how the two sides reach each other. **All of this is
+front-end + local-mock** (AsyncStorage stores, same shape as `contactQuota.ts`); there are
+**no backend changes** yet (flagged below). A **temporary tier switcher** on the Profile tab
+(`components/subscription/TierSwitcher.tsx`) flips the mock tier so each tier can be tested from
+one device — remove it when a real paywall lands.
+
+- **Tier store** (`components/subscription/tierStore.ts`): `Tier = "free" | "premium" | "deluxe"`,
+  `useTier()` / `getTier()` / `setTier()` / `hydrateTier()` (hydrated in `app/_layout.tsx`), and
+  `quotaForTier()` → **free 0 / premium 1 / deluxe 3** daily seeker unlocks. The store does
+  **double duty**: it's the signed-in tutor's tier on tutor surfaces AND — as a mock — stands in
+  for the *viewed* tutor's tier on the seeker-facing profile (so flipping to Premium makes
+  WhatsApp/WeChat appear while browsing). A real per-tutor tier needs a backend `tutors.tier` column.
+- **Contact quota is now tier-based:** `components/tutor/contactQuota.ts` reads
+  `quotaForTier(getTier())` instead of the old constant `3` (it subscribes to `subscribeTier` so a
+  tier flip re-emits). Free = 0 ⇒ unlock always blocked ⇒ upgrade prompt. `lib/api/contacts.ts`
+  still exports the legacy `DAILY_CONTACT_QUOTA` (unused by the store now).
+- **Seeker side — one tutor at a time** (`components/match/seekerContact.ts`): tapping a contact
+  button on a tutor (`TutorProfileContent` in **`contactMode="seeker"`**, set by `app/tutors/[slug].tsx`;
+  the in-shell overlay `TutorProfileView` stays `"tutor"` = direct) runs a **"Contact [tutor]?"**
+  `ConfirmModal` → sets the seeker's single **pending contact** + schedules a **10-min reminder**.
+  A **`MatchBanner`** ("Starting lessons with [tutor]?" green Yes / red No) shows on the seeker
+  **Home + Chat** (`app/feed.tsx`); answering either way frees them. Trying to contact a *different*
+  tutor while pending pops a **`MatchCheckInModal`** ("Did you start having lessons with [prev]?")
+  first. **WhatsApp/WeChat are hidden for free-tier tutors** (in-app Message only); premium/deluxe
+  tutors expose them.
+- **Tutor side — reply gating** (`components/match/tutorMatch.ts`, `TutorReplyGate.tsx`): in a chat
+  thread (`app/messages/[id].tsx` resolves the viewer's role via `getMe` + tier), when the viewer is
+  a **tutor** who hasn't unlocked the other person, `ChatThread`'s new **`composerSlot`** prop swaps
+  the composer for `TutorReplyGate`. **Free** → "Reply" shows an upgrade prompt; **premium/deluxe** →
+  confirm spending **1 of N** daily contacts → `unlockSeeker` (reveals phone + chat) and `addTutorMatch`
+  → the tutor gets the same "Starting lessons with [seeker]?" banner (Home + Chat, `app/tutor-home.tsx`).
+  The seeker's full profile (name/age/education/category — Req: all tiers) opens via `/seekers/[id]`
+  (`SeekerProfileContent`, also tier-aware now). The conversation→seeker link rides a new **`otherId`**
+  nav param (from `ChatList` participants + the profile Message buttons).
+- **Notifications** (`components/match/notifications.ts`, **`expo-notifications`** — native, added to
+  `app.json` plugins): if the match question goes unanswered, a **local notification fires at 10 min**
+  and deep-links (`data.url`) to **`app/match-checkin.tsx`** ("Did you start having lessons?"). The
+  observer is mounted in `_layout.tsx` (`useMatchNotificationObserver`). The native module is loaded
+  **lazily + guarded** (`require` in a try/catch) so the app still runs on a pre-rebuild binary /
+  Simulator — but the notification only fires for real after a **fresh EAS dev build + reinstall**
+  (native dep). Everything else (tiers, banners, confirms, reply gating) is JS-only.
+- **Flagged / backend follow-ups:** "only one side answers" (Req 4) truly needs a shared backend
+  match record to dismiss the *other* side — locally each side resolves its own banner. Per-tutor
+  tiers, real payments, and gating the unlock/reply server-side are all pending. A premium/deluxe
+  tutor can have several unanswered match questions; the banner surfaces the **oldest** one.
+
 ## Architecture decisions
 
 - **Onboarding (Option A):** browse freely; each role's flow collects everything first and

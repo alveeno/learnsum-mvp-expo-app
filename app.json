@@ -41,7 +41,8 @@
           "cameraPermission": "LearnSum needs camera access so you can take a photo for your profile or a post."
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-notifications"
     ],
     "extra": {
       "router": {},

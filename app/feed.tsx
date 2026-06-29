@@ -18,6 +18,8 @@ import { Text, View } from "react-native";
 import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { ChatList } from "../components/chat/ChatList";
+import { MatchBanner } from "../components/match/MatchBanner";
+import { hydrateSeekerContact, resolveSeekerContact, useSeekerContact } from "../components/match/seekerContact";
 import { hydrateSaved, useSavedTutors } from "../components/seeker/savedTutors";
 import { SeekerAccountScreen } from "../components/seeker/SeekerAccountScreen";
 import { SeekerFeedScreen } from "../components/seeker/SeekerFeedScreen";
@@ -42,10 +44,12 @@ function SeekerShell() {
   // public profile route) use the backend-backed store below.
   const [homeSaved, setHomeSaved] = useState<Set<string>>(() => new Set());
   const { ids: saved, toggle: toggleSaved } = useSavedTutors();
+  const seekerPending = useSeekerContact();
 
-  // Load the seeker's real bookmarks once when the shell mounts.
+  // Load the seeker's real bookmarks + any pending contact once on mount.
   useEffect(() => {
     void hydrateSaved();
+    void hydrateSeekerContact();
   }, []);
 
   const openProfile = (id: string) => router.push(`/tutors/${id}` as Href);
@@ -77,7 +81,11 @@ function SeekerShell() {
           onOpen={(c) =>
             router.push({
               pathname: "/messages/[id]",
-              params: { id: c.id, name: c.other_participant?.display_name ?? "LearnSum user" },
+              params: {
+                id: c.id,
+                name: c.other_participant?.display_name ?? "LearnSum user",
+                otherId: c.other_participant?.id ?? "",
+              },
             })
           }
         />
@@ -92,6 +100,13 @@ function SeekerShell() {
   return (
     <View style={{ flex: 1, backgroundColor: "#fff" }}>
       <View style={{ flex: 1, backgroundColor: tab === "home" ? TH.pageBg : "#fff", paddingTop: insets.top }}>
+        {(tab === "home" || tab === "chat") && seekerPending ? (
+          <MatchBanner
+            name={seekerPending.tutorName}
+            onYes={() => resolveSeekerContact(true)}
+            onNo={() => resolveSeekerContact(false)}
+          />
+        ) : null}
         {screen}
       </View>
       <SeekerTabBar tab={tab} onSelect={setTab} savedCount={saved.size} bottomInset={insets.bottom} />

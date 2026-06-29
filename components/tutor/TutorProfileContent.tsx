@@ -24,6 +24,10 @@ import { C, lookupTutor, type FullTutor } from "./tutorData";
 import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
 import { type FormatId } from "../onboarding/PreferencesScreen";
 import { getTutor, recordProfileView, startConversation } from "../../lib/api";
+import { MatchCheckInModal } from "../match/MatchCheckInModal";
+import { getSeekerPending, resolveSeekerContact, startSeekerContact, useSeekerContact } from "../match/seekerContact";
+import { useTier } from "../subscription/tierStore";
+import { ConfirmModal } from "../ui/ConfirmModal";
 
 // Sample tutor (FullTutor) → a thin ProfileBodyData for the offline / sample-id
 // fallback. Real tutors (a real slug) get the full profile from the backend.
@@ -57,12 +61,18 @@ export function TutorProfileContent({
   id,
   onBack,
   actions,
+  contactMode = "tutor",
 }: {
   /** Tutor slug (real) or a sample tutor id (falls back to sample data). */
   id: string;
   onBack: () => void;
   /** Action row rendered below the contact buttons (e.g. Connect/Message, Save). */
   actions?: ReactNode;
+  /**
+   * "seeker" (public route) applies the one-tutor-at-a-time contact flow + hides
+   * WhatsApp/WeChat for free-tier tutors; "tutor" (in-shell overlay) is direct.
+   */
+  contactMode?: "seeker" | "tutor";
 }) {
   const [data, setData] = useState<ProfileBodyData | null>(null);
   const [name, setName] = useState("");
@@ -76,6 +86,15 @@ export function TutorProfileContent({
     wechat: null,
   });
   const [loading, setLoading] = useState(true);
+
+  // Seeker contact flow (only in "seeker" mode): one tutor at a time + a confirm,
+  // and WhatsApp/WeChat gated behind the (mock) viewed-tutor tier.
+  const seekerPending = useSeekerContact();
+  const tier = useTier();
+  const showOffApp = contactMode === "tutor" || tier !== "free";
+  const [confirmContact, setConfirmContact] = useState(false);
+  const [checkIn, setCheckIn] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"whatsapp" | "wechat" | "message" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -133,18 +152,53 @@ export function TutorProfileContent({
       [{ text: "Done" }],
     );
   };
-  const hasContact = !!contact.whatsapp || !!contact.wechat;
-
   // Start (or reopen) an in-app chat with this tutor, then open the thread.
   const onMessage = async () => {
     if (!chatTarget) return;
     tapMedium();
     try {
       const { id: convId } = await startConversation(chatTarget.id);
-      router.push({ pathname: "/messages/[id]", params: { id: convId, name: chatTarget.name } });
+      router.push({ pathname: "/messages/[id]", params: { id: convId, name: chatTarget.name, otherId: chatTarget.id } });
     } catch {
       Alert.alert("Messaging", "Please log in to message this tutor.");
     }
+  };
+
+  // Perform the chosen contact action (after any confirm/check-in has cleared).
+  const runAction = (a: "whatsapp" | "wechat" | "message") => {
+    if (a === "whatsapp") openWhatsApp();
+    else if (a === "wechat") void showWeChat();
+    else void onMessage();
+  };
+
+  // Seeker taps a contact button: enforce one-tutor-at-a-time. If a *different*
+  // tutor is pending, resolve that first; otherwise confirm contacting this one.
+  const handleContact = (a: "whatsapp" | "wechat" | "message") => {
+    if (contactMode !== "seeker") return runAction(a);
+    const cur = getSeekerPending();
+    if (cur && cur.tutorId !== id) {
+      setPendingAction(a);
+      setCheckIn(true);
+      return;
+    }
+    if (cur && cur.tutorId === id) return runAction(a); // already committed to this tutor
+    setPendingAction(a);
+    setConfirmContact(true);
+  };
+
+  const onConfirmContact = () => {
+    setConfirmContact(false);
+    startSeekerContact(id, name || id);
+    const a = pendingAction;
+    setPendingAction(null);
+    if (a) runAction(a);
+  };
+
+  // Answered the previous tutor's question → clear it, then confirm this tutor.
+  const onCheckInAnswer = (started: boolean) => {
+    setCheckIn(false);
+    resolveSeekerContact(started);
+    setConfirmContact(true);
   };
 
   return (
@@ -169,12 +223,12 @@ export function TutorProfileContent({
         ) : data ? (
           <>
             <ProfileBody data={data} />
-            {hasContact ? (
+            {showOffApp && (contact.whatsapp || contact.wechat) ? (
               <View style={styles.contactRow}>
                 {contact.whatsapp ? (
                   <Pressable
                     style={[styles.contactBtn, styles.whatsappBtn]}
-                    onPress={openWhatsApp}
+                    onPress={() => handleContact("whatsapp")}
                     accessibilityRole="button"
                     accessibilityLabel="Message on WhatsApp"
                   >
@@ -185,7 +239,7 @@ export function TutorProfileContent({
                 {contact.wechat ? (
                   <Pressable
                     style={[styles.contactBtn, styles.wechatBtn]}
-                    onPress={showWeChat}
+                    onPress={() => handleContact("wechat")}
                     accessibilityRole="button"
                     accessibilityLabel="Show WeChat ID"
                   >
@@ -198,7 +252,7 @@ export function TutorProfileContent({
             {chatTarget ? (
               <Pressable
                 style={styles.messageBtn}
-                onPress={onMessage}
+                onPress={() => handleContact("message")}
                 accessibilityRole="button"
                 accessibilityLabel="Message this tutor in the app"
               >
@@ -211,6 +265,25 @@ export function TutorProfileContent({
           </>
         ) : null}
       </ScrollView>
+
+      <ConfirmModal
+        visible={confirmContact}
+        title={`Contact ${name || "this tutor"}?`}
+        message="You'll focus on this tutor for now. Once you've reached out, tell us whether you started lessons before contacting anyone else."
+        confirmLabel="Yes, contact them"
+        cancelLabel="Not yet"
+        onConfirm={onConfirmContact}
+        onCancel={() => {
+          setConfirmContact(false);
+          setPendingAction(null);
+        }}
+      />
+      <MatchCheckInModal
+        visible={checkIn}
+        name={seekerPending?.tutorName ?? "the tutor"}
+        onYes={() => onCheckInAnswer(true)}
+        onNo={() => onCheckInAnswer(false)}
+      />
     </>
   );
 }

@@ -10,6 +10,8 @@ import { LanguageProvider } from "../components/i18n/LanguageProvider";
 import { loadLang } from "../components/i18n/langStorage";
 import { type Lang } from "../components/i18n/translations";
 import { hasToken, restoreToken } from "../lib/api";
+import { useMatchNotificationObserver } from "../components/match/notifications";
+import { hydrateTier } from "../components/subscription/tierStore";
 import { initSounds } from "../components/ui/sound";
 
 export default function RootLayout() {
@@ -25,9 +27,13 @@ export default function RootLayout() {
     PatrickHand: require("../assets/fonts/PatrickHand-Regular.ttf"),
   });
 
+  // Route a tapped match reminder notification to the check-in screen.
+  useMatchNotificationObserver();
+
   useEffect(() => {
     let cancelled = false;
     initSounds(); // warm the native sound pool so the first onboarding pop is in sync
+    void hydrateTier(); // restore the mock subscription tier
     (async () => {
       const [, lang] = await Promise.all([restoreToken(), loadLang()]);
       if (cancelled) return;
