@@ -32,6 +32,8 @@ export interface TutorDetail {
   education?: unknown;
   current_studies?: unknown;
   is_published?: boolean;
+  /** Subscription tier — drives whether WhatsApp/WeChat show to seekers (free hides them). */
+  tier?: "free" | "premium" | "deluxe" | null;
   whatsapp_number?: string | null;
   instagram_handle?: string | null;
   wechat_id?: string | null;
@@ -126,6 +128,14 @@ export async function patchTutor(
 /** Publish (or unpublish) own tutor profile. */
 export async function setTutorPublished(slug: string, isPublished: boolean): Promise<TutorProfile> {
   return patchTutor(slug, { is_published: isPublished });
+}
+
+/**
+ * Set the signed-in tutor's subscription tier (free/premium/deluxe). No real
+ * payment yet — this backs the temporary tier switcher. `PATCH /api/tutor/tier`.
+ */
+export async function setTutorTier(tier: "free" | "premium" | "deluxe"): Promise<void> {
+  await apiFetch("/api/tutor/tier", { method: "PATCH", body: { tier } });
 }
 
 /**

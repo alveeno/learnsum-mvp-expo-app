@@ -15,7 +15,7 @@ export { getCategories, getSubcategoryIndex, subcategoryIdForSlug } from "./cate
 export type { Category, Subcategory, IndexedSubcategory } from "./categories";
 export { postOnboarding } from "./onboarding";
 export type { OnboardingResult, OnboardingSkipped } from "./onboarding";
-export { patchTutor, setTutorPublished, getTutor, putTutorSubjects, putTutorLanguages, searchTutors } from "./tutors";
+export { patchTutor, setTutorPublished, setTutorTier, getTutor, putTutorSubjects, putTutorLanguages, searchTutors } from "./tutors";
 export type { TutorProfile, TutorDetail, TutorSubjectInput, BrowseTutorCard, TutorSearchParams, TutorSearchResult } from "./tutors";
 export { getSavedTutors, saveTutor, unsaveTutor } from "./saved";
 export type { SavedTutor } from "./saved";

@@ -1,6 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useSyncExternalStore } from "react";
 
+import { getMe, hasToken, setTutorTier, type MeResponse } from "../../lib/api";
+
 /**
  * Tutor subscription tier — a **local, mock** store driving every tier-gated
  * behaviour while we test the model (no real payments / backend yet):
@@ -51,6 +53,9 @@ export function setTier(next: Tier): void {
   tier = next;
   void AsyncStorage.setItem(KEY, next).catch(() => {});
   emit();
+  // Persist to the backend (no real payment — this backs the test switcher).
+  // Best-effort: offline / no session falls back to the local AsyncStorage value.
+  void setTutorTier(next).catch(() => {});
 }
 
 /** Load the saved tier on cold start (called from `app/_layout.tsx`). */
@@ -63,6 +68,26 @@ export async function hydrateTier(): Promise<void> {
     }
   } catch {
     // best-effort — default "free" stands in
+  }
+}
+
+/** Adopt the tier from a `GET /api/auth/me` response (no re-PATCH). */
+export function syncTierFromMe(me: MeResponse): void {
+  const t = (me.detail as { tutor_profile?: { tier?: string } } | null)?.tutor_profile?.tier;
+  if ((t === "free" || t === "premium" || t === "deluxe") && t !== tier) {
+    tier = t;
+    void AsyncStorage.setItem(KEY, t).catch(() => {});
+    emit();
+  }
+}
+
+/** Pull the authoritative tier from the backend — call once on the tutor shell. */
+export async function hydrateTierFromBackend(): Promise<void> {
+  if (!hasToken()) return;
+  try {
+    syncTierFromMe(await getMe());
+  } catch {
+    // offline / no session — the AsyncStorage value from hydrateTier stands
   }
 }
 

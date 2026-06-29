@@ -21,6 +21,7 @@ import { getMe } from "../lib/api";
 import { ChatList } from "../components/chat/ChatList";
 import { MatchBanner } from "../components/match/MatchBanner";
 import { hydrateTutorMatch, resolveOldestTutorMatch, useTutorMatch } from "../components/match/tutorMatch";
+import { hydrateTierFromBackend } from "../components/subscription/tierStore";
 import { hydrateContactQuota } from "../components/tutor/contactQuota";
 import { FeedScreen } from "../components/tutor/FeedScreen";
 import { hydrateSavedPeople } from "../components/tutor/savedPeople";
@@ -58,6 +59,7 @@ function TutorShell() {
     void hydrateSavedPeople();
     void hydrateContactQuota();
     void hydrateTutorMatch();
+    void hydrateTierFromBackend();
   }, []);
 
   // Whether the "set up your profile" banner + gate should show, and whether the

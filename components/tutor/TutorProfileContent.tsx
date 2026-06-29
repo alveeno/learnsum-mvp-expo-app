@@ -26,7 +26,6 @@ import { type FormatId } from "../onboarding/PreferencesScreen";
 import { getTutor, recordProfileView, startConversation } from "../../lib/api";
 import { MatchCheckInModal } from "../match/MatchCheckInModal";
 import { getSeekerPending, resolveSeekerContact, startSeekerContact, useSeekerContact } from "../match/seekerContact";
-import { useTier } from "../subscription/tierStore";
 import { ConfirmModal } from "../ui/ConfirmModal";
 
 // Sample tutor (FullTutor) → a thin ProfileBodyData for the offline / sample-id
@@ -88,10 +87,10 @@ export function TutorProfileContent({
   const [loading, setLoading] = useState(true);
 
   // Seeker contact flow (only in "seeker" mode): one tutor at a time + a confirm,
-  // and WhatsApp/WeChat gated behind the (mock) viewed-tutor tier.
+  // and WhatsApp/WeChat gated behind the VIEWED tutor's real tier (free hides them).
   const seekerPending = useSeekerContact();
-  const tier = useTier();
-  const showOffApp = contactMode === "tutor" || tier !== "free";
+  const [viewedTier, setViewedTier] = useState<"free" | "premium" | "deluxe">("free");
+  const showOffApp = contactMode === "tutor" || viewedTier !== "free";
   const [confirmContact, setConfirmContact] = useState(false);
   const [checkIn, setCheckIn] = useState(false);
   const [pendingAction, setPendingAction] = useState<"whatsapp" | "wechat" | "message" | null>(null);
@@ -107,6 +106,7 @@ export function TutorProfileContent({
         setPostsSlug(tutor.slug ?? id);
         setChatTarget(tutor.id ? { id: tutor.id, name: tutor.slug ?? id } : null);
         setContact({ whatsapp: tutor.whatsapp_number ?? null, wechat: tutor.wechat_id ?? null });
+        setViewedTier(tutor.tier ?? "free");
         // Record this view so the tutor's "who viewed your profile" list fills up
         // (best-effort, no-op offline / for sample tutors).
         void recordProfileView(tutor.slug ?? id);
@@ -119,6 +119,7 @@ export function TutorProfileContent({
         setPostsSlug(null); // sample fallback — no real posts
         setChatTarget(null); // sample fallback — no real account to message
         setContact({ whatsapp: null, wechat: null }); // sample tutors have no real contact
+        setViewedTier("free");
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
