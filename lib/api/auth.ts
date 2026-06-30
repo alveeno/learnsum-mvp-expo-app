@@ -42,6 +42,8 @@ export interface Profile {
   /** Backend support pending (see CLAUDE.md backend-gap notes). */
   bio?: string | null;
   phone?: string | null;
+  /** Seeker (student/parent) WeChat ID — shared profiles column (migration 0031). */
+  wechat_id?: string | null;
   [key: string]: unknown;
 }
 

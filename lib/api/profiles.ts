@@ -6,7 +6,7 @@ import { apiFetch } from "./client";
  *   PATCH /api/profiles/me — role-routed editing of the caller's own data.
  *   For ANY role this updates the common `profiles` fields:
  *     display_name, full_name, age, gender, avatar_url, district,
- *     preferred_language, bio, phone
+ *     preferred_language, bio, phone, wechat_id
  *   (student/parent also pass a `student` / `parent` block — e.g. an editable
  *   `school_level` — not used by tutors, who edit their profile via
  *   PATCH /api/tutors/[slug] and their subjects / languages via the tutor
@@ -31,6 +31,8 @@ export interface ProfileMeUpdate {
   preferred_language?: string | null;
   bio?: string | null;
   phone?: string | null;
+  /** Seeker (student/parent) WeChat ID — shared profiles column (migration 0031). */
+  wechat_id?: string | null;
   /** Seeker privacy toggles (migration 0029). Default true. */
   is_discoverable?: boolean;
   share_personal_info?: boolean;

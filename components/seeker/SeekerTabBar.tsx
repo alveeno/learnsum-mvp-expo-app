@@ -17,7 +17,7 @@ const TABS: { id: SeekerTabId; icon: keyof typeof Ionicons.glyphMap; label: stri
   { id: "search", icon: "search", label: "Search" },
   { id: "chat", icon: "chatbubble-ellipses", label: "Chat" },
   { id: "saved", icon: "bookmark", label: "Saved" },
-  { id: "account", icon: "person", label: "Account" },
+  { id: "account", icon: "person", label: "Profile" },
 ];
 
 export function SeekerTabBar({

@@ -34,7 +34,8 @@ import { BottomSheet } from "../ui/BottomSheet";
 import { Button } from "../ui/Button";
 import { resetStore } from "../onboarding/onboardingStore";
 import { startEditing } from "../onboarding/tutorOnboarding";
-import { ApiError, getAvailability, getMe, logout } from "../../lib/api";
+import { AccountInfoSection } from "../account/AccountInfoSection";
+import { ApiError, getAvailability, getMe, logout, patchTutor, type MeResponse } from "../../lib/api";
 
 // The "Change preferences" sheet — one option per onboarding screen.
 const EDIT_SECTIONS: { key: string; label: string; hint?: string; route: string }[] = [
@@ -90,6 +91,7 @@ export function ProfileScreen({
   onSetup: () => void;
 }) {
   const [data, setData] = useState<ProfileBodyData | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [username, setUsername] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
@@ -105,9 +107,10 @@ export function ProfileScreen({
     setLoading(true);
     setError(false);
     getMe()
-      .then((me) => {
-        const { data: d, slug } = mapMeToProfileBody(me);
+      .then((meRes) => {
+        const { data: d, slug } = mapMeToProfileBody(meRes);
         setData(d);
+        setMe(meRes);
         setUsername(slug);
         setIsMock(false);
       })
@@ -117,6 +120,7 @@ export function ProfileScreen({
         // session — show a clear state instead of misleading fake data.
         if (err instanceof ApiError && err.isNetworkError && __DEV__) {
           setData(MOCK_BODY);
+          setMe(null);
           setUsername(ME.username);
           setIsMock(true);
         } else {
@@ -172,6 +176,22 @@ export function ProfileScreen({
     startEditing(routes);
   };
 
+  // Account information section data. The tutor's own GET /api/auth/me detail
+  // block is select('*') on tutor_profiles, so it carries whatsapp_number +
+  // wechat_id directly. Phone shows the WhatsApp number they entered (tutors
+  // don't collect a separate phone during onboarding).
+  const tutorProfile = (me?.detail as { tutor_profile?: Record<string, unknown> } | null)?.tutor_profile;
+  const email = typeof me?.user?.email === "string" ? me.user.email : "";
+  const phone = typeof tutorProfile?.whatsapp_number === "string" ? tutorProfile.whatsapp_number : "";
+  const wechat = typeof tutorProfile?.wechat_id === "string" ? tutorProfile.wechat_id : "";
+
+  // Save the editable WeChat ID to tutor_profiles via PATCH /api/tutors/[slug], then refetch.
+  const onSaveWechat = async (value: string) => {
+    if (!username) return;
+    await patchTutor(username, { wechat_id: value || null });
+    load();
+  };
+
   // Log out: clear the session (token + keychain) and wipe the in-memory
   // onboarding draft/completion so signing up a NEW account re-runs onboarding
   // from scratch, then return to the welcome screen. Immediate, no confirm.
@@ -210,6 +230,14 @@ export function ProfileScreen({
               <>
                 <ProfileBody data={data} />
                 {!isMock && username ? <TutorPosts slug={username} /> : null}
+                {!isMock && me ? (
+                  <AccountInfoSection
+                    email={email}
+                    phone={phone}
+                    wechat={wechat}
+                    onSaveWechat={onSaveWechat}
+                  />
+                ) : null}
                 <Button
                   label="Change preferences"
                   variant="primary"

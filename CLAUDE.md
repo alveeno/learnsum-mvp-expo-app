@@ -558,6 +558,24 @@ one device — remove it when a real paywall lands.
   - **"Who viewed you"** (`AnalyticsScreen`, `GET /api/tutor/profile-views`) is **tier-gated**:
     free = locked (upgrade) · premium = count + **anonymized** list · deluxe = **full** details
     (public viewers only).
+- **"Account information" section (all three user types, latest round, live):** a shared
+  `components/account/AccountInfoSection.tsx` dropped into **both** the tutor Profile tab
+  (`ProfileScreen`, between the Posts list and "Change preferences") and the seeker **Profile** tab
+  (`SeekerAccountScreen`, above the old "Profile" settings group). Shows the signup details: **Sign-in
+  method** (a prop-driven indicator badge — always **"Email"** today since OAuth/provider aren't wired,
+  ready for Google/Apple), **Email** (`me.user.email`), **Password** (a fixed masked `********` literal —
+  never fetched/stored/measured), a **Change password** button, read-only **Phone**, and an **editable
+  WeChat ID**. Phone source differs by role: seekers show `profiles.phone`; **tutors show their
+  `whatsapp_number`** (they don't collect a separate phone). The **WeChat edit** (Edit button →
+  `BottomSheet`) saves per role: seeker → `patchProfileMe({ wechat_id })` (**`profiles.wechat_id`**, new
+  **backend migration 0031**, applied/live; `me` returns it via `select('*')`); tutor →
+  `patchTutor(slug, { wechat_id })` (`tutor_profiles.wechat_id`). The **Change password** sheet
+  (`components/account/ChangePasswordSheet.tsx`, old/new **always-masked** secure inputs + an inert
+  "Forgot password" placeholder) is **UI-only — not wired** (there's no backend change-password endpoint;
+  submit shows a "not connected yet" notice and calls nothing; no password is logged or revealed). The
+  **seeker tab + screen title were renamed "Account" → "Profile"** (icon was already the person icon);
+  the tutor tab was already "Profile". The seeker WeChat is the seeker's **own** self-edit only — it's
+  **not** exposed to tutors yet (`get_seeker_for_tutor` still returns `wechat → NULL`).
 - **Still frontend-only:** the **cross-side match dismissal** ("only one side answers", Req 4) — each
   side resolves its own banner per-device (no shared match record). A premium/deluxe tutor can have
   several unanswered match questions; the banner surfaces the **oldest** one. Real **payments** are

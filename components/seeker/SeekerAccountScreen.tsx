@@ -16,11 +16,12 @@ import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
+import { AccountInfoSection } from "../account/AccountInfoSection";
 import { LanguagePicker } from "../i18n/LanguagePicker";
 import { setRegistered } from "../auth/authState";
 import { C } from "../tutor/tutorData";
 import { consumeSeekerProfileDirty, hydrateSeekerAboutFromMe, schoolLevelFromMe } from "../onboarding/seekerProfile";
-import { getMe, logout, type MeResponse } from "../../lib/api";
+import { getMe, logout, patchProfileMe, type MeResponse } from "../../lib/api";
 
 // Backend enums → English labels (this shell isn't wired into i18n yet).
 const GENDER_LABEL: Record<string, string> = {
@@ -97,8 +98,18 @@ export function SeekerAccountScreen() {
   const bio = typeof profile?.bio === "string" ? profile.bio.trim() : "";
   const phone = typeof profile?.phone === "string" ? profile.phone.trim() : "";
   const gender = typeof profile?.gender === "string" ? profile.gender : "";
+  const email = typeof me?.user?.email === "string" ? me.user.email : "";
+  const wechat = typeof profile?.wechat_id === "string" ? profile.wechat_id : "";
   const schoolLevel = me ? schoolLevelFromMe(me) ?? "" : "";
-  const hasDetails = !!phone || (role === "student" && !!LEVEL_LABEL[schoolLevel]) || !!GENDER_LABEL[gender];
+  // Phone now lives in the Account information section, so it no longer factors
+  // into the (old "Profile" group) details divider.
+  const hasDetails = (role === "student" && !!LEVEL_LABEL[schoolLevel]) || !!GENDER_LABEL[gender];
+
+  // Save the editable WeChat ID to the shared profile (migration 0031), then refetch.
+  const onSaveWechat = async (value: string) => {
+    await patchProfileMe({ wechat_id: value || null });
+    load();
+  };
 
   const onEdit = () => {
     if (!me) return;
@@ -126,7 +137,7 @@ export function SeekerAccountScreen() {
   return (
     <>
       <View style={styles.header}>
-        <Text style={styles.title}>Account</Text>
+        <Text style={styles.title}>Profile</Text>
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
@@ -150,12 +161,15 @@ export function SeekerAccountScreen() {
         </View>
 
         {me ? (
+          <AccountInfoSection email={email} phone={phone} wechat={wechat} onSaveWechat={onSaveWechat} />
+        ) : null}
+
+        {me ? (
           <>
             <Text style={styles.sectionLabel}>Profile</Text>
             <View style={styles.group}>
               <Row icon="create-outline" label="Edit profile" sub="Name, photo, bio, phone" onPress={onEdit} />
               {hasDetails ? <View style={styles.divider} /> : null}
-              {phone ? <Row icon="call-outline" label="Phone" sub={phone} /> : null}
               {role === "student" && LEVEL_LABEL[schoolLevel] ? (
                 <Row icon="school-outline" label="Education level" sub={LEVEL_LABEL[schoolLevel]} />
               ) : null}
