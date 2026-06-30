@@ -537,10 +537,32 @@ one device — remove it when a real paywall lands.
   **lazily + guarded** (`require` in a try/catch) so the app still runs on a pre-rebuild binary /
   Simulator — but the notification only fires for real after a **fresh EAS dev build + reinstall**
   (native dep). Everything else (tiers, banners, confirms, reply gating) is JS-only.
-- **Flagged / backend follow-ups:** "only one side answers" (Req 4) truly needs a shared backend
-  match record to dismiss the *other* side — locally each side resolves its own banner. Per-tutor
-  tiers, real payments, and gating the unlock/reply server-side are all pending. A premium/deluxe
-  tutor can have several unanswered match questions; the banner surfaces the **oldest** one.
+- **Now backend-backed + live (migrations 0024–0030 applied to Supabase + verified):** the
+  **tier** persists (`tutor_profiles.tier`; `PATCH /api/tutor/tier` from the switcher, read via
+  `me`/`getTutor`); the **daily quota + unlocks** are real (`tutor_contact_unlocks` + `/api/tutor/
+  contact-quota` · `/contact-unlocks`); a tutor reads a seeker via **`GET /api/seekers/[id]`** (the
+  `get_seeker_for_tutor` SECURITY DEFINER RPC); **reply gating** is enforced server-side (a tutor's
+  chat send 403s until they've unlocked the seeker). So the frontend stores now hit real endpoints
+  (the mock/AsyncStorage paths are the offline fallback). The tutor's WhatsApp/WeChat show to seekers
+  only when the **viewed tutor's real tier** is premium/deluxe.
+- **Seeker privacy + search + viewer tiers (latest round, live):**
+  - **`SeekerAbout` two toggles** (default ON, on profiles): **is_discoverable** (appears in seeker
+    search / visible to anyone) and **share_personal_info** (include name/age/education/phone — OFF →
+    a *minimal card*, subjects only, + the phone warning). Saved via onboarding + `PATCH /api/profiles/me`.
+  - **Visibility rule (enforced in the RPC):** a tutor sees a seeker's details when the seeker is
+    **public OR has messaged the tutor**; a **private** seeker is only visible to a tutor they've
+    messaged. PII/phone withheld unless `share_personal_info` (phone also needs an unlock).
+  - **Seeker search** — a **Tutors/Students** toggle (`SearchModeToggle`) in **both** Search tabs
+    (`SeekerSearchScreen` + tutor `SearchScreen`) → `SeekerResultsList` over **`GET /api/seekers`**
+    (the `search_seekers` RPC; public seekers only, level filter + name/subject text).
+  - **"Who viewed you"** (`AnalyticsScreen`, `GET /api/tutor/profile-views`) is **tier-gated**:
+    free = locked (upgrade) · premium = count + **anonymized** list · deluxe = **full** details
+    (public viewers only).
+- **Still frontend-only:** the **cross-side match dismissal** ("only one side answers", Req 4) — each
+  side resolves its own banner per-device (no shared match record). A premium/deluxe tutor can have
+  several unanswered match questions; the banner surfaces the **oldest** one. Real **payments** are
+  still mock (the tier switcher stands in). The **seeker-search subject filter** is text-match, not a
+  dedicated picker.
 
 ## Architecture decisions
 

@@ -20,7 +20,7 @@ import type * as NotificationsType from "expo-notifications";
 
 export type MatchSide = "seeker" | "tutor";
 
-const TEN_MINUTES_SECONDS = 10 * 60;
+const REMINDER_DELAY_SECONDS = 10 * 60; // 10 minutes
 
 // undefined = not tried yet, null = unavailable on this binary, object = loaded.
 let cached: typeof NotificationsType | null | undefined;
@@ -86,7 +86,7 @@ export async function scheduleMatchReminder(
       },
       trigger: {
         type: N.SchedulableTriggerInputTypes.TIME_INTERVAL,
-        seconds: TEN_MINUTES_SECONDS,
+        seconds: REMINDER_DELAY_SECONDS,
       },
     });
   } catch {
