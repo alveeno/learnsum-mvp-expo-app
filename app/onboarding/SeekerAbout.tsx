@@ -9,6 +9,7 @@ import {
   SafeAreaView,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -85,6 +86,9 @@ export default function SeekerAbout() {
   const [gender, setGender] = usePersistentState<string | null>(SEEKER_ABOUT.gender, null);
   const [eduLevel, setEduLevel] = usePersistentState<string | null>(SEEKER_EDU_KEY, null);
   const [eduHistory, setEduHistory] = usePersistentState<EduByLevel>(SEEKER_EDU_HISTORY_KEY, EMPTY_EDU);
+  // Privacy toggles (default ON).
+  const [isDiscoverable, setIsDiscoverable] = usePersistentState<boolean>(SEEKER_ABOUT.isDiscoverable, true);
+  const [sharePersonalInfo, setSharePersonalInfo] = usePersistentState<boolean>(SEEKER_ABOUT.sharePersonalInfo, true);
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -287,6 +291,39 @@ export default function SeekerAbout() {
               autoCorrect={false}
             />
           </View>
+
+          {/* Privacy toggles (default ON) */}
+          <Text style={styles.fieldLabel}>{t("seekerAbout.privacy.section")}</Text>
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.toggleLabel}>{t("seekerAbout.privacy.visibleQ")}</Text>
+              <Text style={styles.toggleHint}>{t("seekerAbout.privacy.visibleHint")}</Text>
+            </View>
+            <Switch
+              value={isDiscoverable}
+              onValueChange={(v) => {
+                tapLight();
+                setIsDiscoverable(v);
+              }}
+              trackColor={{ true: "#2D6A4F", false: "#D1D5DB" }}
+            />
+          </View>
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1, paddingRight: 12 }}>
+              <Text style={styles.toggleLabel}>{t("seekerAbout.privacy.shareQ")}</Text>
+            </View>
+            <Switch
+              value={sharePersonalInfo}
+              onValueChange={(v) => {
+                tapLight();
+                setSharePersonalInfo(v);
+              }}
+              trackColor={{ true: "#2D6A4F", false: "#D1D5DB" }}
+            />
+          </View>
+          {!sharePersonalInfo ? (
+            <Text style={styles.warnText}>{t("seekerAbout.privacy.shareWarn")}</Text>
+          ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
@@ -416,4 +453,15 @@ const styles = StyleSheet.create({
     borderTopColor: "#ECECEC",
   },
   errorText: { color: "#E63946", fontSize: 13, lineHeight: 18, textAlign: "center", marginBottom: 8 },
+  toggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: HAIRLINE,
+  },
+  toggleLabel: { fontSize: 15, fontWeight: "600", color: "#16201C", lineHeight: 20 },
+  toggleHint: { fontSize: 12.5, color: "#6B7280", marginTop: 3, lineHeight: 17 },
+  warnText: { color: "#E63946", fontSize: 12.5, lineHeight: 17, marginTop: 10, fontWeight: "600" },
 });

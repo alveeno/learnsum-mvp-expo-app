@@ -9,6 +9,7 @@
  * backend filter — same as the seeker search).
  */
 import { Ionicons } from "@expo/vector-icons";
+import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
@@ -17,6 +18,8 @@ import { activeCount, DEF_FILTERS, FilterSheet, type Filters } from "./FilterShe
 import { useSavedPeople } from "./savedPeople";
 import { C } from "./tutorData";
 import { SaveButton } from "../seeker/SaveButton";
+import { SeekerResultsList } from "../seeker/SeekerResultsList";
+import { SearchModeToggle, type SearchMode } from "../seeker/SearchModeToggle";
 import { filtersToSearchParams } from "../seeker/searchFilters";
 import { subdistrictsLabel } from "../onboarding/hkDistricts";
 import { ApiError, searchTutors, type BrowseTutorCard } from "../../lib/api";
@@ -83,6 +86,7 @@ export function SearchScreen({
   onRequireAuth: () => void;
 }) {
   const [q, setQ] = useState("");
+  const [mode, setMode] = useState<SearchMode>("tutors");
   const [filters, setFilters] = useState<Filters>(DEF_FILTERS());
   const [sheet, setSheet] = useState(false);
   const [tutors, setTutors] = useState<BrowseTutorCard[]>([]);
@@ -119,12 +123,15 @@ export function SearchScreen({
   return (
     <>
       <View style={{ paddingHorizontal: 16, paddingTop: 4, paddingBottom: 12 }}>
+        <View style={{ marginBottom: 11 }}>
+          <SearchModeToggle mode={mode} onChange={setMode} />
+        </View>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={22} color={C.muted} />
           <TextInput
             value={q}
             onChangeText={setQ}
-            placeholder="Search tutors, subjects…"
+            placeholder={mode === "students" ? "Search students, subjects…" : "Search tutors, subjects…"}
             placeholderTextColor={C.unselIc}
             style={styles.searchInput}
           />
@@ -153,6 +160,9 @@ export function SearchScreen({
         </Pressable>
       </View>
 
+      {mode === "students" ? (
+        <SeekerResultsList query={q} locations={filters.locations} onOpen={(id) => router.push(`/seekers/${id}` as Href)} />
+      ) : (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 20 }} showsVerticalScrollIndicator={false}>
         {loading ? (
           <View style={styles.stateWrap}>
@@ -214,6 +224,7 @@ export function SearchScreen({
           </>
         )}
       </ScrollView>
+      )}
 
       <FilterSheet
         visible={sheet}

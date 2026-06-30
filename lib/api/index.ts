@@ -19,10 +19,10 @@ export { patchTutor, setTutorPublished, setTutorTier, getTutor, putTutorSubjects
 export type { TutorProfile, TutorDetail, TutorSubjectInput, BrowseTutorCard, TutorSearchParams, TutorSearchResult } from "./tutors";
 export { getSavedTutors, saveTutor, unsaveTutor } from "./saved";
 export type { SavedTutor } from "./saved";
-export { getSeeker } from "./seekers";
-export type { Seeker, SeekerRole, SeekerChild, SeekerContact } from "./seekers";
+export { getSeeker, searchSeekers } from "./seekers";
+export type { Seeker, SeekerRole, SeekerChild, SeekerContact, SeekerCard, SeekerSearchParams } from "./seekers";
 export { getProfileViewers, recordProfileView } from "./profileViews";
-export type { ProfileViewer } from "./profileViews";
+export type { ProfileViewer, ProfileViewersResult } from "./profileViews";
 export { getContactQuota, unlockContact, DAILY_CONTACT_QUOTA } from "./contacts";
 export type { ContactQuota } from "./contacts";
 export { getSavedPeople, addSavedPerson, removeSavedPerson } from "./savedPeople";

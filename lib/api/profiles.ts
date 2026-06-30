@@ -31,6 +31,9 @@ export interface ProfileMeUpdate {
   preferred_language?: string | null;
   bio?: string | null;
   phone?: string | null;
+  /** Seeker privacy toggles (migration 0029). Default true. */
+  is_discoverable?: boolean;
+  share_personal_info?: boolean;
   /** Seeker role block (editable education level + school history). Ignored by tutors. */
   student?: { school_level?: string | null; education?: unknown };
   parent?: { school_level?: string | null };

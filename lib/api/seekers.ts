@@ -52,6 +52,12 @@ export interface Seeker {
   languages: string[];
   /** Short human availability summary, e.g. "Weekday evenings · Sat morning". */
   availability_note: string | null;
+  /** Student's own education level (school_level); null for parents (use `child`). */
+  level?: string | null;
+  /** Student's own age; null for parents (use `child.age`). */
+  age?: number | null;
+  /** false → the seeker turned OFF "share personal info": only a minimal card (no name/age/level). */
+  share_info?: boolean;
   /** Hidden until the tutor unlocks this seeker — see module doc. */
   contact: SeekerContact;
 }
@@ -59,4 +65,39 @@ export interface Seeker {
 /** Fetch one seeker by id. Throws `ApiError` (the caller falls back to sample data). */
 export async function getSeeker(id: string): Promise<Seeker> {
   return apiFetch<Seeker>(`/api/seekers/${encodeURIComponent(id)}`);
+}
+
+/** A lean seeker card from the seeker search (GET /api/seekers). */
+export interface SeekerCard {
+  id: string;
+  role: SeekerRole;
+  /** Generic label ("Student"/"Parent") when the seeker hides their personal info. */
+  name: string;
+  avatar_url: string | null;
+  /** Education level (hidden → null when personal info is off). */
+  level: string | null;
+  subjects: string[];
+  /** Subdistrict slugs. */
+  districts: string[];
+  share_info: boolean;
+}
+
+export interface SeekerSearchParams {
+  q?: string;
+  subcategory_id?: string;
+  level?: string;
+  district?: string;
+}
+
+/** Search PUBLIC seekers (students/parents). Throws `ApiError`. */
+export async function searchSeekers(params: SeekerSearchParams = {}): Promise<SeekerCard[]> {
+  const res = await apiFetch<{ seekers: SeekerCard[] }>("/api/seekers", {
+    query: {
+      q: params.q,
+      subcategory_id: params.subcategory_id,
+      level: params.level,
+      district: params.district,
+    },
+  });
+  return res.seekers;
 }

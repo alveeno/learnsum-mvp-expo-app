@@ -580,6 +580,11 @@ export const translations = {
   "seekerAbout.editTitle": { en: "Edit profile", "zh-Hant": "編輯個人檔案", "zh-Hans": "编辑个人资料" },
   "seekerAbout.phone.label": { en: "Phone number", "zh-Hant": "電話號碼", "zh-Hans": "电话号码" },
   "seekerAbout.phone.placeholder": { en: "e.g. 852 1234 5678", "zh-Hant": "例如 852 1234 5678", "zh-Hans": "例如 852 1234 5678" },
+  "seekerAbout.privacy.section": { en: "Privacy", "zh-Hant": "私隱", "zh-Hans": "隐私" },
+  "seekerAbout.privacy.visibleQ": { en: "Make your profile visible to all users?", "zh-Hant": "讓所有使用者看到你的個人檔案？", "zh-Hans": "让所有用户看到你的个人资料？" },
+  "seekerAbout.privacy.visibleHint": { en: "Students, parents and tutors can find you in search.", "zh-Hant": "學生、家長和導師可以在搜尋中找到你。", "zh-Hans": "学生、家长和导师可以在搜索中找到你。" },
+  "seekerAbout.privacy.shareQ": { en: "Include your personal information (age, education, school, name, phone) in your profile?", "zh-Hant": "在個人檔案中包含你的個人資料（年齡、學歷、學校、姓名、電話）？", "zh-Hans": "在个人资料中包含你的个人信息（年龄、学历、学校、姓名、电话）？" },
+  "seekerAbout.privacy.shareWarn": { en: "Warning: tutors will not be able to reach you directly through your phone number.", "zh-Hant": "警告：導師將無法透過你的電話號碼直接聯絡你。", "zh-Hans": "警告：导师将无法通过你的电话号码直接联系你。" },
   "seekerAbout.edu.label": { en: "Education level", "zh-Hant": "教育程度", "zh-Hans": "教育程度" },
   "seekerAbout.save": { en: "Save", "zh-Hant": "儲存", "zh-Hans": "保存" },
   "seekerAbout.saveFailed": {

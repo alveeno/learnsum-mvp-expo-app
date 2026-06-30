@@ -222,6 +222,14 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
               </View>
             </View>
 
+            {/* Minimal-card note when the seeker hid their personal info. */}
+            {seeker.share_info === false ? (
+              <View style={styles.privateNote}>
+                <Ionicons name="lock-closed-outline" size={14} color={C.muted} />
+                <Text style={styles.privateNoteText}>This person has kept their personal details private.</Text>
+              </View>
+            ) : null}
+
             {/* For parents: the child */}
             {seeker.role === "parent" && seeker.child ? (
               <View style={styles.section}>
@@ -236,6 +244,17 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
                     .filter(Boolean)
                     .join(" · ")}
                 />
+              </View>
+            ) : null}
+
+            {/* For students: their own level + age */}
+            {seeker.role === "student" && (seeker.level || seeker.age != null) ? (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Their details</Text>
+                {seeker.level ? (
+                  <InfoRow icon="school-outline" label="Education level" value={LEVEL_LABEL[seeker.level] ?? seeker.level} />
+                ) : null}
+                {seeker.age != null ? <InfoRow icon="calendar-outline" label="Age" value={String(seeker.age)} /> : null}
               </View>
             ) : null}
 
@@ -366,4 +385,6 @@ const styles = StyleSheet.create({
   wechatBtn: { backgroundColor: "#09B83E" },
   messageBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 46, borderRadius: 23, backgroundColor: C.ink },
   messageBtnText: { fontSize: 14.5, fontWeight: "800", color: "#fff" },
+  privateNote: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12, paddingVertical: 9, paddingHorizontal: 12, borderRadius: 12, backgroundColor: C.surface, borderWidth: 1, borderColor: C.hairline },
+  privateNoteText: { flex: 1, fontSize: 12.5, color: C.muted, fontWeight: "600" },
 });

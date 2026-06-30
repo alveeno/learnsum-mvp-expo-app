@@ -26,10 +26,23 @@ export interface ProfileViewer {
   avatar_url: string | null;
 }
 
-/** The tutor's profile viewers. Throws `ApiError` (the caller falls back to sample data). */
-export async function getProfileViewers(): Promise<ProfileViewer[]> {
-  const res = await apiFetch<{ viewers: ProfileViewer[] }>("/api/tutor/profile-views");
-  return res.viewers;
+/**
+ * Tier-gated viewers response:
+ *   - free    → `locked` true, no rows (upgrade prompt).
+ *   - premium → `detailed` false: count + anonymized rows (no name/age/level).
+ *   - deluxe  → `detailed` true: full rows (public viewers only).
+ */
+export interface ProfileViewersResult {
+  tier: "free" | "premium" | "deluxe";
+  locked: boolean;
+  detailed: boolean;
+  count: number;
+  viewers: ProfileViewer[];
+}
+
+/** The tutor's profile viewers (tier-gated). Throws `ApiError` (caller falls back to sample). */
+export async function getProfileViewers(): Promise<ProfileViewersResult> {
+  return apiFetch<ProfileViewersResult>("/api/tutor/profile-views");
 }
 
 /** Record that the caller viewed a tutor's profile. Best-effort — never throws. */

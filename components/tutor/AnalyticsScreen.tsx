@@ -18,7 +18,7 @@ import { SAMPLE_VIEWERS } from "./sampleSeekers";
 import { useSavedPeople } from "./savedPeople";
 import { ANALYTICS, C } from "./tutorData";
 import { SaveButton } from "../seeker/SaveButton";
-import { getProfileViewers, type ProfileViewer } from "../../lib/api";
+import { getProfileViewers, type ProfileViewersResult } from "../../lib/api";
 
 function StatCard({ label, value, delta }: { label: string; value: string; delta: string }) {
   const up = delta.startsWith("+");
@@ -104,18 +104,20 @@ function AnalyticsBody() {
  * (→ the seeker profile) with a Save bookmark.
  */
 function ProfileViewersSection() {
-  const [viewers, setViewers] = useState<ProfileViewer[] | null>(null);
+  const [res, setRes] = useState<ProfileViewersResult | null>(null);
   const { isSaved, toggle } = useSavedPeople();
 
   useEffect(() => {
     let cancelled = false;
     getProfileViewers()
-      .then((list) => {
-        if (!cancelled) setViewers(list);
+      .then((r) => {
+        if (!cancelled) setRes(r);
       })
       .catch(() => {
-        // Offline / endpoint not built yet — fall back to sample viewers.
-        if (!cancelled) setViewers(SAMPLE_VIEWERS);
+        // Offline / endpoint not built — demo as deluxe with sample viewers.
+        if (!cancelled) {
+          setRes({ tier: "deluxe", locked: false, detailed: true, count: SAMPLE_VIEWERS.length, viewers: SAMPLE_VIEWERS });
+        }
       });
     return () => {
       cancelled = true;
@@ -129,37 +131,79 @@ function ProfileViewersSection() {
         <Text style={{ fontSize: 16, fontWeight: "800", color: C.ink }}>Who viewed your profile</Text>
       </View>
       <Text style={{ fontSize: 12.5, color: C.muted, marginBottom: 6 }}>
-        Tap a parent or student to see what they&apos;re looking for.
+        {res?.detailed
+          ? "Tap a parent or student to see what they're looking for."
+          : "See the students and parents checking out your profile."}
       </Text>
-      {viewers === null ? (
+
+      {res === null ? (
         <View style={{ paddingVertical: 24, alignItems: "center" }}>
           <ActivityIndicator color={C.green} />
         </View>
-      ) : viewers.length === 0 ? (
+      ) : res.locked ? (
+        <View style={styles.viewersLock}>
+          <Text style={{ fontSize: 14.5, fontWeight: "800", color: C.ink }}>
+            {res.count} {res.count === 1 ? "person has" : "people have"} viewed your profile
+          </Text>
+          <Text style={{ fontSize: 13, color: C.muted, marginTop: 4, textAlign: "center" }}>
+            Upgrade to Premium or Deluxe to see who they are.
+          </Text>
+          <Pressable style={styles.viewersUpgrade} onPress={() => router.push("/subscribe" as Href)}>
+            <Ionicons name="rocket-outline" size={16} color="#3a2c06" />
+            <Text style={{ fontSize: 14, fontWeight: "800", color: "#3a2c06" }}>Upgrade</Text>
+          </Pressable>
+        </View>
+      ) : res.viewers.length === 0 ? (
         <Text style={{ fontSize: 13.5, color: C.muted, paddingVertical: 14 }}>
           No profile views yet — keep posting to get noticed.
         </Text>
       ) : (
-        viewers.map((v) => (
-          <Pressable key={v.id} onPress={() => router.push(`/seekers/${v.id}` as Href)} style={styles.viewerRow}>
-            <Avatar name={v.name} uri={v.avatar_url ?? undefined} size={40} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink }} numberOfLines={1}>
-                {v.name}
+        <>
+          {res.viewers.map((v, i) =>
+            res.detailed ? (
+              <Pressable key={v.id || i} onPress={() => router.push(`/seekers/${v.id}` as Href)} style={styles.viewerRow}>
+                <Avatar name={v.name} uri={v.avatar_url ?? undefined} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink }} numberOfLines={1}>
+                    {v.name}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: C.muted, marginTop: 1 }} numberOfLines={1}>
+                    {v.note}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11.5, color: C.unselIc, fontWeight: "600" }}>{v.ago}</Text>
+                <SaveButton
+                  saved={isSaved(v.id)}
+                  onToggle={() =>
+                    toggle({ id: v.id, kind: v.role, name: v.name, subtitle: v.note, avatar_url: v.avatar_url })
+                  }
+                />
+              </Pressable>
+            ) : (
+              // Premium — anonymized (no name/age/level, not tappable).
+              <View key={i} style={styles.viewerRow}>
+                <Avatar name={v.name} size={40} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: C.ink }} numberOfLines={1}>
+                    {v.name}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: C.muted, marginTop: 1 }} numberOfLines={1}>
+                    {v.note}
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 11.5, color: C.unselIc, fontWeight: "600" }}>{v.ago}</Text>
+              </View>
+            ),
+          )}
+          {res.tier === "premium" ? (
+            <Pressable style={styles.viewersUpgradeRow} onPress={() => router.push("/subscribe" as Href)}>
+              <Ionicons name="lock-open-outline" size={15} color={C.green} />
+              <Text style={{ fontSize: 13, fontWeight: "700", color: C.green }}>
+                Upgrade to Deluxe to see who they are
               </Text>
-              <Text style={{ fontSize: 12, color: C.muted, marginTop: 1 }} numberOfLines={1}>
-                {v.note}
-              </Text>
-            </View>
-            <Text style={{ fontSize: 11.5, color: C.unselIc, fontWeight: "600" }}>{v.ago}</Text>
-            <SaveButton
-              saved={isSaved(v.id)}
-              onToggle={() =>
-                toggle({ id: v.id, kind: v.role, name: v.name, subtitle: v.note, avatar_url: v.avatar_url })
-              }
-            />
-          </Pressable>
-        ))
+            </Pressable>
+          ) : null}
+        </>
       )}
     </View>
   );
@@ -246,6 +290,9 @@ const styles = StyleSheet.create({
   axis: { fontSize: 10.5, color: C.unselIc, fontWeight: "600" },
   label: { fontSize: 13, fontWeight: "600", letterSpacing: 0.3, color: C.muted, textTransform: "uppercase" },
   viewerRow: { flexDirection: "row", alignItems: "center", gap: 11, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  viewersLock: { alignItems: "center", paddingVertical: 18, paddingHorizontal: 16, backgroundColor: C.surface, borderRadius: 16, borderWidth: 1, borderColor: C.hairline },
+  viewersUpgrade: { flexDirection: "row", alignItems: "center", gap: 7, marginTop: 12, height: 42, paddingHorizontal: 20, borderRadius: 21, backgroundColor: C.gold },
+  viewersUpgradeRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, paddingVertical: 12, marginTop: 2 },
   dashboardWrap: { position: "relative", borderRadius: 16, overflow: "hidden" },
   // A faint wash above the blur so the upgrade card reads clearly on busy charts.
   lockTint: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(249,249,247,0.45)" },

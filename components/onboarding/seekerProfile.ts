@@ -34,6 +34,9 @@ export const SEEKER_ABOUT = {
   avatarUrl: "seeker:about:avatarUrl",
   bio: "seeker:about:bio",
   phone: "seeker:about:phone",
+  // Privacy toggles (migration 0029) — default ON.
+  isDiscoverable: "seeker:about:isDiscoverable",
+  sharePersonalInfo: "seeker:about:sharePersonalInfo",
 } as const;
 // Education reuses the student onboarding key (single source of truth).
 export const SEEKER_EDU_KEY = "student:eduLevel";
@@ -74,7 +77,7 @@ function splitName(full: string, display: string): { first: string; last: string
 const str = (key: string) => getStored<string>(key, "").trim();
 
 /** The `profile` block sent in the one-shot onboarding save (sends app gender). */
-export function buildSeekerProfileBlock(): Record<string, string | null> {
+export function buildSeekerProfileBlock(): Record<string, string | boolean | null> {
   const gender = getStored<string | null>(SEEKER_ABOUT.gender, null);
   return {
     first_name: str(SEEKER_ABOUT.firstName) || null,
@@ -83,6 +86,8 @@ export function buildSeekerProfileBlock(): Record<string, string | null> {
     avatar_url: str(SEEKER_ABOUT.avatarUrl) || null,
     bio: str(SEEKER_ABOUT.bio) || null,
     phone: str(SEEKER_ABOUT.phone) || null,
+    is_discoverable: getStored<boolean>(SEEKER_ABOUT.isDiscoverable, true),
+    share_personal_info: getStored<boolean>(SEEKER_ABOUT.sharePersonalInfo, true),
   };
 }
 
@@ -124,6 +129,9 @@ export function hydrateSeekerAboutFromMe(me: MeResponse): void {
   setStored(SEEKER_ABOUT.avatarUrl, typeof p.avatar_url === "string" ? p.avatar_url : "");
   setStored(SEEKER_ABOUT.bio, typeof p.bio === "string" ? p.bio : "");
   setStored(SEEKER_ABOUT.phone, typeof p.phone === "string" ? p.phone : "");
+  // Privacy toggles default ON unless explicitly false.
+  setStored<boolean>(SEEKER_ABOUT.isDiscoverable, (p as { is_discoverable?: unknown }).is_discoverable !== false);
+  setStored<boolean>(SEEKER_ABOUT.sharePersonalInfo, (p as { share_personal_info?: unknown }).share_personal_info !== false);
   const level = schoolLevelFromMe(me);
   if (level) setStored<string | null>(SEEKER_EDU_KEY, level);
   setStored<EduByLevel>(SEEKER_EDU_HISTORY_KEY, eduHistoryFromMe(me));
@@ -157,6 +165,8 @@ export async function saveSeekerProfile(role: "student" | "parent"): Promise<voi
     avatar_url: avatarUrl || null, // always sent so removal persists
     bio: bio || null,
     phone: phone || null,
+    is_discoverable: getStored<boolean>(SEEKER_ABOUT.isDiscoverable, true),
+    share_personal_info: getStored<boolean>(SEEKER_ABOUT.sharePersonalInfo, true),
   };
   if (firstName || lastName) {
     fields.full_name = `${firstName} ${lastName}`.trim();
