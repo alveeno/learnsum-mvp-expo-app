@@ -20,7 +20,9 @@ import type * as NotificationsType from "expo-notifications";
 
 export type MatchSide = "seeker" | "tutor";
 
-const REMINDER_DELAY_SECONDS = 10 * 60; // 10 minutes
+// TEMP (testing): 30s so the reminder is quick to verify end-to-end.
+// Restore to `10 * 60` (10 minutes) before shipping.
+const REMINDER_DELAY_SECONDS = 30;
 
 // undefined = not tried yet, null = unavailable on this binary, object = loaded.
 let cached: typeof NotificationsType | null | undefined;
