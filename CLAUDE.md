@@ -191,7 +191,7 @@ File-based routes (Expo Router). Route map:
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / **Saved** / Profile). **Built**; **Search + Chat are now backend-wired**, Home stays sample data. **Analytics moved off the tab bar** to the Home **heart icon** (`/analytics`); its old slot is the **Saved** tab — see "Tutor app shell" below |
 | `/analytics`     | Tutor **Analytics**, opened from the Home feed **heart icon** — headline is a **free, tappable "who viewed your profile"** list (profile viewers → tap to open a seeker); the reach/post dashboard below stays a premium mock. **Built** (viewers + quota are mock/`__DEV__` fallback pending backend) |
 | `/seekers/[id]`  | **Seeker (parent/student) profile**, viewed by a tutor from the viewers list or Saved tab — shows preferences, category, child level + age, **never the phone**; contact (phone/WhatsApp/WeChat/chat) is **locked behind a 3-per-day contact quota** (`components/tutor/contactQuota.ts`). **Built** (sample-data fallback; backend gaps below) |
-| `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Profile). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
+| `/feed`          | **Seeker (student/parent) app shell** — a 5-tab experience (Home post-feed / Search + Quick Match / Chat / Saved / Profile). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
 | `/messages`, `/messages/[id]` | **In-app chat** — conversation list + thread, REST-polling (`lib/api/chat.ts` → `/api/conversations*`). **Built** (real backend). Reached from the tutor Chat tab, the seeker Account → Messages row, and the "Message" button on a tutor profile |
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat) — **built** (real shareable route; reuses the shared `TutorProfileContent`; the seeker shell pushes into it; sample-data fallback when the slug isn't a real tutor) |
 | `/search`        | Standalone seeker search route — **→ Todo** as a *standalone* route, but a **Search tab + Quick Match card is built inside the `/feed` seeker shell** (and a tutor Search tab inside `/tutor-home`) |
@@ -479,7 +479,7 @@ still UI-only — **not wired to a backend** (see the Todo list); the Chat tab *
 ## Seeker app shell (`/tutor-home`'s student/parent counterpart — `/feed`)
 
 The student/parent landing after onboarding/login (`app/feed.tsx`), in `components/seeker/`.
-Mirrors the tutor shell: a single stateful controller with a custom bottom tab bar switching four
+Mirrors the tutor shell: a single stateful controller with a custom bottom tab bar switching five
 tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wired**; only the
 **Home feed** is still sample data.
 
@@ -492,6 +492,9 @@ tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wi
   card on top (`quickMatch.ts`: reads the seeker's onboarding picks — subject/district — and
   surfaces the single best-fit tutor with a "why" line; falls back to top-rated). Its filters
   **persist across restarts** (`filterStorage.ts` → AsyncStorage).
+- **Chat** (`ChatList`, header "Messages") — the seeker's real conversations with tutors (the same
+  REST-polling backend as the tutor Chat tab); tapping one opens `/messages/[id]`. Also reachable from
+  the Profile tab's **Messages** row.
 - **Saved** (`SeekerSavedScreen`) — bookmarked tutors, **now backend-backed** (`savedTutors.ts` →
   `/api/saved`). Still a shared store (`useSyncExternalStore`) so the tab, search, and the public
   profile route stay in sync, with optimistic writes; `hydrateSaved()` loads bookmarks after sign-in.
