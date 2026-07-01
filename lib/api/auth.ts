@@ -1,5 +1,5 @@
 import { ApiError, apiFetch, setTokenRefresher } from "./client";
-import { clearToken, getRefreshToken, setSession, setStoredRole } from "./token";
+import { clearToken, getRefreshToken, getToken, setSession, setStoredRole } from "./token";
 
 /**
  * Auth bridge — signup / login / logout / me.
@@ -114,12 +114,29 @@ export async function refreshSession(): Promise<string | null> {
   }
 }
 
-/** Best-effort server logout; always clears the local session. */
+/**
+ * Log out. Clears the local session **synchronously first** — so a caller that
+ * navigates right after `void logout()` (e.g. `router.replace("/")`) lands in a
+ * logged-out state and the welcome-screen launch gate doesn't find a live token
+ * and bounce back to home — then best-effort revokes the session server-side.
+ *
+ * Revocation uses the captured tokens (the local session is already gone, so the
+ * auto-attached Bearer would be null): the backend invalidates the refresh
+ * token(s) on Supabase so the session can't be resumed. Failures are ignored.
+ */
 export async function logout(): Promise<void> {
+  const accessToken = getToken();
+  const refreshToken = getRefreshToken();
+  clearToken();
   try {
-    await apiFetch("/api/auth/logout", { method: "POST" });
-  } finally {
-    clearToken();
+    await apiFetch("/api/auth/logout", {
+      method: "POST",
+      auth: false,
+      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : {},
+      body: refreshToken ? { refresh_token: refreshToken } : undefined,
+    });
+  } catch {
+    // Already cleared locally — a failed server revocation must not block logout.
   }
 }
 

@@ -448,7 +448,11 @@ story** — route to the **`/auth/gate`** screen (Log in / Sign up) instead of a
 button** at the bottom: it clears the session (`logout()` — token + keychain) and **wipes the
 in-memory onboarding store** (`resetStore()` — completion map, `registered` flag, staged answers)
 for a clean slate, then returns to the welcome screen, so a fresh signup re-runs onboarding from
-scratch. Real auth / session persistence is fully wired (SecureStore) **including a refresh-token
+scratch. **`logout()` clears the local session *synchronously* before the caller navigates** — otherwise
+the cold-start launch gate on `/` would still see a live token and bounce back to home (that was a bug) —
+then best-effort **revokes the refresh token(s) server-side** (`POST /api/auth/logout` → GoTrue
+`scope=global`, using the captured access token, or the refresh token if it's expired) so the session
+can't be resumed. Real auth / session persistence is fully wired (SecureStore) **including a refresh-token
 flow** — the session survives cold starts and the ~1h access-token expiry, and a cold start routes
 straight to the role's home (see the backend-connection notes on `token.ts` / `resolveLaunchDestination`).
 
