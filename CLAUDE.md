@@ -56,11 +56,20 @@ There are three user types:
   `NSAllowsLocalNetworking` ATS entry now in `app.json`). `client.ts` is the shared `apiFetch`
   helper: it attaches `Authorization: Bearer <token>`, encodes JSON + query strings, times out,
   and throws a typed `ApiError` whose **`isNetworkError`** flag drives the `__DEV__` offline-mock
-  fallback. `token.ts` holds the session token **in memory only** (session-only like the rest of
-  the app — **now persisted to `expo-secure-store`**: the in-memory cache backs synchronous reads,
-  and `restoreToken()` in `app/_layout.tsx` reloads the session on a cold start so you stay logged
-  in. Only the Supabase **access** token is stored — it expires (~1h) and there's no refresh-token
-  flow yet, so a restore after expiry falls back to logged-out).
+  fallback. `token.ts` persists the whole session to **`expo-secure-store`** (in-memory cache backs
+  synchronous reads): the **access token** (Bearer), the **refresh token**, and the **last signed-in
+  role** (`getStoredRole`, for cold-start routing). `restoreToken()` in `app/_layout.tsx` reloads all
+  three on a cold start. **Sessions now survive the ~1h access-token expiry** via a **refresh flow**:
+  `refreshSession()` (`lib/api/auth.ts` → **`POST /api/auth/refresh`**) exchanges the refresh token for
+  a fresh session, and it's registered as `apiFetch`'s **401 auto-retry** (`setTokenRefresher` in
+  `client.ts` — no import cycle; on a 401 with a refresh token, apiFetch refreshes once and retries).
+  So a returning user stays logged in until they log out or the refresh token is revoked.
+  **Cold-start routing (the "don't log in every time" fix):** `app/index.tsx` (the welcome screen, the
+  initial route) shows a brand splash and calls `resolveLaunchDestination()`
+  (`components/auth/launch.ts`) — with a restored session it `router.replace`s straight to the role's
+  home (`homeForRole` → `/tutor-home` or `/feed`); **offline it still opens to home** using the stored
+  role (getMe network-errors → last known role); only a genuinely dead/absent session falls through to
+  the welcome UI. (`homeForRole` is shared with the login-sheet handoff.)
 - **Wired so far:** auth (`signup` / `login` / `logout` / `getMe`, in `lib/api/auth.ts`),
   `getCategories()` (`lib/api/categories.ts`), and the **tutor onboarding one-shot save**
   (`postOnboarding` + `components/onboarding/tutorOnboardingPayload.ts`, fired from the
@@ -439,8 +448,9 @@ story** — route to the **`/auth/gate`** screen (Log in / Sign up) instead of a
 button** at the bottom: it clears the session (`logout()` — token + keychain) and **wipes the
 in-memory onboarding store** (`resetStore()` — completion map, `registered` flag, staged answers)
 for a clean slate, then returns to the welcome screen, so a fresh signup re-runs onboarding from
-scratch. Real auth / session persistence is otherwise wired (SecureStore); a refresh-token flow is
-still **→ Todo**.
+scratch. Real auth / session persistence is fully wired (SecureStore) **including a refresh-token
+flow** — the session survives cold starts and the ~1h access-token expiry, and a cold start routes
+straight to the role's home (see the backend-connection notes on `token.ts` / `resolveLaunchDestination`).
 
 **Caveats (prototype):** **Search + Chat are now backend-wired** (real `/api/tutors` results + real
 REST-polling messaging — see "Wired so far"); what remains front-end only is the **Home feed**
@@ -753,10 +763,11 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 - Standalone auth routes `/auth/*` (email + password and **social**) — today `SignUp` + the
   `LoginSheet` (opened from the welcome screen, the `SignUp` screen, and the `/auth/gate` route)
   call the **real** `POST /api/auth/signup` / `/login`; the welcome-screen login routes by role
-  (tutor → `/tutor-home`, student/parent → `/feed`); the session **persists** via SecureStore. Still Todo: dedicated
-  `/auth/*` routes, **social login** (only Google is configured on Supabase), and a **refresh-token
-  flow** for truly long-lived sessions (only the ~1h access token is stored today, so a cold start
-  after expiry logs out).
+  (tutor → `/tutor-home`, student/parent → `/feed`); the session **persists** via SecureStore.
+  **DONE: refresh-token flow** — the refresh token is stored and exchanged via `POST /api/auth/refresh`
+  (registered as `apiFetch`'s 401 auto-retry), so sessions outlive the ~1h access-token expiry and a
+  cold start opens straight to the role's home (`resolveLaunchDestination`, offline-tolerant). Still
+  Todo: dedicated `/auth/*` routes and **social login** (only Google is configured on Supabase).
 - **DONE:** the seeker **`/feed`** is an Instagram-style post-feed app shell (Home / Search / Saved /
   Account), with **Search + Saved now backend-wired** (`GET /api/tutors`, `/api/saved`). Still Todo:
   a **real** personalized post feed for the **Home** tab (no post-stream endpoint yet — `getFeed`

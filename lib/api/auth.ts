@@ -1,5 +1,5 @@
-import { apiFetch } from "./client";
-import { clearToken, setToken } from "./token";
+import { ApiError, apiFetch, setTokenRefresher } from "./client";
+import { clearToken, getRefreshToken, setSession, setStoredRole } from "./token";
 
 /**
  * Auth bridge — signup / login / logout / me.
@@ -58,29 +58,63 @@ interface AuthResponse {
   session: Session | null;
 }
 
-/** Create an account. Stores the returned token and returns the user/session. */
+/** Create an account. Stores the session (access + refresh) + role. */
 export async function signup(email: string, password: string, role: Role): Promise<AuthResponse> {
   const res = await apiFetch<AuthResponse>("/api/auth/signup", {
     method: "POST",
     auth: false,
     body: { email: email.trim(), password, role },
   });
-  if (res.session?.access_token) setToken(res.session.access_token);
+  if (res.session?.access_token) {
+    setSession(res.session);
+    setStoredRole(role);
+  }
   return res;
 }
 
-/** Log a returning user in. Stores the returned token. */
+/** Log a returning user in. Stores the session (access + refresh). */
 export async function login(email: string, password: string): Promise<AuthResponse> {
   const res = await apiFetch<AuthResponse>("/api/auth/login", {
     method: "POST",
     auth: false,
     body: { email: email.trim(), password },
   });
-  if (res.session?.access_token) setToken(res.session.access_token);
+  if (res.session?.access_token) setSession(res.session);
+  // Role isn't in the login response — getMe() (called next by the caller) persists it.
   return res;
 }
 
-/** Best-effort server logout; always clears the local token. */
+/**
+ * Exchange the stored refresh token for a fresh session (`POST /api/auth/refresh`).
+ * Returns the new access token, or null when there's no refresh token or it's
+ * been rejected (revoked / expired), in which case the session is cleared.
+ * Registered as `apiFetch`'s 401 refresher (see the bottom of this file).
+ */
+export async function refreshSession(): Promise<string | null> {
+  const rt = getRefreshToken();
+  if (!rt) return null;
+  try {
+    const res = await apiFetch<AuthResponse>("/api/auth/refresh", {
+      method: "POST",
+      auth: false,
+      body: { refresh_token: rt },
+    });
+    if (res.session?.access_token) {
+      setSession(res.session);
+      return res.session.access_token;
+    }
+    clearToken();
+    return null;
+  } catch (err) {
+    // Offline → leave the session in place to try again later. A real rejection
+    // (invalid/revoked refresh token) → clear so the app falls back to logged-out.
+    if (err instanceof ApiError && err.isNetworkError) return null;
+    clearToken();
+    return null;
+  }
+}
+
+/** Best-effort server logout; always clears the local session. */
 export async function logout(): Promise<void> {
   try {
     await apiFetch("/api/auth/logout", { method: "POST" });
@@ -91,5 +125,12 @@ export async function logout(): Promise<void> {
 
 /** Current user + profile + role detail. Throws ApiError(401) when logged out. */
 export async function getMe(): Promise<MeResponse> {
-  return apiFetch<MeResponse>("/api/auth/me");
+  const me = await apiFetch<MeResponse>("/api/auth/me");
+  // Remember the role for cold-start / offline routing.
+  if (me.profile?.role) setStoredRole(me.profile.role);
+  return me;
 }
+
+// Let apiFetch auto-refresh an expired access token on a 401 (no import cycle:
+// client never imports auth).
+setTokenRefresher(refreshSession);

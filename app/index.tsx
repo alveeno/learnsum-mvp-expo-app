@@ -1,15 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, type Href } from "expo-router";
-import { useState } from "react";
-import { SafeAreaView, StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { LoginSheet } from "../components/auth/LoginSheet";
+import { homeForRole, resolveLaunchDestination } from "../components/auth/launch";
 import { LanguagePicker } from "../components/i18n/LanguagePicker";
 import { useT } from "../components/i18n/LanguageProvider";
 import { type TranslationKey } from "../components/i18n/translations";
-import { type Role } from "../lib/api";
+import { getRefreshToken, hasToken, type Role } from "../lib/api";
 
 type UserTypeKey = "student" | "parent" | "tutor";
 
@@ -60,6 +61,27 @@ export default function Index() {
   const [selectedKey, setSelectedKey] = useState<UserTypeKey | null>(null);
   // Login bottom-sheet (placeholder — not wired to a backend yet).
   const [loginOpen, setLoginOpen] = useState(false);
+  // On a cold start, if a session was restored (app/_layout.tsx ran restoreToken
+  // before this mounts), resolve where to land BEFORE showing anything — so a
+  // logged-in user never flashes this welcome screen. Only "checks" when there's
+  // actually a session to resolve; otherwise we go straight to the welcome UI.
+  const [checking, setChecking] = useState(() => hasToken() || getRefreshToken() != null);
+
+  useEffect(() => {
+    if (!checking) return;
+    let cancelled = false;
+    void (async () => {
+      const dest = await resolveLaunchDestination();
+      if (cancelled) return;
+      if (dest) router.replace(dest);
+      else setChecking(false); // no valid session → show the welcome screen
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Runs once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectedType = USER_TYPES.find((u) => u.key === selectedKey) ?? null;
 
@@ -70,16 +92,35 @@ export default function Index() {
   };
 
   // A returning user logs in from the sheet → route to their role's home. Tutor
-  // lands on the tutor app shell; student/parent on the placeholder /feed (their
-  // flows aren't built yet). An unknown role (e.g. the __DEV__ offline fallback,
-  // where the profile can't be fetched) defaults to the tutor home — that's the
-  // path in active development. `replace` so Back doesn't return to this screen.
+  // lands on the tutor app shell; student/parent on the placeholder /feed. An
+  // unknown role (e.g. the __DEV__ offline fallback, where the profile can't be
+  // fetched) defaults to the tutor home — that's the path in active development.
+  // `replace` so Back doesn't return to this screen.
   const handleLoggedIn = (role: Role | null) => {
     setLoginOpen(false);
-    const dest: Href =
-      role === "student" || role === "parent" ? "/feed" : "/tutor-home";
-    router.replace(dest);
+    router.replace(homeForRole(role));
   };
+
+  // While resolving a restored session, show a brand splash instead of the
+  // welcome UI (avoids a flash of "pick your role" for an already-logged-in user).
+  if (checking) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.splash}>
+          <View style={styles.logoRow}>
+            <View style={styles.logoMark}>
+              <Ionicons name="school" size={28} color="#FFFFFF" />
+            </View>
+            <Text style={styles.logoText}>
+              <Text style={styles.logoLearn}>Learn</Text>
+              <Text style={styles.logoSum}>Sum</Text>
+            </Text>
+          </View>
+          <ActivityIndicator color="#2D6A4F" style={{ marginTop: 24 }} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -180,6 +221,11 @@ const styles = StyleSheet.create({
   },
   topBar: {
     paddingTop: 8,
+  },
+  splash: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
   logoSection: {
     flex: 1,

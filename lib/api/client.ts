@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config";
-import { getToken } from "./token";
+import { getRefreshToken, getToken } from "./token";
 
 /**
  * The one place every backend call goes through.
@@ -46,6 +46,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Refresh hook. `lib/api/auth.ts` registers `refreshSession` here (avoiding an
+ * import cycle: client → auth). On a 401 with a refresh token available, apiFetch
+ * calls it once to mint a fresh access token, then retries the request.
+ */
+type TokenRefresher = () => Promise<string | null>;
+let tokenRefresher: TokenRefresher | null = null;
+export function setTokenRefresher(fn: TokenRefresher | null): void {
+  tokenRefresher = fn;
+}
+
 function buildQuery(query?: Record<string, QueryValue>): string {
   if (!query) return "";
   const parts: string[] = [];
@@ -65,7 +76,12 @@ function messageFromBody(body: unknown, fallback: string): string {
   return fallback;
 }
 
-export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {}): Promise<T> {
+export async function apiFetch<T = unknown>(
+  path: string,
+  opts: ApiOptions = {},
+  // Internal: set on the auto-retry after a token refresh, so we only refresh once.
+  _isRetry = false,
+): Promise<T> {
   const { method = "GET", body, query, auth = true, timeoutMs = 15000, headers = {}, signal } = opts;
 
   const url = `${API_BASE_URL}${path}${buildQuery(query)}`;
@@ -137,6 +153,20 @@ export async function apiFetch<T = unknown>(path: string, opts: ApiOptions = {})
   }
 
   if (!response.ok) {
+    // Access token expired? Spend the refresh token to mint a new one and retry
+    // once — so a long-idle session recovers transparently instead of 401-ing.
+    // Skips public (auth:false) calls and calls without a refresh token, and only
+    // retries a single time (guarded by _isRetry) to avoid loops.
+    if (
+      response.status === 401 &&
+      auth !== false &&
+      !_isRetry &&
+      tokenRefresher &&
+      getRefreshToken()
+    ) {
+      const newToken = await tokenRefresher();
+      if (newToken) return apiFetch<T>(path, opts, true);
+    }
     throw new ApiError(
       messageFromBody(parsed, `Request failed (${response.status})`),
       response.status,
