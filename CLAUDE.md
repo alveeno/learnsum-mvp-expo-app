@@ -191,11 +191,11 @@ File-based routes (Expo Router). Route map:
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / **Saved** / Profile). **Built**; **Search + Chat are now backend-wired**, Home stays sample data. **Analytics moved off the tab bar** to the Home **heart icon** (`/analytics`); its old slot is the **Saved** tab — see "Tutor app shell" below |
 | `/analytics`     | Tutor **Analytics**, opened from the Home feed **heart icon** — headline is a **free, tappable "who viewed your profile"** list (profile viewers → tap to open a seeker); the reach/post dashboard below stays a premium mock. **Built** (viewers + quota are mock/`__DEV__` fallback pending backend) |
 | `/seekers/[id]`  | **Seeker (parent/student) profile**, viewed by a tutor from the viewers list or Saved tab — shows preferences, category, child level + age, **never the phone**; contact (phone/WhatsApp/WeChat/chat) is **locked behind a 3-per-day contact quota** (`components/tutor/contactQuota.ts`). **Built** (sample-data fallback; backend gaps below) |
-| `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Account). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
+| `/feed`          | **Seeker (student/parent) app shell** — a 4-tab experience (Home post-feed / Search + Quick Match / Saved / Profile). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
 | `/messages`, `/messages/[id]` | **In-app chat** — conversation list + thread, REST-polling (`lib/api/chat.ts` → `/api/conversations*`). **Built** (real backend). Reached from the tutor Chat tab, the seeker Account → Messages row, and the "Message" button on a tutor profile |
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat) — **built** (real shareable route; reuses the shared `TutorProfileContent`; the seeker shell pushes into it; sample-data fallback when the slug isn't a real tutor) |
 | `/search`        | Standalone seeker search route — **→ Todo** as a *standalone* route, but a **Search tab + Quick Match card is built inside the `/feed` seeker shell** (and a tutor Search tab inside `/tutor-home`) |
-| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab is in `/tutor-home`; a seeker **Account** tab is in `/feed`) |
+| `/profile`       | Standalone profile route, editing, account deletion, publish/unpublish — **→ Todo** (a tutor Profile tab is in `/tutor-home`; a seeker **Profile** tab — `SeekerAccountScreen` — is in `/feed`) |
 | `/auth/gate`     | Tutor **log in / sign up** gate, shown when an unregistered user hits a gated action in `/tutor-home` — **built** (front-end mock: opens `LoginSheet` or the `SignUp` flow). Full email+password / social auth routes **→ Todo** |
 | `/post-new`      | Tutor **post composer** (text + a post_type + optional photo/video) → `POST /api/tutors/[slug]/posts` (+ `POST /api/upload`) — **built**; opened from the Home feed "+" and the Profile Posts section |
 | `/onboarding/CreateAccount` | **Student/parent final credential step** (email + password / social) → `POST /api/auth/signup` then the **best-effort** one-shot save → `Welcome` → `/feed` — **built** (Option A: credentials on the last step; reuses the trilingual `signup.*` copy) |
@@ -223,7 +223,7 @@ one flow per role:
   from `TutorAbout` so the two are identical: school name / qualification / score searchable dropdowns +
   "Currently studying / Finished"), stored at `seeker:about:eduByLevel` and persisted to
   `student_profiles.education` (jsonb). It runs in **two modes** (`mode` param): in onboarding it's the
-  last data step before `CreateAccount`; in **edit** mode it's opened from the Account tab (store
+  last data step before `CreateAccount`; in **edit** mode it's opened from the Profile tab (store
   pre-seeded from `GET /api/auth/me` via `hydrateSeekerAboutFromMe`) and **saves** on its own via
   `saveSeekerProfile` → `PATCH /api/profiles/me` (helpers in `components/onboarding/seekerProfile.ts`;
   the shared gender maps were extracted here, also used by `tutorEditStore.ts`). The collected profile
@@ -495,8 +495,9 @@ tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wi
 - **Saved** (`SeekerSavedScreen`) — bookmarked tutors, **now backend-backed** (`savedTutors.ts` →
   `/api/saved`). Still a shared store (`useSyncExternalStore`) so the tab, search, and the public
   profile route stay in sync, with optimistic writes; `hydrateSaved()` loads bookmarks after sign-in.
-- **Account** (`SeekerAccountScreen`) — now shows the seeker's **real profile** (`GET /api/auth/me`):
-  avatar, name, role, and — when set — their bio, phone, education level and gender (from `SeekerAbout`).
+- **Profile** (`SeekerAccountScreen` — tab **renamed from "Account" → "Profile"**, person icon; component/file
+  name unchanged) — now shows the seeker's **real profile** (`GET /api/auth/me`): avatar, name, role, an
+  **Account information** section (see below), and — when set — their bio, phone, education level and gender (from `SeekerAbout`).
   An **"Edit profile"** row pre-seeds the store from `me` and opens `SeekerAbout` in **edit mode**; the
   tab refetches on return (`consumeSeekerProfileDirty`). No session / load error falls back to a neutral
   "Your account" card (no fake data). Plus a **Messages** row (→ `/messages`, the in-app chat), language
@@ -763,7 +764,7 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 - **DONE (inside the `/feed` seeker shell):** seeker **Search** tab + **Quick Match** card. A
   *standalone* `/search` route is still Todo (the tutor-facing Search tab is inside `/tutor-home`).
 - Standalone **Profile** route — editing, account deletion, publish / self-unpublish (a tutor
-  Profile tab is inside `/tutor-home`; a seeker **Account** tab is inside `/feed`).
+  Profile tab is inside `/tutor-home`; a seeker **Profile** tab (`SeekerAccountScreen`) is inside `/feed`).
 - Standalone auth routes `/auth/*` (email + password and **social**) — today `SignUp` + the
   `LoginSheet` (opened from the welcome screen, the `SignUp` screen, and the `/auth/gate` route)
   call the **real** `POST /api/auth/signup` / `/login`; the welcome-screen login routes by role
@@ -773,7 +774,7 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   cold start opens straight to the role's home (`resolveLaunchDestination`, offline-tolerant). Still
   Todo: dedicated `/auth/*` routes and **social login** (only Google is configured on Supabase).
 - **DONE:** the seeker **`/feed`** is an Instagram-style post-feed app shell (Home / Search / Saved /
-  Account), with **Search + Saved now backend-wired** (`GET /api/tutors`, `/api/saved`). Still Todo:
+  Profile), with **Search + Saved now backend-wired** (`GET /api/tutors`, `/api/saved`). Still Todo:
   a **real** personalized post feed for the **Home** tab (no post-stream endpoint yet — `getFeed`
   returns tutor cards, not posts — so Home stays sample data by decision).
 - Tutor **profile-completion** screen — bio, photo, WhatsApp / WeChat + remaining
