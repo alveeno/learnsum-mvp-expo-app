@@ -27,6 +27,7 @@ import Reanimated, {
 import { selectionTick } from "../../components/ui/feedback";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { Button } from "../../components/ui/Button";
+import { ConfirmModal } from "../../components/ui/ConfirmModal";
 import { KeyboardAvoider } from "../../components/ui/KeyboardAvoider";
 import { SelectableCircle } from "../../components/ui/SelectableCircle";
 import { DistrictPicker } from "../../components/onboarding/DistrictPicker";
@@ -1091,6 +1092,8 @@ export default function TutorSD() {
     subjects[0] ? `${subjects[0].catId}:${subjects[0].id}` : "",
   );
   const [modal, setModal] = useState(false);
+  // Labels of subjects with no details at all, when the empty-subject warning is up.
+  const [emptyWarn, setEmptyWarn] = useState<string[] | null>(null);
   const [view, setView] = useState<"details" | "review">("details");
 
   // One-time "Skip this step?" confirmation, shared across all onboarding Skips.
@@ -1123,7 +1126,15 @@ export default function TutorSD() {
     );
     if (target) setOpenKey(keyOf(target));
   };
-  const firstMissingLevels = subjects.find((s) => (getDetail(keyOf(s)).levels ?? []).length === 0);
+  // A subject the tutor hasn't touched at all (defaults untouched — pay/format/
+  // slots defaults don't count as "filled in").
+  const isEmptyDetail = (d: Detail) =>
+    (d.levels ?? []).length === 0 &&
+    d.years === DEFAULT_DETAIL.years &&
+    d.districts.length === 0 &&
+    d.experiences.length === 0 &&
+    d.achievements.every((a) => !a.trim()) &&
+    d.quals.every((q) => !q.type && !q.detail && !q.subject && !q.grade && !q.test);
 
   const firstTimeNext = () => router.push("/onboarding/TutorPrefs");
   // Confirm on the review = completing this step; Skip advances without it.
@@ -1135,8 +1146,21 @@ export default function TutorSD() {
     setView("details");
   };
   const onContinue = () => {
-    if (firstMissingLevels) {
-      setOpenKey(keyOf(firstMissingLevels));
+    // A subject the tutor has started filling still needs a teaching level
+    // (silent block that opens the offending card — unchanged behaviour). Empty
+    // subjects are handled by the soft warning below, not blocked here.
+    const missingLevels = subjects.find((s) => {
+      const d = getDetail(keyOf(s));
+      return (d.levels ?? []).length === 0 && !isEmptyDetail(d);
+    });
+    if (missingLevels) {
+      setOpenKey(keyOf(missingLevels));
+      return;
+    }
+    // Completely-empty subject(s) → warn, but allow "Continue anyway".
+    const empties = subjects.filter((s) => isEmptyDetail(getDetail(keyOf(s))));
+    if (empties.length > 0) {
+      setEmptyWarn(empties.map((s) => s.label));
       return;
     }
     if (missing) setModal(true);
@@ -1276,6 +1300,15 @@ export default function TutorSD() {
           Choose teaching levels inside each subject before you review.
         </Text>
 
+        {subjects.length > 1 ? (
+          <View style={styles.reminderBanner}>
+            <MaterialIcons name="info-outline" size={18} color="#D98E0A" />
+            <Text style={styles.reminderText}>
+              {t("sd.reminder.multi", { n: subjects.length })}
+            </Text>
+          </View>
+        ) : null}
+
         {showBanner ? (
           <View style={[styles.banner, allDone ? styles.bannerGreen : styles.bannerGold]}>
             <View style={styles.bannerRow}>
@@ -1376,6 +1409,25 @@ export default function TutorSD() {
         </View>
       </Modal>
 
+      {/* Empty-subject warning — warns which subjects have no details, but lets
+          the tutor continue anyway. */}
+      <ConfirmModal
+        visible={emptyWarn !== null}
+        title={t("sd.empty.title")}
+        message={t("sd.empty.text", { subjects: (emptyWarn ?? []).join(", ") })}
+        confirmLabel={t("sd.modal.continueAnyway")}
+        cancelLabel={t("sd.empty.goBack")}
+        onConfirm={() => {
+          setEmptyWarn(null);
+          goReview();
+        }}
+        onCancel={() => {
+          const first = subjects.find((s) => isEmptyDetail(getDetail(keyOf(s))));
+          if (first) setOpenKey(keyOf(first));
+          setEmptyWarn(null);
+        }}
+      />
+
       {skipModal}
     </SafeAreaView>
   );
@@ -1400,6 +1452,16 @@ const styles = StyleSheet.create({
   h1: { marginTop: 6, fontSize: 28, fontWeight: "700", letterSpacing: -0.5, color: "#16201C" },
   sub: { marginTop: 6, fontSize: 15, color: "#6B7280", lineHeight: 21 },
   levelsNotice: { marginTop: 10, fontSize: 13.5, fontWeight: "700", color: "#2D6A4F", lineHeight: 19 },
+  reminderBanner: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: "#FDF3DD",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  reminderText: { flex: 1, fontSize: 13, fontWeight: "600", color: "#8A5A00", lineHeight: 18 },
 
   banner: { marginTop: 16, padding: 14, borderRadius: 18 },
   bannerGreen: { backgroundColor: "#E8F1ED" },

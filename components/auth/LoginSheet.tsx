@@ -165,13 +165,6 @@ export function LoginSheet({
         >
           <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
         </Pressable>
-        <Pressable
-          style={styles.socialCircle}
-          accessibilityRole="button"
-          accessibilityLabel="Log in with Microsoft"
-        >
-          <Ionicons name="logo-microsoft" size={24} color="#5E5E5E" />
-        </Pressable>
       </View>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}

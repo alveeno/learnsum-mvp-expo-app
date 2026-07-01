@@ -7,6 +7,7 @@ import {
   REGIONS,
   regionIdOfSub,
   subSlugsOfDistrict,
+  subSlugsOfRegion,
   type District,
   type RegionId,
 } from "./hkDistricts";
@@ -68,6 +69,20 @@ export function DistrictPicker({
     }
   };
 
+  // Select / clear every subdistrict across the whole active region ("area").
+  const regionSlugs = subSlugsOfRegion(activeRegionObj);
+  const allSelectedInRegion = regionSlugs.every((s) => value.includes(s));
+  const toggleSelectAllRegion = () => {
+    playTap();
+    if (allSelectedInRegion) {
+      const remove = new Set(regionSlugs);
+      onChange(value.filter((x) => !remove.has(x)));
+    } else {
+      const have = new Set(value);
+      onChange([...value, ...regionSlugs.filter((s) => !have.has(s))]);
+    }
+  };
+
   return (
     <>
       <View style={styles.segment}>
@@ -96,6 +111,25 @@ export function DistrictPicker({
             </TouchableOpacity>
           );
         })}
+      </View>
+
+      {/* Per-area "select all districts" — every subdistrict in the active region. */}
+      <View style={styles.regionActionRow}>
+        <TouchableOpacity
+          style={styles.selectAllBtn}
+          onPress={toggleSelectAllRegion}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={
+            allSelectedInRegion
+              ? `Clear all districts in ${activeRegionObj.fullLabel}`
+              : `Select all districts in ${activeRegionObj.fullLabel}`
+          }
+        >
+          <Text style={styles.selectAllText}>
+            {allSelectedInRegion ? "Clear all districts" : "Select all districts"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* District circles (larger). Tapping one expands its subdistricts below. */}
@@ -208,6 +242,11 @@ const styles = StyleSheet.create({
     borderColor: "#FFFFFF",
   },
   regionBadgeText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800" },
+  regionActionRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 12,
+  },
   districtGrid: {
     flexDirection: "row",
     flexWrap: "wrap",

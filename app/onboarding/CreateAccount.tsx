@@ -178,9 +178,6 @@ export default function CreateAccount() {
             <Pressable style={[styles.socialCircle, styles.socialApple]} onPress={proceedSocial} accessibilityRole="button" accessibilityLabel={t("signup.social.apple")}>
               <Ionicons name="logo-apple" size={24} color="#FFFFFF" />
             </Pressable>
-            <Pressable style={styles.socialCircle} onPress={proceedSocial} accessibilityRole="button" accessibilityLabel={t("signup.social.microsoft")}>
-              <Ionicons name="logo-microsoft" size={24} color="#5E5E5E" />
-            </Pressable>
           </View>
         </ScrollView>
 

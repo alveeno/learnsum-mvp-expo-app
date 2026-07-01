@@ -247,7 +247,12 @@ one flow per role:
   qualifications; the **pay slider is non-linear** — small $10 steps near the bottom growing to
   $100 near the top, so the common $200–$500 range is easy to land on. It's a **Reanimated +
   gesture-handler** slider whose thumb runs on the **UI thread** (zero-lag, with a per-step haptic
-  tick) — `ValueSlider` in `TutorSD.tsx`; the old PanResponder version lagged behind a fast drag) →
+  tick) — `ValueSlider` in `TutorSD.tsx`; the old PanResponder version lagged behind a fast drag);
+  when **more than one subject** is chosen, a **reminder banner** near the top nudges the tutor to
+  open each subject and add its details; on **Continue**, any subject left **completely empty**
+  (`isEmptyDetail`) triggers a **soft warning** `ConfirmModal` naming them, with "Go back and fill" /
+  "Continue anyway" (warns but doesn't block; a *touched* subject still hard-requires a teaching
+  level as before)) →
   `TutorPrefs` →
   `TutorAbout` (a **profile
   photo** — a **real** picker now (`expo-image-picker`, library/camera, square crop) that uploads to
@@ -359,8 +364,9 @@ step) — for the tutor flow, credentials now come first.
 **tutor onboarding store is now flushed to the backend in one shot** at the `TutorProfileConfirm`
 publish sheet (`POST /api/onboarding` via `tutorOnboardingPayload.ts`). Still Todo: the same
 one-shot save for **student/parent**, and the **final credential step for student/parent**
-(Option A). **Social login is planned** — only **Google** is configured on Supabase; the Apple /
-Microsoft buttons on `SignUp` and in `components/auth/LoginSheet.tsx` are still placeholder UI. A tutor is **unpublished** until they
+(Option A). **Social login is planned** — only **Google** is configured on Supabase; the **Apple**
+button on `SignUp` / `CreateAccount` / `components/auth/LoginSheet.tsx` is still placeholder UI. (The
+**Microsoft/Windows button was removed** from all three auth screens — it won't be used.) A tutor is **unpublished** until they
 finish setup; the dedicated profile-completion screen (bio, photo, WhatsApp, WeChat
 + remaining details) and **standalone** publish / self-unpublish (from a Profile/Settings route)
 are **not built yet** — for now the tutor onboarding flow stands in for it, and the **initial**
@@ -498,6 +504,9 @@ tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wi
 - **Saved** (`SeekerSavedScreen`) — bookmarked tutors, **now backend-backed** (`savedTutors.ts` →
   `/api/saved`). Still a shared store (`useSyncExternalStore`) so the tab, search, and the public
   profile route stay in sync, with optimistic writes; `hydrateSaved()` loads bookmarks after sign-in.
+  Each row has a **Message** button (left of the bookmark) that opens a chat **directly** (no
+  "Contact tutor?" confirm) — resolves the tutor via `getTutor(slug)` → `startConversation` →
+  `/messages/[id]`.
 - **Profile** (`SeekerAccountScreen` — tab **renamed from "Account" → "Profile"**, person icon; component/file
   name unchanged) — now shows the seeker's **real profile** (`GET /api/auth/me`): avatar, name, role, an
   **Account information** section (see below), and — when set — their bio, phone, education level and gender (from `SeekerAbout`).
@@ -538,7 +547,10 @@ one device — remove it when a real paywall lands.
   **Home + Chat** (`app/feed.tsx`); answering either way frees them. Trying to contact a *different*
   tutor while pending pops a **`MatchCheckInModal`** ("Did you start having lessons with [prev]?")
   first. **WhatsApp/WeChat are hidden for free-tier tutors** (in-app Message only); premium/deluxe
-  tutors expose them.
+  tutors expose them. In seeker mode the profile **header** shows a **Message** + **Save tutor**
+  icon pair (replacing the old inert "three dots"): Message runs the same "Contact [tutor]?" flow as
+  the bottom button, Save toggles the shared `savedTutors` bookmark. (The tutor overlay keeps the
+  plain three-dots.)
 - **Tutor side — reply gating** (`components/match/tutorMatch.ts`, `TutorReplyGate.tsx`): in a chat
   thread (`app/messages/[id].tsx` resolves the viewer's role via `getMe` + tier), when the viewer is
   a **tutor** who hasn't unlocked the other person, `ChatThread`'s new **`composerSlot`** prop swaps
@@ -672,12 +684,14 @@ screen re-seed itself so **input is never lost while the app is open**.
   region → district → **subdistrict** data in `components/onboarding/hkDistricts.ts`): a controlled
   component used by `PreferencesScreen` (student/parent), the per-subject cards on `TutorSD`, **and
   the search `FilterSheet`**. It has 3 region tabs → **larger district circles** that **expand** on
-  tap into **smaller subdistrict circles**, each showing the first character of its Chinese name; a
-  **"Select all"** toggle picks every subdistrict in the open district. Selection is **subdistrict
+  tap into **smaller subdistrict circles**, each showing the first character of its Chinese name.
+  Two levels of bulk-select: a per-area **"Select all districts"** button (under the region tabs)
+  picks/clears **every subdistrict in the active region**, and the open district's panel has its own
+  **"Select all"** toggle for just that district. Selection is **subdistrict
   only** — a chosen location is a **subdistrict slug** (e.g. `"causeway_bay"`), the value stored in
   the onboarding store and sent to the backend (stored as `text[]`; the **frontend is the source of
   truth** for the list). Helpers: `subName(slug)` / `subZh(slug)` / `subSlugsOfDistrict()` /
-  `subdistrictsLabel()`. The circles reuse `SelectableCircle`, so they get the same cascade entrance
+  `subSlugsOfRegion()` / `subdistrictsLabel()`. The circles reuse `SelectableCircle`, so they get the same cascade entrance
   + **"pop" on appear / "tap" on select** through the low-latency native sound pool — zero-lag by the
   same mechanism as the other onboarding grids. (Old model: 18 coarse `hk_district` enum keys
   `"<regionId>:<District Name>"` — replaced.)
@@ -803,8 +817,8 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
   The old `REGISTERED_EMAILS` `__DEV__` offline mock was **removed** — both `SignUp` and `LoginSheet`
   now **require a reachable backend** and show a "can't reach the server" error otherwise (no fake
   sign-up / login).
-- **Social login** — only **Google** is configured on Supabase; Apple / Microsoft buttons are
-  placeholder UI.
+- **Social login** — only **Google** is configured on Supabase; the Apple button is placeholder UI
+  (the **Microsoft/Windows button was removed** from all auth screens).
 - **DONE:** **Saved filter preferences** — the seeker Search tab's advanced filters now persist
   across sessions (`components/seeker/filterStorage.ts` → AsyncStorage; restored on mount, saved on
   apply).

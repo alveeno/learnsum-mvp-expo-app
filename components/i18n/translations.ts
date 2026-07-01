@@ -433,6 +433,26 @@ export const translations = {
   "sd.exp.unnamed": { en: "(unnamed)", "zh-Hant": "（未命名）", "zh-Hans": "（未命名）" },
   "sd.years.one": { en: "{n} year", "zh-Hant": "{n} 年", "zh-Hans": "{n} 年" },
   "sd.years.other": { en: "{n} years", "zh-Hant": "{n} 年", "zh-Hans": "{n} 年" },
+  "sd.reminder.multi": {
+    en: "You're teaching {n} subjects — open each one and add its details.",
+    "zh-Hant": "你正在教授 {n} 個科目 — 請逐一展開並填寫詳情。",
+    "zh-Hans": "你正在教授 {n} 个科目 — 请逐一展开并填写详情。",
+  },
+  "sd.empty.title": {
+    en: "Some subjects have no details",
+    "zh-Hant": "部分科目尚未填寫詳情",
+    "zh-Hans": "部分科目尚未填写详情",
+  },
+  "sd.empty.text": {
+    en: "You haven't added any details for: {subjects}. Go back and fill them in, or continue anyway.",
+    "zh-Hant": "你尚未為以下科目填寫任何詳情：{subjects}。請返回填寫，或仍然繼續。",
+    "zh-Hans": "你尚未为以下科目填写任何详情：{subjects}。请返回填写，或仍然继续。",
+  },
+  "sd.empty.goBack": {
+    en: "Go back and fill",
+    "zh-Hant": "返回填寫",
+    "zh-Hans": "返回填写",
+  },
 
   // ---- placeholder (student/parent "you're all set" feed) ----
   "feed.title": { en: "You're all set!", "zh-Hant": "全部完成！", "zh-Hans": "全部完成！" },

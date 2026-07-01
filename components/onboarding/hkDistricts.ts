@@ -287,6 +287,11 @@ export const regionIdOfSub = (slug: string): RegionId | null =>
 export const subSlugsOfDistrict = (district: District): string[] =>
   district.subs.map((s) => s.slug);
 
+/** Every subdistrict slug across a whole region/area (for the per-area "Select
+ *  all districts" button). */
+export const subSlugsOfRegion = (region: Region): string[] =>
+  region.districts.flatMap(subSlugsOfDistrict);
+
 /** Compact location label for a card from a list of subdistrict slugs:
  *  "" / "Causeway Bay" / "Causeway Bay +2". */
 export const subdistrictsLabel = (slugs: string[] | null | undefined): string => {

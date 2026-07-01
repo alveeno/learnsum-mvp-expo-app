@@ -8,14 +8,16 @@
  * the real public profile by slug; the bookmark removes it.
  */
 import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { SaveButton } from "./SaveButton";
 import { Avatar } from "../tutor/feedUi";
 import { C } from "../tutor/tutorData";
+import { tapLight } from "../ui/feedback";
 import { subdistrictsLabel } from "../onboarding/hkDistricts";
-import { getSavedTutors, type SavedTutor } from "../../lib/api";
+import { getSavedTutors, getTutor, startConversation, type SavedTutor } from "../../lib/api";
 
 function slugToName(slug: string): string {
   return slug.split("-").filter(Boolean).map((w) => w[0].toUpperCase() + w.slice(1)).join(" ");
@@ -40,6 +42,29 @@ export function SeekerSavedScreen({
 }) {
   const [cards, setCards] = useState<SavedTutor[] | null>(null);
   const [loading, setLoading] = useState(true);
+  // The slug currently being opened into a chat (blocks a double-tap).
+  const [messaging, setMessaging] = useState<string | null>(null);
+
+  // Message a saved tutor directly. A SavedTutor only carries its slug, so
+  // resolve the tutor's account id first, then start/reopen the conversation.
+  const onMessage = async (t: SavedTutor) => {
+    if (messaging) return;
+    tapLight();
+    setMessaging(t.slug);
+    try {
+      const tutor = await getTutor(t.slug);
+      if (!tutor.id) throw new Error("no account");
+      const { id: convId } = await startConversation(tutor.id);
+      router.push({
+        pathname: "/messages/[id]",
+        params: { id: convId, name: cardName(t), otherId: tutor.id },
+      });
+    } catch {
+      Alert.alert("Messaging", "Please log in to message this tutor.");
+    } finally {
+      setMessaging(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -101,6 +126,20 @@ export function SeekerSavedScreen({
                     </Text>
                   )}
                 </View>
+                <Pressable
+                  onPress={() => onMessage(t)}
+                  hitSlop={8}
+                  disabled={messaging === t.slug}
+                  style={styles.msgBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Message ${name}`}
+                >
+                  {messaging === t.slug ? (
+                    <ActivityIndicator size="small" color={C.green} />
+                  ) : (
+                    <Ionicons name="chatbubble-ellipses-outline" size={22} color={C.green} />
+                  )}
+                </Pressable>
                 <SaveButton saved onToggle={() => onToggleSave(t.slug)} />
               </Pressable>
             );
@@ -128,6 +167,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: C.hairline },
+  msgBtn: { width: 34, height: 34, alignItems: "center", justifyContent: "center" },
   stateWrap: { paddingVertical: 48, alignItems: "center", justifyContent: "center" },
   empty: { alignItems: "center", paddingVertical: 56, paddingHorizontal: 24 },
   emptyIcon: {

@@ -21,11 +21,12 @@ import { ProfileBody, EMPTY_EDU, type ProfileBodyData } from "./ProfileBody";
 import { mapTutorToProfileBody } from "./profileMapping";
 import { TutorPostFeed } from "./TutorPostFeed";
 import { C, lookupTutor, type FullTutor } from "./tutorData";
-import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
+import { copyText, notifySuccess, tapLight, tapMedium } from "../ui/feedback";
 import { type FormatId } from "../onboarding/PreferencesScreen";
 import { getTutor, recordProfileView, startConversation } from "../../lib/api";
 import { MatchCheckInModal } from "../match/MatchCheckInModal";
 import { getSeekerPending, resolveSeekerContact, startSeekerContact, useSeekerContact } from "../match/seekerContact";
+import { useSavedTutors } from "../seeker/savedTutors";
 import { ConfirmModal } from "../ui/ConfirmModal";
 
 // Sample tutor (FullTutor) → a thin ProfileBodyData for the offline / sample-id
@@ -89,6 +90,10 @@ export function TutorProfileContent({
   // Seeker contact flow (only in "seeker" mode): one tutor at a time + a confirm,
   // and WhatsApp/WeChat gated behind the VIEWED tutor's real tier (free hides them).
   const seekerPending = useSeekerContact();
+  // Seeker saved store (shared with the wrapper's bottom "Save tutor" bar and the
+  // Saved tab), keyed by slug. Only surfaced via the header button in seeker mode.
+  const { ids: savedIds, toggle: toggleSaved } = useSavedTutors();
+  const saved = savedIds.has(id);
   const [viewedTier, setViewedTier] = useState<"free" | "premium" | "deluxe">("free");
   const showOffApp = contactMode === "tutor" || viewedTier !== "free";
   const [confirmContact, setConfirmContact] = useState(false);
@@ -211,9 +216,35 @@ export function TutorProfileContent({
         <Text style={styles.headTitle} numberOfLines={1}>
           {name || id}
         </Text>
-        <Pressable style={styles.iconBtn}>
-          <Ionicons name="ellipsis-horizontal" size={22} color={C.ink} />
-        </Pressable>
+        {contactMode === "seeker" ? (
+          <View style={styles.headActions}>
+            {chatTarget ? (
+              <Pressable
+                onPress={() => handleContact("message")}
+                style={styles.iconBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Message this tutor"
+              >
+                <Ionicons name="chatbubble-ellipses-outline" size={22} color={C.ink} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => {
+                tapLight();
+                toggleSaved(id);
+              }}
+              style={styles.iconBtn}
+              accessibilityRole="button"
+              accessibilityLabel={saved ? "Saved" : "Save tutor"}
+            >
+              <Ionicons name={saved ? "bookmark" : "bookmark-outline"} size={22} color={saved ? C.green : C.ink} />
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable style={styles.iconBtn}>
+            <Ionicons name="ellipsis-horizontal" size={22} color={C.ink} />
+          </Pressable>
+        )}
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -291,6 +322,7 @@ export function TutorProfileContent({
 
 const styles = StyleSheet.create({
   head: { flexDirection: "row", alignItems: "center", gap: 4, paddingLeft: 4, paddingRight: 10, paddingTop: 2, paddingBottom: 8 },
+  headActions: { flexDirection: "row", alignItems: "center" },
   iconBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   headTitle: { flex: 1, fontSize: 17, fontWeight: "800", color: C.ink },
   scrollContent: { paddingHorizontal: 16, paddingBottom: 28 },
