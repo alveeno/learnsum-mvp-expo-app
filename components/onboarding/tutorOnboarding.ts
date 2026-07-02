@@ -30,7 +30,9 @@ const FLOW: { id: TutorStep; route: string }[] = [
 const DONE_KEY = "tutor:onboarding:done";
 const RESUMING_KEY = "tutor:onboarding:resuming";
 const EDITING_KEY = "tutor:onboarding:editing"; // string[] route queue while editing from the profile, else null
-const HOME = "/tutor-home";
+// Resume ends here (the review + publish sheet), which performs the one-shot
+// POST /api/onboarding save — the same save the first-time flow uses.
+const CONFIRM_ROUTE = "/onboarding/TutorProfileConfirm";
 
 type DoneMap = Partial<Record<TutorStep, boolean>>;
 
@@ -86,16 +88,25 @@ function setResuming(v: boolean): void {
   setStored<boolean>(RESUMING_KEY, v);
 }
 
-function goHome(): void {
-  setResuming(false);
-  router.dismissTo(HOME as Href);
-}
-
-/** Resume mode: jump to the next not-completed step, or home when none remain. */
+/**
+ * Resume mode: jump to the next not-completed step. When none remain, route to
+ * the review + publish screen (TutorProfileConfirm) so the profile is actually
+ * SAVED via POST /api/onboarding.
+ *
+ * Previously this jumped straight home WITHOUT ever saving, so anyone who
+ * finished setup from the "Complete profile" banner ended up registered-but-empty
+ * (banner stuck, profile blank, "couldn't save" on edits) with no way to recover
+ * in-app. Ending at TutorProfileConfirm reuses the same save the first-time flow
+ * runs, so a half-saved account can complete itself by re-doing setup.
+ */
 function resumeNext(id: TutorStep): void {
   const next = nextIncompleteAfter(id);
-  if (next) router.push(next as Href);
-  else goHome();
+  if (next) {
+    router.push(next as Href);
+    return;
+  }
+  setResuming(false);
+  router.push(CONFIRM_ROUTE as Href);
 }
 
 // ---------------------------------------------------------------------------

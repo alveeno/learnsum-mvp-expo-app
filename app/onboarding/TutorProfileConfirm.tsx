@@ -155,9 +155,12 @@ export default function TutorProfileConfirm() {
       }
       goToWelcome();
     } catch (err) {
+      // Only a genuine "this account already finished onboarding" (409) counts as
+      // success. Every real failure — including an unreachable backend in dev,
+      // which used to silently fall through and strand the account — now shows an
+      // error and stays put, so a dropped save can't masquerade as a saved one.
       const alreadyDone = err instanceof ApiError && err.status === 409 && /already completed/i.test(err.message);
-      const devSkippable = err instanceof ApiError && (err.isNetworkError || err.status === 401) && __DEV__;
-      if (alreadyDone || devSkippable) {
+      if (alreadyDone) {
         goToWelcome();
         return;
       }

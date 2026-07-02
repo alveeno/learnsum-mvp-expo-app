@@ -1,5 +1,4 @@
 import {
-  ApiError,
   getSubcategoryIndex,
   patchProfileMe,
   patchTutor,
@@ -249,8 +248,8 @@ export function hydrateTutorStoreFromMe(me: MeResponse, availability: Availabili
 //   PUT   /api/tutor/languages  — teaching languages
 //   PUT   /api/availability     — weekly availability
 // Because hydrate seeded EVERY section, untouched ones are saved back unchanged.
-// In __DEV__ a network failure is swallowed (offline demo), matching the rest of
-// the app; any other error propagates so the save screen can show it.
+// Any failure (including an unreachable backend) propagates so the save screen
+// shows an error — a dropped save must never silently look successful.
 // ---------------------------------------------------------------------------
 
 const DIRTY_KEY = "tutor:profile:dirty";
@@ -279,17 +278,7 @@ function collapseFormat(formats: Detail["format"][]): "in_person" | "online" | "
   return "both";
 }
 
-// In __DEV__, treat an unreachable backend as a no-op (offline demo).
-async function tolerant(run: () => Promise<unknown>): Promise<void> {
-  try {
-    await run();
-  } catch (err) {
-    if (err instanceof ApiError && err.isNetworkError && __DEV__) return;
-    throw err;
-  }
-}
-
-/** Flush all edited sections to the backend. Throws on a real (non-offline) error. */
+/** Flush all edited sections to the backend. Throws on any save failure. */
 export async function saveTutorEdits(): Promise<void> {
   const firstName = getStored<string>("tutor:about:firstName", "").trim();
   const lastName = getStored<string>("tutor:about:lastName", "").trim();
@@ -318,7 +307,7 @@ export async function saveTutorEdits(): Promise<void> {
   if (gender) profileFields.gender = GENDER_TO_BACKEND[gender] ?? null;
   profileFields.avatar_url = avatarUrl || null; // always sent so removal persists
   if (Object.keys(profileFields).length) {
-    await tolerant(() => patchProfileMe(profileFields));
+    await patchProfileMe(profileFields);
   }
 
   // 2) tutors/[slug] — bio, university, teaching levels, education.
@@ -342,18 +331,16 @@ export async function saveTutorEdits(): Promise<void> {
     const university =
       (eduByLevel.university ?? []).find((e) => e.institution.trim())?.institution.trim() ?? null;
 
-    await tolerant(() =>
-      patchTutor(slug, {
-        bio: bio.trim() || null,
-        whatsapp_number: whatsapp || null,
-        wechat_id: wechat || null,
-        university,
-        teaching_levels: levels,
-        education: Object.keys(education).length ? education : null,
-        current_studies: currentStudies.length ? currentStudies : null,
-        tutoring_format: collapseFormat(subjectFormats),
-      }),
-    );
+    await patchTutor(slug, {
+      bio: bio.trim() || null,
+      whatsapp_number: whatsapp || null,
+      wechat_id: wechat || null,
+      university,
+      teaching_levels: levels,
+      education: Object.keys(education).length ? education : null,
+      current_studies: currentStudies.length ? currentStudies : null,
+      tutoring_format: collapseFormat(subjectFormats),
+    });
   }
 
   // 3) tutor/subjects — full replace (resolve slug → subcategory UUID).
@@ -383,17 +370,17 @@ export async function saveTutorEdits(): Promise<void> {
       districts: d.format === "online" ? [] : d.districts,
     });
   }
-  await tolerant(() => putTutorSubjects(subjects));
+  await putTutorSubjects(subjects);
 
   // 4) tutor/languages — the proficiency map (empty clears all).
-  await tolerant(() => putTutorLanguages(prefs?.langLevels ?? {}));
+  await putTutorLanguages(prefs?.langLevels ?? {});
 
   // 5) availability — weekly ranges (drop empty days).
   const avail: AvailabilityMap = {};
   for (const [day, ranges] of Object.entries(prefs?.avail ?? {})) {
     if (Array.isArray(ranges) && ranges.length) avail[day] = ranges;
   }
-  await tolerant(() => putAvailability(avail));
+  await putAvailability(avail);
 
   markProfileDirty();
 }

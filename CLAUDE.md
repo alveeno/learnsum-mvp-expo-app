@@ -89,7 +89,9 @@ There are three user types:
   walked; then a final **`TutorEditSave`** step flushes everything **at once** via the five edit
   endpoints (`saveTutorEdits` → `PATCH /api/profiles/me` · `PATCH /api/tutors/[slug]` ·
   `PUT /api/tutor/subjects` · `PUT /api/tutor/languages` · `PUT /api/availability`), with a saving
-  spinner + retry on error and a `__DEV__` offline no-op. On return the tab refetches
+  spinner + retry on error. **Any save failure (incl. an unreachable backend) now surfaces on the
+  `TutorEditSave` screen** — the earlier `__DEV__` offline no-op was removed so a dropped edit can't
+  look saved (mirrors the onboarding-save hardening). On return the tab refetches
   (`consumeProfileDirty` via `useFocusEffect`). Two **small backend changes** were needed (route-only,
   no migration): `PUT /api/tutor/subjects` now persists per-subject **`format` + `districts`** and
   accepts the app's **array** qualifications/exam_results (it previously only took `{en,zh}` objects and
@@ -287,7 +289,11 @@ onboarding flow above is reached **from there** — via the gold **"Complete pro
 the Home feed and the **"Set up your profile"** gate on the Profile tab. On Continue, the final
 data step (`TutorAbout`) opens the `TutorProfileConfirm` review, which then goes through `Welcome`
 and back to `/tutor-home` (the old `TutorNext` placeholder was removed). **Resuming** skipped steps
-from the banner goes straight home, bypassing both `TutorProfileConfirm` and `Welcome`.
+from the banner walks the remaining steps and then **also ends at `TutorProfileConfirm`** so the
+profile is actually **saved** (`POST /api/onboarding`) — it used to jump straight home *without
+saving*, which stranded any account that finished setup via the banner (registered-but-empty:
+banner stuck, blank profile, "couldn't save" on edits, with no in-app recovery). See
+`resumeNext` in `tutorOnboarding.ts`.
 
 **Completion + resume (`components/onboarding/tutorOnboarding.ts`):** a step counts as done
 once the user presses **Continue** on it (Skip / never-reached = incomplete). The Home banner
@@ -336,7 +342,10 @@ otherwise); turning Public off finishes the profile **private/unpublished**. The
 (`tutor:visibility` = `{ public, parentsStudents, tutors }`) **and now performs the one-shot
 `POST /api/onboarding`** — building the whole tutor parcel from the store
 (`components/onboarding/tutorOnboardingPayload.ts`) and saving it (disabled-while-saving + an
-inline error; `__DEV__`/offline falls through). On success, if **Public** is on it then fires a
+inline error). **A failed save now shows that error and stays put** — only a genuine 409 "already
+completed" counts as success; the old `__DEV__`/offline silent fall-through was **removed** (it let
+a dropped save masquerade as saved — the root of the registered-but-empty bug). On success, if
+**Public** is on it then fires a
 best-effort **`PATCH /api/tutors/[slug]` `{ is_published: true }`** (`setTutorPublished`) to publish,
 and routes to `Welcome` → `/tutor-home`. Only `tutor:visibility.public` maps to the backend's single
 `is_published` — the two **audience toggles** (parents&students / tutors) stay in the store, unsent,
