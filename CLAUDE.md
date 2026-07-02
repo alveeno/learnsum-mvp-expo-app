@@ -89,7 +89,11 @@ There are three user types:
   walked; then a final **`TutorEditSave`** step flushes everything **at once** via the five edit
   endpoints (`saveTutorEdits` → `PATCH /api/profiles/me` · `PATCH /api/tutors/[slug]` ·
   `PUT /api/tutor/subjects` · `PUT /api/tutor/languages` · `PUT /api/availability`), with a saving
-  spinner + retry on error. **Any save failure (incl. an unreachable backend) now surfaces on the
+  spinner + retry on error. **Editing "Subjects" and adding a new category auto-inserts the
+  "Strengths & Details" step** even if only Subjects was ticked (`ensureDetailsStepAfterCatSel` in
+  `tutorOnboarding.ts` detects an interest with no `tutor:sd:details` entry and queues `TutorSD` next,
+  which opens that new subject's empty card first) — so a newly-added subject always gets its details
+  filled in. **Any save failure (incl. an unreachable backend) now surfaces on the
   `TutorEditSave` screen** — the earlier `__DEV__` offline no-op was removed so a dropped edit can't
   look saved (mirrors the onboarding-save hardening). On return the tab refetches
   (`consumeProfileDirty` via `useFocusEffect`). Two **small backend changes** were needed (route-only,
@@ -191,8 +195,9 @@ File-based routes (Expo Router). Route map:
 | ---------------- | ------- |
 | `/`              | Welcome screen with user-type selection — **built** |
 | `/tutor-home`    | **Tutor app shell** a tutor lands on after picking "Tutor" — a 5-tab experience (Home / Search / Chat / **Saved** / Profile). **Built**; **Search + Chat are now backend-wired**, Home stays sample data. **Analytics moved off the tab bar** to the Home **heart icon** (`/analytics`); its old slot is the **Saved** tab — see "Tutor app shell" below |
-| `/analytics`     | Tutor **Analytics**, opened from the Home feed **heart icon** — headline is a **free, tappable "who viewed your profile"** list (profile viewers → tap to open a seeker); the reach/post dashboard below stays a premium mock. **Built** (viewers + quota are mock/`__DEV__` fallback pending backend) |
-| `/seekers/[id]`  | **Seeker (parent/student) profile**, viewed by a tutor from the viewers list or Saved tab — shows preferences, category, child level + age, **never the phone**; contact (phone/WhatsApp/WeChat/chat) is **locked behind a 3-per-day contact quota** (`components/tutor/contactQuota.ts`). **Built** (sample-data fallback; backend gaps below) |
+| `/analytics`     | Tutor **Analytics**, opened from the Home feed **heart icon** — **open to all tiers** (no paywall); a full-width "Profile views" banner (total + seeker/tutor split) over the reach/post dashboard (mock). Tapping the banner → `/profile-viewers`. **Built** (viewers/quota are mock/`__DEV__` fallback pending backend) |
+| `/profile-viewers` | Tutor **"Who viewed you"** list, opened from the Analytics banner — the real people who viewed your profile (tap → `/seekers/[id]`). **Deluxe sees names; Free/Premium see them blurred** (`BlurredName`). **Built** (sample fallback) |
+| `/seekers/[id]`  | **Seeker (parent/student) profile**, viewed by a tutor from the viewers list or Saved tab — shows preferences, category, child level + age, **never the phone**; contact (phone/WhatsApp/WeChat/chat) is **locked behind a 3-per-day contact quota** (`components/tutor/contactQuota.ts`). The seeker's **name is Deluxe-only** (blurred via `BlurredName` for Free/Premium; a seeker's own `share_info=off` keeps it generic for all). **Built** (sample-data fallback; backend gaps below) |
 | `/feed`          | **Seeker (student/parent) app shell** — a 5-tab experience (Home post-feed / Search + Quick Match / Chat / Saved / Profile). **Built**; **Search + Saved are now backend-wired**, only the **Home feed** stays sample data — see "Seeker app shell" below. Student/parent land here after onboarding/login |
 | `/messages`, `/messages/[id]` | **In-app chat** — conversation list + thread, REST-polling (`lib/api/chat.ts` → `/api/conversations*`). **Built** (real backend). Reached from the tutor Chat tab, the seeker Account → Messages row, and the "Message" button on a tutor profile |
 | `/tutors/[slug]` | Public tutor profile page (bio + post feed + WhatsApp/WeChat) — **built** (real shareable route; reuses the shared `TutorProfileContent`; the seeker shell pushes into it; sample-data fallback when the slug isn't a real tutor) |
@@ -441,10 +446,15 @@ spends one unlock; 0 left → "resets tomorrow" alert). **Seeker data is mock** 
   **profile-viewers** list, or a **seeker profile**. Tapping a tutor opens the in-shell tutor
   overlay; tapping a seeker opens `/seekers/[id]`.
 - **Analytics is no longer a tab** — it moved to the Home feed **heart icon** (`AnalyticsScreen`
-  via the `/analytics` route). Its headline is now a **free** "who viewed your profile" list
-  (`getProfileViewers`, `lib/api/profileViews.ts`, sample fallback) — tappable rows → `/seekers/[id]`,
-  each with a `SaveButton`. The reach/post charts below stay a **premium paywall mock** ("Upgrade"
-  reveals locally). The monetization lever is now the **contact quota** (below), not the paywall.
+  via the `/analytics` route), and is **open to all tiers** (no paywall/blur). Its headline is a
+  **full-width "Profile views" banner** (total views + a **seeker/tutor** split, "tap to see who
+  viewed you") over the reach/post charts (still a front-end mock, now visible to everyone). Tapping
+  the banner opens the **`/profile-viewers`** route (`ProfileViewersScreen`) — the real list of people
+  who viewed you (`getProfileViewers`, `lib/api/profileViews.ts`, sample fallback), tappable rows →
+  `/seekers/[id]`, each with a `SaveButton`. **Viewer names are the only tier-gated bit: Deluxe sees
+  them, Free/Premium see them blurred** (the shared `components/ui/BlurredName.tsx` — an `expo-blur`
+  frost over the name — with a "Upgrade to Deluxe to see names" nudge). The monetization levers are
+  the **contact quota** (below) and this Deluxe name reveal, not a dashboard paywall.
 - **Profile** (`ProfileScreen`) — own profile, **dimmed behind a "Set up your profile" gate**
   (→ onboarding) until setup is done. Once set up it shows the tutor's **real** profile via the
   shared **`ProfileBody`** layout (`GET /api/auth/me`), with a settings button (inert) and a
@@ -473,11 +483,13 @@ straight to the role's home (see the backend-connection notes on `token.ts` / `r
 
 **Caveats (prototype):** **Search + Chat are now backend-wired** (real `/api/tutors` results + real
 REST-polling messaging — see "Wired so far"); what remains front-end only is the **Home feed**
-(sample posts) and the **Analytics/Premium** tab (no real payment). **English-only** (not yet wired
-into i18n — unlike the rest of the app). The **blur/paywall and
-gate now use real `expo-blur`**, and accent surfaces (setup banner/card, story rings, paywall
-button) use **real `expo-linear-gradient`** — these were flat-colour/opacity approximations before
-the native batch. Story items + the setup banner use a Reanimated **`PressableScale`** (press
+(sample posts) and the **Analytics dashboard metrics** (reach / views graph / top-post are mock —
+the who-viewed-you list + counts are now **real**, see below). Real **payments** aren't wired (the
+temporary tier switcher stands in). **English-only** (not yet wired
+into i18n — unlike the rest of the app). The **Profile-setup gate and the Deluxe name blur** use real
+`expo-blur` (the old analytics paywall/blur was **removed** — the dashboard is open to all tiers), and
+accent surfaces (setup banner/card, story rings) use **real `expo-linear-gradient`** — these were
+flat-colour/opacity approximations before the native batch. Story items + the setup banner use a Reanimated **`PressableScale`** (press
 spring + haptic), and every shared `Button` fires a light haptic. **Sound effects are wired**
 (`components/ui/sound.ts`): a sound rides with the button tap, the like pop, and success/error, plus
 a per-icon "pop" on the onboarding category/subject grid cascade (fired as each `SelectableCircle`
@@ -601,9 +613,19 @@ one device — remove it when a real paywall lands.
   - **Seeker search** — a **Tutors/Students** toggle (`SearchModeToggle`) in **both** Search tabs
     (`SeekerSearchScreen` + tutor `SearchScreen`) → `SeekerResultsList` over **`GET /api/seekers`**
     (the `search_seekers` RPC; public seekers only, level filter + name/subject text).
-  - **"Who viewed you"** (`AnalyticsScreen`, `GET /api/tutor/profile-views`) is **tier-gated**:
-    free = locked (upgrade) · premium = count + **anonymized** list · deluxe = **full** details
-    (public viewers only).
+  - **"Who viewed you"** (`AnalyticsScreen` → `/profile-viewers`, `GET /api/tutor/profile-views`) is
+    now **open to all tiers** — the whole analytics dashboard is free, the "Profile views" banner
+    (total + `seekerCount`/`tutorCount` on `ProfileViewersResult`) taps into the real viewers list,
+    and every tier can open a viewer's `/seekers/[id]`. The **only** tier gate is the viewer's
+    **name**: **Deluxe sees names; Free/Premium see them blurred** (`BlurredName`, driven by the local
+    `useTier()` — the `TierSwitcher` demos it), both in the list and on the seeker profile, with an
+    "Upgrade to Deluxe to see names" nudge. On the seeker profile everything else (category /
+    preferences / location / child level+age) stays visible to all tiers; a seeker's own
+    **`share_info = off`** still wins (a hidden name stays generic even for Deluxe). **Backend is
+    wired** (`learnsum-mvp-back`): `GET /api/tutor/profile-views` returns real viewers +
+    `seekerCount`/`tutorCount`, and both it and `GET /api/seekers/[id]` **withhold the real name for
+    non-Deluxe callers** (name off the wire, not just blurred client-side). So the viewers list +
+    counts are **live** — sample data is only the offline fallback.
 - **"Account information" section (all three user types, latest round, live):** a shared
   `components/account/AccountInfoSection.tsx` dropped into **both** the tutor Profile tab
   (`ProfileScreen`, between the Posts list and "Change preferences") and the seeker **Profile** tab
@@ -861,16 +883,21 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
     handled `student.school_level` + gender). **`GET /api/auth/me` needs no change** — `select('*')`
     returns the new profile columns + `gender`, and the student detail (incl. `school_level` + `education`)
     under **`detail.student_profile`** (the frontend reads via `schoolLevelFromMe` / `eduHistoryFromMe`).
-- **Profile viewers + contact quota + tutor-saved-people + child age → backend** — the tutor
-  Saved/Analytics/seeker-profile batch (the Saved tab, the `/analytics` "who viewed your profile"
-  list, `/seekers/[id]`, and the 3-per-day contact unlock) is **frontend-only with mock/sample +
-  AsyncStorage fallbacks**; the API clients exist (`lib/api/profileViews.ts`, `contacts.ts`,
-  `seekers.ts`, `savedPeople.ts`) but the endpoints don't. Todo (backend repo):
-  - **Profile views:** a `profile_views` table + `POST /api/tutors/[slug]/views` (record, fired by
-    `recordProfileView` in `TutorProfileContent`) + `GET /api/tutor/profile-views` (the viewers list,
-    seeker preferences joined, **phone omitted**).
-  - **Seeker read for tutors:** `GET /api/seekers/[id]` (preferences/category/child level+age;
-    **contact fields null unless the tutor has unlocked this seeker**).
+- **Profile viewers + contact quota + tutor-saved-people + child age → backend** — most of this
+  batch is **now built** in `learnsum-mvp-back` (migrations 0025–0029, per the live 0024–0030 set);
+  the mock/sample + AsyncStorage paths are just the offline fallback. Status:
+  - **Profile views — BUILT + real.** `profile_views` table (migration 0026) + `POST /api/tutors/
+    [slug]/views` (records a view, fired by `recordProfileView` in `TutorProfileContent` from both the
+    seeker public route and the tutor overlay) + `GET /api/tutor/profile-views`. The GET returns the
+    **new** contract for the all-tiers analytics: `{ tier, count, seekerCount, tutorCount, viewers }`
+    — counts of seeker **and** tutor viewers (the banner), a seeker viewers list for **all tiers**,
+    with each viewer's **name gated to Deluxe** (generic for Free/Premium) and anonymized+untappable
+    when the seeker isn't visible to this tutor. So a seeker opening the profile now **does** update
+    the tutor's Analytics live (sample data is only the offline fallback).
+  - **Seeker read for tutors — BUILT.** `GET /api/seekers/[id]` → the `get_seeker_for_tutor`
+    SECURITY DEFINER RPC (migration 0029): preferences/category/child level+age; **phone null unless
+    unlocked**; visibility gated (public OR messaged); PII gated by the seeker's `share_personal_info`.
+    The route **additionally withholds the real name for non-Deluxe** callers (Deluxe-only names).
   - **Contact quota:** a per-tutor daily counter + a `tutor_contact_unlocks` table;
     `GET /api/tutor/contact-quota` + `POST /api/tutor/contact-unlocks { seeker_id }` (decrement
     remaining, **permanent** unlock, daily reset). Gate the seeker's contact fields + chat
@@ -885,7 +912,9 @@ Items marked **→ Todo** elsewhere in this doc are tracked here.
 
 - **DONE: Chat / in-app messaging** — the Chat tab (and `/messages` routes) are now wired to a real
   REST-polling backend (`lib/api/chat.ts` → `/api/conversations*`). See "Wired so far".
-- **Premium / in-app payments** — the Analytics tab shows a paywall UI only (no real payment).
+- **Premium / in-app payments** — the Analytics dashboard is now **open to all tiers** (the old
+  paywall/blur was removed; the only tier gate is the Deluxe viewer-name reveal). Real **payments**
+  are still mock — the temporary `TierSwitcher` stands in for a real paywall.
 - **Posts** — creating a post (**text + photo/video**) + the own **Posts list** are wired (`POST` /
   `GET /api/tutors/[slug]/posts` + `POST /api/upload`, `lib/api/posts.ts` / `lib/api/upload.ts`).
   **Post likes are now wired on the tutor profile post feed** (`/api/posts/[id]/likes`,

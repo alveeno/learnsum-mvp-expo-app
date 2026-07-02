@@ -1088,9 +1088,15 @@ export default function TutorSD() {
     "tutor:sd:details",
     {},
   );
-  const [openKey, setOpenKey] = useState<string>(
-    subjects[0] ? `${subjects[0].catId}:${subjects[0].id}` : "",
-  );
+  // Open the first subject that has no saved details yet (a subject just added in
+  // "Change preferences"), else the first subject — so a newly-added category
+  // lands on its empty card, ready to fill in.
+  const initialOpenKey = useMemo(() => {
+    const saved = getStored<Record<string, unknown>>("tutor:sd:details", {});
+    const target = subjects.find((s) => !saved[`${s.catId}:${s.id}`]) ?? subjects[0];
+    return target ? `${target.catId}:${target.id}` : "";
+  }, [subjects]);
+  const [openKey, setOpenKey] = useState<string>(initialOpenKey);
   const [modal, setModal] = useState(false);
   // Labels of subjects with no details at all, when the empty-subject warning is up.
   const [emptyWarn, setEmptyWarn] = useState<string[] | null>(null);

@@ -27,17 +27,22 @@ export interface ProfileViewer {
 }
 
 /**
- * Tier-gated viewers response:
- *   - free    → `locked` true, no rows (upgrade prompt).
- *   - premium → `detailed` false: count + anonymized rows (no name/age/level).
- *   - deluxe  → `detailed` true: full rows (public viewers only).
+ * Profile-viewers response. Analytics is open to all tiers now — the counts drive
+ * the "Profile views" banner and `viewers` drives the list. Name visibility is
+ * gated client-side by the tutor's tier (Deluxe only); `locked`/`detailed` are
+ * legacy fields the frontend no longer branches on.
  */
 export interface ProfileViewersResult {
   tier: "free" | "premium" | "deluxe";
-  locked: boolean;
-  detailed: boolean;
   count: number;
+  /** Viewer counts by role (backend-supplied; can't be derived client-side). */
+  seekerCount?: number;
+  tutorCount?: number;
   viewers: ProfileViewer[];
+  /** @deprecated legacy tier gating — unused by the current UI. */
+  locked?: boolean;
+  /** @deprecated legacy tier gating — unused by the current UI. */
+  detailed?: boolean;
 }
 
 /** The tutor's profile viewers (tier-gated). Throws `ApiError` (caller falls back to sample). */

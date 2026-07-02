@@ -24,6 +24,7 @@ import { C } from "../tutor/tutorData";
 import { addTutorMatch } from "../match/tutorMatch";
 import { quotaForTier, useTier } from "../subscription/tierStore";
 import { subdistrictsLabel } from "../onboarding/hkDistricts";
+import { BlurredName } from "../ui/BlurredName";
 import { ConfirmModal } from "../ui/ConfirmModal";
 import { SaveButton } from "../seeker/SaveButton";
 import { copyText, notifySuccess, tapMedium } from "../ui/feedback";
@@ -73,6 +74,15 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
   const allowance = quotaForTier(tier);
   const { isSaved, toggle } = useSavedPeople();
 
+  // Name is Deluxe-only — but the seeker's own "share personal info = off" wins
+  // (a hidden name stays generic for everyone). Everything else (category,
+  // preferences, location, child level/age) is visible to all tiers.
+  const roleLabel = seeker?.role === "parent" ? "Parent" : "Student";
+  const nameRevealed = !!seeker && tier === "deluxe" && seeker.share_info !== false;
+  // Generic stand-in for name embedded in body text / chat title / saved payload.
+  const genericLower = seeker?.role === "parent" ? "this parent" : "this student";
+  const shownName = nameRevealed ? seeker?.name ?? genericLower : genericLower;
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -119,7 +129,7 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
     const wasUnlocked = quotaIsUnlocked(seeker.id);
     const ok = unlockSeeker(seeker.id);
     if (ok) {
-      if (!wasUnlocked) addTutorMatch(seeker.id, seeker.name); // start the tutor's match question
+      if (!wasUnlocked) addTutorMatch(seeker.id, nameRevealed ? seeker.name : roleLabel); // start the tutor's match question
       notifySuccess();
     } else {
       Alert.alert(
@@ -165,13 +175,11 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
     }
     try {
       const { id: convId } = await startConversation(accountId);
-      router.push({ pathname: "/messages/[id]", params: { id: convId, name: seeker?.name ?? "LearnSum user", otherId: accountId } });
+      router.push({ pathname: "/messages/[id]", params: { id: convId, name: nameRevealed ? seeker?.name ?? "LearnSum user" : roleLabel, otherId: accountId } });
     } catch {
       Alert.alert("Messaging", "Couldn't open the chat. Please try again.");
     }
   };
-
-  const roleLabel = seeker?.role === "parent" ? "Parent" : "Student";
 
   return (
     <>
@@ -179,9 +187,15 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
         <Pressable onPress={onBack} hitSlop={8} style={styles.iconBtn} accessibilityRole="button" accessibilityLabel="Back">
           <Ionicons name="chevron-back" size={24} color={C.ink} />
         </Pressable>
-        <Text style={styles.headTitle} numberOfLines={1}>
-          {seeker?.name ?? "Profile"}
-        </Text>
+        <View style={{ flex: 1 }}>
+          {seeker ? (
+            <BlurredName name={seeker.name} revealed={nameRevealed} style={styles.headTitle} numberOfLines={1} />
+          ) : (
+            <Text style={styles.headTitle} numberOfLines={1}>
+              Profile
+            </Text>
+          )}
+        </View>
         {seeker ? (
           <SaveButton
             saved={isSaved(seeker.id)}
@@ -189,7 +203,7 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
               toggle({
                 id: seeker.id,
                 kind: seeker.role,
-                name: seeker.name,
+                name: nameRevealed ? seeker.name : roleLabel,
                 subtitle: subtitleForSeeker(seeker),
                 avatar_url: seeker.avatar_url,
               } satisfies SavedPerson)
@@ -212,10 +226,11 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
           </View>
         ) : (
           <>
-            {/* Identity card */}
+            {/* Identity card — name is Deluxe-only (blurred otherwise); the avatar
+                uses a generic name so a missing photo can't leak the real name. */}
             <View style={styles.idCard}>
-              <Avatar name={seeker.name} uri={seeker.avatar_url ?? undefined} size={72} />
-              <Text style={styles.name}>{seeker.name}</Text>
+              <Avatar name={nameRevealed ? seeker.name : roleLabel} uri={seeker.avatar_url ?? undefined} size={72} />
+              <BlurredName name={seeker.name} revealed={nameRevealed} style={styles.name} numberOfLines={1} containerStyle={{ alignSelf: "center" }} />
               <View style={styles.roleBadge}>
                 <Ionicons name={seeker.role === "parent" ? "people" : "person"} size={13} color={C.greenD} />
                 <Text style={styles.roleText}>{roleLabel}</Text>
@@ -316,8 +331,8 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
                   <Text style={styles.lockTitle}>{allowance === 0 ? "Replying needs Premium" : "Contact is locked"}</Text>
                   <Text style={styles.lockBody}>
                     {allowance === 0
-                      ? `Free tutors can't contact students. Upgrade to Premium (1/day) or Deluxe (3/day) to message ${seeker.name} and see their number.`
-                      : `Unlock ${seeker.name}'s phone, WhatsApp, WeChat and in-app chat. You can contact ${allowance} new ${allowance === 1 ? "student" : "students"} a day.`}
+                      ? `Free tutors can't contact students. Upgrade to Premium (1/day) or Deluxe (3/day) to message ${shownName} and see their number.`
+                      : `Unlock ${shownName}'s phone, WhatsApp, WeChat and in-app chat. You can contact ${allowance} new ${allowance === 1 ? "student" : "students"} a day.`}
                   </Text>
                   <Pressable
                     style={[styles.unlockBtn, allowance > 0 && remaining <= 0 && styles.unlockBtnOff]}
@@ -339,7 +354,7 @@ export function SeekerProfileContent({ id, onBack }: { id: string; onBack: () =>
       <ConfirmModal
         visible={confirm}
         title="Unlock contact?"
-        message={`Use 1 of your ${allowance} daily contacts to unlock ${seeker?.name ?? "this person"}? This stays unlocked — re-contacting them later is free.`}
+        message={`Use 1 of your ${allowance} daily contacts to unlock ${shownName}? This stays unlocked — re-contacting them later is free.`}
         confirmLabel="Unlock"
         cancelLabel="Not now"
         onConfirm={doUnlock}

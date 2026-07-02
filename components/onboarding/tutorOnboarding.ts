@@ -146,9 +146,35 @@ export function clearEditing(): void {
   setStored<string[] | null>(EDITING_KEY, null);
 }
 
+/**
+ * True when the tutor has a chosen subject with no saved details yet — i.e. a
+ * subject added during "Change preferences" that still needs a Strengths &
+ * Details pass. A newly-added subject lands in `tutor:interests` but has no
+ * `tutor:sd:details["<catId>:<subId>"]` entry (hydrate only seeds saved subjects).
+ */
+function hasSubjectNeedingDetails(): boolean {
+  const interests = getStored<{ catId: string; subId: string }[]>("tutor:interests", []);
+  const details = getStored<Record<string, unknown>>("tutor:sd:details", {});
+  return interests.some((it) => it.catId && it.subId && !details[`${it.catId}:${it.subId}`]);
+}
+
+/**
+ * When editing Subjects, make sure a newly-added subject gets a details pass:
+ * inject TutorSD right after the current step (catSel) if it isn't already queued
+ * and some subject has no details. So ticking only "Subjects" and adding a new
+ * category still routes through "Strengths & Details" to fill it in.
+ */
+function ensureDetailsStepAfterCatSel(): void {
+  const SD_ROUTE = "/onboarding/TutorSD";
+  const q = getStored<string[]>(EDITING_KEY, []);
+  if (q.includes(SD_ROUTE) || !hasSubjectNeedingDetails()) return;
+  setStored<string[] | null>(EDITING_KEY, [q[0], SD_ROUTE, ...q.slice(1)]);
+}
+
 /** Continue pressed on a tracked step — marks it done, then advances. */
 export function onStepContinue(id: TutorStep, firstTimeNext: () => void): void {
   if (isEditing()) {
+    if (id === "catSel") ensureDetailsStepAfterCatSel(); // new subject → force a details pass
     editAdvance(); // editing: walk only the chosen screens, don't touch completion
     return;
   }
@@ -160,6 +186,7 @@ export function onStepContinue(id: TutorStep, firstTimeNext: () => void): void {
 /** Skip pressed on a tracked step — advances WITHOUT marking it done. */
 export function onStepSkip(id: TutorStep, firstTimeNext: () => void): void {
   if (isEditing()) {
+    if (id === "catSel") ensureDetailsStepAfterCatSel(); // new subject → force a details pass
     editAdvance();
     return;
   }
