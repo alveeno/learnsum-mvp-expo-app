@@ -513,9 +513,13 @@ tabs. **English-only** like the tutor shell. **Search + Saved are now backend-wi
 - **Saved** (`SeekerSavedScreen`) — bookmarked tutors, **now backend-backed** (`savedTutors.ts` →
   `/api/saved`). Still a shared store (`useSyncExternalStore`) so the tab, search, and the public
   profile route stay in sync, with optimistic writes; `hydrateSaved()` loads bookmarks after sign-in.
-  Each row has a **Message** button (left of the bookmark) that opens a chat **directly** (no
-  "Contact tutor?" confirm) — resolves the tutor via `getTutor(slug)` → `startConversation` →
-  `/messages/[id]`.
+  Each row has a **Message** button (left of the bookmark) that runs the seeker **"one tutor at a
+  time"** contact gate — the same **"Contact [tutor]?"** confirm (and, if a *different* tutor is
+  already pending, the "Did you start lessons with [previous]?" check-in) as the tutor profile, via
+  the shared **`useSeekerContactGate`** hook (`components/match/useSeekerContactGate.tsx`, extracted
+  from `TutorProfileContent` so the two surfaces can't drift). On confirm it commits the tutor as the
+  seeker's pending contact (`startSeekerContact`, keyed by slug — lights up the `MatchBanner`) and
+  then resolves the tutor via `getTutor(slug)` → `startConversation` → `/messages/[id]`.
 - **Profile** (`SeekerAccountScreen` — tab **renamed from "Account" → "Profile"**, person icon; component/file
   name unchanged) — now shows the seeker's **real profile** (`GET /api/auth/me`): avatar, name, role, an
   **Account information** section (see below), and — when set — their bio, phone, education level and gender (from `SeekerAbout`).
@@ -550,8 +554,11 @@ one device — remove it when a real paywall lands.
   still exports the legacy `DAILY_CONTACT_QUOTA` (unused by the store now).
 - **Seeker side — one tutor at a time** (`components/match/seekerContact.ts`): tapping a contact
   button on a tutor (`TutorProfileContent` in **`contactMode="seeker"`**, set by `app/tutors/[slug].tsx`;
-  the in-shell overlay `TutorProfileView` stays `"tutor"` = direct) runs a **"Contact [tutor]?"**
-  `ConfirmModal` → sets the seeker's single **pending contact** + schedules a **10-min reminder**.
+  the in-shell overlay `TutorProfileView` stays `"tutor"` = direct) **or the Message button on the
+  seeker Saved tab** runs a **"Contact [tutor]?"** `ConfirmModal` → sets the seeker's single
+  **pending contact** + schedules a **10-min reminder**. The confirm + check-in gate is the shared
+  **`useSeekerContactGate`** hook (`components/match/useSeekerContactGate.tsx`), used by both the
+  profile and the Saved tab so neither can bypass the rule.
   A **`MatchBanner`** ("Starting lessons with [tutor]?" green Yes / red No) shows on the seeker
   **Home + Chat** (`app/feed.tsx`); answering either way frees them. Trying to contact a *different*
   tutor while pending pops a **`MatchCheckInModal`** ("Did you start having lessons with [prev]?")

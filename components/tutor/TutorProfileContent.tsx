@@ -24,10 +24,8 @@ import { C, lookupTutor, type FullTutor } from "./tutorData";
 import { copyText, notifySuccess, tapLight, tapMedium } from "../ui/feedback";
 import { type FormatId } from "../onboarding/PreferencesScreen";
 import { getTutor, recordProfileView, startConversation } from "../../lib/api";
-import { MatchCheckInModal } from "../match/MatchCheckInModal";
-import { getSeekerPending, resolveSeekerContact, startSeekerContact, useSeekerContact } from "../match/seekerContact";
+import { useSeekerContactGate } from "../match/useSeekerContactGate";
 import { useSavedTutors } from "../seeker/savedTutors";
-import { ConfirmModal } from "../ui/ConfirmModal";
 
 // Sample tutor (FullTutor) → a thin ProfileBodyData for the offline / sample-id
 // fallback. Real tutors (a real slug) get the full profile from the backend.
@@ -89,16 +87,14 @@ export function TutorProfileContent({
 
   // Seeker contact flow (only in "seeker" mode): one tutor at a time + a confirm,
   // and WhatsApp/WeChat gated behind the VIEWED tutor's real tier (free hides them).
-  const seekerPending = useSeekerContact();
+  // The confirm/check-in gate is shared with the Saved tab via useSeekerContactGate.
+  const { requestContact, modals: contactModals } = useSeekerContactGate();
   // Seeker saved store (shared with the wrapper's bottom "Save tutor" bar and the
   // Saved tab), keyed by slug. Only surfaced via the header button in seeker mode.
   const { ids: savedIds, toggle: toggleSaved } = useSavedTutors();
   const saved = savedIds.has(id);
   const [viewedTier, setViewedTier] = useState<"free" | "premium" | "deluxe">("free");
   const showOffApp = contactMode === "tutor" || viewedTier !== "free";
-  const [confirmContact, setConfirmContact] = useState(false);
-  const [checkIn, setCheckIn] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"whatsapp" | "wechat" | "message" | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -177,34 +173,11 @@ export function TutorProfileContent({
     else void onMessage();
   };
 
-  // Seeker taps a contact button: enforce one-tutor-at-a-time. If a *different*
-  // tutor is pending, resolve that first; otherwise confirm contacting this one.
+  // Seeker taps a contact button: enforce one-tutor-at-a-time via the shared gate
+  // (confirm + resolve-previous check-in). Tutor mode is direct.
   const handleContact = (a: "whatsapp" | "wechat" | "message") => {
     if (contactMode !== "seeker") return runAction(a);
-    const cur = getSeekerPending();
-    if (cur && cur.tutorId !== id) {
-      setPendingAction(a);
-      setCheckIn(true);
-      return;
-    }
-    if (cur && cur.tutorId === id) return runAction(a); // already committed to this tutor
-    setPendingAction(a);
-    setConfirmContact(true);
-  };
-
-  const onConfirmContact = () => {
-    setConfirmContact(false);
-    startSeekerContact(id, name || id);
-    const a = pendingAction;
-    setPendingAction(null);
-    if (a) runAction(a);
-  };
-
-  // Answered the previous tutor's question → clear it, then confirm this tutor.
-  const onCheckInAnswer = (started: boolean) => {
-    setCheckIn(false);
-    resolveSeekerContact(started);
-    setConfirmContact(true);
+    requestContact(id, name || id, () => runAction(a));
   };
 
   return (
@@ -298,24 +271,7 @@ export function TutorProfileContent({
         ) : null}
       </ScrollView>
 
-      <ConfirmModal
-        visible={confirmContact}
-        title={`Contact ${name || "this tutor"}?`}
-        message="You'll focus on this tutor for now. Once you've reached out, tell us whether you started lessons before contacting anyone else."
-        confirmLabel="Yes, contact them"
-        cancelLabel="Not yet"
-        onConfirm={onConfirmContact}
-        onCancel={() => {
-          setConfirmContact(false);
-          setPendingAction(null);
-        }}
-      />
-      <MatchCheckInModal
-        visible={checkIn}
-        name={seekerPending?.tutorName ?? "the tutor"}
-        onYes={() => onCheckInAnswer(true)}
-        onNo={() => onCheckInAnswer(false)}
-      />
+      {contactModals}
     </>
   );
 }

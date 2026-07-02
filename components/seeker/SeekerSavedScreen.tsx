@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { SaveButton } from "./SaveButton";
+import { useSeekerContactGate } from "../match/useSeekerContactGate";
 import { Avatar } from "../tutor/feedUi";
 import { C } from "../tutor/tutorData";
 import { tapLight } from "../ui/feedback";
@@ -44,6 +45,8 @@ export function SeekerSavedScreen({
   const [loading, setLoading] = useState(true);
   // The slug currently being opened into a chat (blocks a double-tap).
   const [messaging, setMessaging] = useState<string | null>(null);
+  // Seeker "one tutor at a time" gate — same confirm/check-in as the tutor profile.
+  const { requestContact, modals: contactModals } = useSeekerContactGate();
 
   // Message a saved tutor directly. A SavedTutor only carries its slug, so
   // resolve the tutor's account id first, then start/reopen the conversation.
@@ -127,7 +130,7 @@ export function SeekerSavedScreen({
                   )}
                 </View>
                 <Pressable
-                  onPress={() => onMessage(t)}
+                  onPress={() => requestContact(t.slug, name, () => onMessage(t))}
                   hitSlop={8}
                   disabled={messaging === t.slug}
                   style={styles.msgBtn}
@@ -146,6 +149,7 @@ export function SeekerSavedScreen({
           })
         )}
       </ScrollView>
+      {contactModals}
     </>
   );
 }
