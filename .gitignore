@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Claude Code — ignore per-session runtime state + personal settings
+# (shared .claude/settings.json stays tracked)
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+.claude/learnsum-claude-backup/
